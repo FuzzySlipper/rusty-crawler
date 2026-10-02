@@ -44,7 +44,7 @@ scene was introduced.
 
 Sampling is ours and approximate, especially the 512-unit outdoor grid. These
 counts do not certify every narrow passage, every pursuit, ordinary traversal,
-NativeAOT or the pending imported-interior browser reading. The operator's local
+NativeAOT or broad traversal. The operator's local
 gate evidence retains the per-place admission report and original logs; no game
 data is published here.
 
@@ -71,5 +71,67 @@ in the original observation receipt `20261002T052433.727-observe-1aa1ebe5.json`;
 they must not be attributed to the earlier step-3973 capture. Originals and
 sidecars remain under the operator's local browser and receipt directories for
 this session. The observer stopped its owned host and browser, released its
-slot, and reported zero active sessions. Imported pursuit acceptance remains
-open; these observations add no traversal or NativeAOT certification.
+slot, and reported zero active sessions. This early reading remained uncertain; the controlled follow-up below supplies
+the missing route evidence. These observations add no traversal or NativeAOT certification.
+
+
+## Controlled imported pursuit
+
+A later owned local browser session, `bd4567a2-02a2-4737-842e-445fc6c6189e`,
+used the unchanged imported collision and navigation geometry of Lord Markham's
+Manor. Staging moved Party Start to `(-1344, -448, 0)` and placed one actual
+imported Giant Rat encounter at the Manor's original encounter position
+`(-896, 160, 0)`, with explicit grade A, one creature and zero spread. Other
+population placements were omitted for this bounded check. The monster definition
+was unchanged. This is assisted encounter staging, not unmodified population or
+ordinary traversal evidence.
+
+The observer selected Engine action-driven time while the normal creation screen
+was still open, then accepted its default four members through the panel. The
+acceptance needed one 200-millisecond admission before a live world existed. Its
+first live observation is consequently at 0.183 simulation seconds, rather than
+at the exact authored spawn. Every subsequent 200-millisecond advance was followed
+by an actual product query and an original screenshot. The party remained at its
+start position with 120/120 combined hit points throughout.
+
+| Simulation seconds | Rat feet, place coordinates | Distance to stationary party | Reading |
+| --- | --- | --- | --- |
+| 0.183 | (-872.004, 121.257, 0.107) | 742.063 | First live observation, still occluded |
+| 1.183 | (-836.898, -125.118, 2.087) | 603.159 | Moving along the corridor, still occluded |
+| 1.783 | (-833.353, -275.070, 2.087) | 540.458 | Last sampled occluded position |
+| 1.983 | (-832.962, -325.068, 2.087) | 526.579 | Clear of the wall end |
+| 2.383 | (-866.361, -403.624, 2.114) | 483.617 | First sampled arrival within the existing 512-unit melee reach |
+| 2.583 | (-912.947, -420.487, 2.131) | 436.084 | Short continuation toward the party |
+
+The coordinates are the actual creature entity's pose, exposed through the existing
+combat observation, rather than positions inferred from distance. A separate safe
+Engine test-host check evaluated line of sight from each captured position to the
+party against the same imported geometry: the first nine samples were occluded,
+the remaining four visible. This is offline geometric corroboration of the live
+route, not live line-of-sight telemetry. The rat walked along the corridor and
+turned toward the party only after clearing the wall, with no product pathfinder
+or alternate collision scene.
+
+Original artifacts remain in the operator's local browser and receipt directories
+under that session ID. Key observation receipts are
+`20261002T070449.807-observe-516476f4.json` (initial),
+`20261002T070542.797-observe-a361de1d.json` (corridor),
+`20261002T070631.724-observe-cea586b8.json` (arrival), and
+`20261002T070641.512-observe-ad4cdc73.json` (continuation). The arrival screenshot
+`7af68b03-1ced-43da-b8e4-1eaa7e794c92.png` shows the rat closing at rounded distance
+484, with every member at full health. The creation, initial and continuation
+originals are `47d083d9-1779-44a0-87c0-389aa60da845.png`,
+`613a64b8-e36f-46ba-96ff-d0b40b7b9635.png`, and
+`4ece9810-67fe-4d45-8928-513a6d273c3e.png`. These identify separate observations and
+captures; they do not assert a measured render-frame correlation.
+
+Two earlier Manor attempts are retained separately. One omitted the encounter's
+explicit grade and produced no creature. In the other, the first observation was
+already inside melee reach after startup; its stationary rat did not establish a
+navigation stall. The creation-mode follow-up captured the missing pursuit.
+
+Verdict: passed for this bounded imported-interior around-wall pursuit and arrival.
+The full source verification and whole-install native admission also passed. The
+observer stopped its owned browser and host and confirmed the pool was empty.
+No graphical world rendering, exact zero-step spawn, full combat encounter,
+all-passage coverage, broad traversal or NativeAOT certification is claimed.

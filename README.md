@@ -262,7 +262,9 @@ objective retains the item until turn-in; that turn-in can deliver it and then r
 Its collision vertex bounds also supply a navigation region beside the artifact. Engine derives walkable
 supports in the party's same scene with the actual controller body; creatures query routes from their feet
 and hold by name when a route or derivation is unavailable. Sampling is approximate, and collision remains
-admitted when a navigation derivation exceeds its separate budget.
+admitted when a navigation derivation exceeds its separate budget. The bounded imported-interior
+[pursuit reading](docs/evidence/navigation-admission.md) records actual creature positions around a wall
+and arrival within melee reach; it does not certify every passage or broad traversal.
 
 Den serves the product through `.den-serve.json` (preferred port 4176, `--live-debug`). The procedure for
 a live check — serving a checkout of its own, staging content and a pose, driving the product and reading

@@ -345,7 +345,9 @@ the place's collision bounds and sampling width travel beside the unchanged arti
 asks Engine to derive navigation over that same scene for the actual controller body. A derivation budget
 refusal retains collision and names why pursuit holds. Queries use feet, not body centres; an unavailable or
 unreachable pursuit holds by name and is retried, while an initial stationary body step preserves settling
-even without navigation. Backing away retains its existing character-step path. Each
+even without navigation. Backing away retains its existing character-step path. The
+[imported pursuit reading](../../docs/evidence/navigation-admission.md) correlates actual entity poses
+with a bounded route around an interior wall and arrival within melee reach. Each
 step hands the engine the party's controller profile with its ground speeds and acceleration scaled to the pace
 the request states (the policy's `SpeedOf`, bounded to a twentieth to four times the profile's), so how far a
 creature goes is the engine's answer to its own pace; a
