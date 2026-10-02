@@ -180,6 +180,8 @@ internal sealed class MightAndMagic7Arena
 
     internal IEnumerable<SaveProblem> Problems(SessionSave save)
     {
+        // The combat save owner reports an omitted collection. There are no opponents to judge here.
+        if (save.Combat.Creatures is null) yield break;
         HashSet<(string Bout, int Slot)> seen = [];
         foreach (CreatureCombatSave creature in save.Combat.Creatures)
         {
