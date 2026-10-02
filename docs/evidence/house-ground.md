@@ -86,8 +86,8 @@ The conversation and open shop were visible in their original captures. This dem
 access to the imported house through its keeper and service workflow, not passage through a rendered
 exterior door or a separate interior map.
 
-Original captures and sidecars remain under
-`/home/agent/.local/state/crew-playtest-local/browser/357b7f46-9032-49bc-8704-2e3d3009156f/`:
+The observer's original capture identities are retained below. Den holds their operator paths and
+sidecars; this published text record carries the readings without depending on those local files.
 
 | Reading | Original capture | Browser step / sequence |
 | --- | --- | --- |
@@ -99,9 +99,9 @@ Original captures and sidecars remain under
 | Open shop | `b23d564d-34f9-47d0-8b44-e1113aa7efc0.png` | 798 / 764 |
 | Leave counter | `af8eaca4-970a-4156-91cd-d317b7f02eae.png` | 810 / 770 |
 
-Canonical observe receipts are under the corresponding `receipts/<session>/` directory: initial
+Canonical observe receipt identities are initial
 `6699a347`, grass `02d2aca8`, road `c7c58558`, refused use `56d2c96a`, open conversation `ca83d12e`,
-shop `9354358d` and exit `e77c3a48`. The journal is `events.jsonl` in the browser directory. Capture
+shop `9354358d` and exit `e77c3a48`. Den also indexes the observer journal. Capture
 sidecars name held browser frames; query and screenshot correlation are separate observations.
 
 An earlier lease failed the runtime startup deadline before gameplay. Another connected run began
