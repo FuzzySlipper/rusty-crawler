@@ -105,6 +105,7 @@ internal sealed class MightAndMagic7Session : IGameSession
         // This game's one interpretation of event steps is composed after the people it calls over, and the people's
         // topics are answered by it, so each reads the other through a call.
         MightAndMagic7Fixtures? events = null;
+        MightAndMagic7Conversation? conversation = null;
 
         // What the party brings down is kept in one place, and both halves hold it: the fight reports the
         // creatures it read as down, and the world's interaction answers describe what is lying there. It is
@@ -112,7 +113,8 @@ internal sealed class MightAndMagic7Session : IGameSession
         // effect path because a body a spell stands back up is taken off the same ground.
         CorpseGround corpses = new();
         MightAndMagic7ItemMagic? itemMagic = spells is null ? null : new(Declared(context.Content), spells, clock, context.Engine?.Random, () => owners.Party);
-        MightAndMagic7SpellEffects? spellEffects = spells is null ? null : new MightAndMagic7SpellEffects(spells, clock, () => owners.World, () => composed, corpses, itemMagic);
+        MightAndMagic7SpellEffects? spellEffects = spells is null ? null : new MightAndMagic7SpellEffects(spells, clock, () => owners.World, () => composed, corpses, itemMagic,
+            () => conversation?.Followers, () => owners.Progression);
         // This game's automap is read beside them: how far a walking party sees, what each place's own map
         // squares and features are drawn as, the zoom ladder, and what a detection reveals over it. Both halves
         // are read from the content the product loaded — the maps themselves come from the placed-map document
@@ -182,7 +184,7 @@ internal sealed class MightAndMagic7Session : IGameSession
         // This game's answers about people are read once here, for the same reason: the world needs them to
         // say who stands at a placement the party faces, and the session needs the one instance to speak
         // with them, so what a use reaches and who answers can never be two readings of one placement.
-        MightAndMagic7Conversation? conversation = MightAndMagic7Conversation.Read(
+        conversation = MightAndMagic7Conversation.Read(
             Declared(context.Content),
             services,
             promotions,
@@ -190,7 +192,8 @@ internal sealed class MightAndMagic7Session : IGameSession
             () => owners.Quests,
             () => events,
             () => owners.Party,
-            spawns.Stands);
+            spawns.Stands,
+            () => owners.Accounts);
         if (conversation is not null)
         {
             // What reading the people tables noticed is reported where the other composition notes are: a
@@ -277,7 +280,8 @@ internal sealed class MightAndMagic7Session : IGameSession
             topic => conversation?.SpokenTopic(topic),
             row => conversation?.HasGreeting(row) == true,
             place => owners.World is { } live && live.Population.Place == place ? live.Population : null,
-            person => conversation?.StartingOf(person) ?? []);
+            person => conversation?.StartingOf(person) ?? [],
+            conversation?.Followers);
         events = fixtures;
 
         // This game's journal policy is read once, here, over the loot reading that knows which item rows the
@@ -393,7 +397,7 @@ internal sealed class MightAndMagic7Session : IGameSession
         // test looked and be missing where a player went; with one composition there is no second list to forget.
         SessionParty.Playing Play(PartyEntity? walker, SessionSave? from = null)
         {
-            PartyResourceLedger? accounts = walker is null ? null : Ledger(walker);
+            PartyResourceLedger? accounts = walker is null ? null : Ledger(walker, conversation?.Followers);
             SessionWorld? walked = MightAndMagic7World.Compose(
                 Declared(context.Content),
                 context,
@@ -616,8 +620,8 @@ internal sealed class MightAndMagic7Session : IGameSession
     /// whichever party the session holds — a restored one or the one creation just built — so both paths
     /// charge the same accounts through the same rule.
     /// </remarks>
-    private static PartyResourceLedger Ledger(PartyEntity party) =>
-        new(party, provisioning: new MightAndMagic7Provisions());
+    private static PartyResourceLedger Ledger(PartyEntity party, IFoundGoldRule? findings) =>
+        new(party, provisioning: new MightAndMagic7Provisions(), findings: findings);
 
     /// <summary>
     /// The reader for the movement controls the host declared, when it declared any.

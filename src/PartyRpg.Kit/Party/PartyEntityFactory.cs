@@ -29,6 +29,7 @@ public sealed class PartyEntityFactory
 {
     private readonly IEquipmentUseRule? _equipmentUse;
     private readonly ICharacterHealthRule? _health;
+    private readonly int? _hiredLimit;
 
     /// <summary>Creates a factory over the rules the party it builds obeys.</summary>
     /// <param name="equipmentUse">
@@ -42,10 +43,13 @@ public sealed class PartyEntityFactory
     /// </param>
     public PartyEntityFactory(
         IEquipmentUseRule? equipmentUse = null,
-        ICharacterHealthRule? health = null)
+        ICharacterHealthRule? health = null,
+        int? hiredLimit = null)
     {
         _equipmentUse = equipmentUse;
         _health = health;
+        if (hiredLimit is < 0) throw new ArgumentOutOfRangeException(nameof(hiredLimit));
+        _hiredLimit = hiredLimit;
     }
 
     /// <summary>Creates a party from what a creation flow produced.</summary>
@@ -80,6 +84,7 @@ public sealed class PartyEntityFactory
         entity.Add(new PartyMemberships());
         entity.Add(new PartyDebts());
         entity.Add(new PartyBans());
+        entity.Add(new PartyFollowers(_hiredLimit));
 
         PartyEntity party = new(store, entity, _equipmentUse);
         for (int index = 0; index < members.Count; index++)
@@ -128,6 +133,7 @@ public sealed class PartyEntityFactory
         entity.Add(new PartyMemberships(save.Memberships));
         entity.Add(new PartyDebts(save.Debts));
         entity.Add(new PartyBans(save.Bans));
+        entity.Add(new PartyFollowers(_hiredLimit, save.Followers));
 
         PartyEntity party = new(store, entity, _equipmentUse);
 
@@ -170,6 +176,14 @@ public sealed class PartyEntityFactory
     {
         ArgumentNullException.ThrowIfNull(save);
         List<SaveProblem> problems = [];
+        HashSet<FollowerDefinitionId> followers = [];
+        foreach (PartyFollower follower in save.Followers)
+        {
+            if (string.IsNullOrWhiteSpace(follower.Definition.Value) || follower.Kind is not (FollowerKind.Hired or FollowerKind.Story))
+                problems.Add(new SaveProblem(SaveCodes.SaveFollowerInvalid, follower.Definition.Value ?? string.Empty, "an accompanying person has no identity or an unknown joining kind"));
+            else if (!followers.Add(follower.Definition))
+                problems.Add(new SaveProblem(SaveCodes.SaveFollowerTwice, follower.Definition.Value, $"the companion '{follower.Definition}' is recorded more than once"));
+        }
         if (save.NextMemberValue == 0) problems.Add(new SaveProblem(SaveCodes.SaveCursorZero, "member", "the member identity cursor is zero, so a member could be minted with no identity"));
         if (save.NextItemValue == 0) problems.Add(new SaveProblem(SaveCodes.SaveCursorZero, "item", "the item identity cursor is zero, so an item could be minted with no identity"));
 

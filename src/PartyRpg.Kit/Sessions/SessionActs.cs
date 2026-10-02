@@ -89,6 +89,9 @@ internal sealed class SessionActs(SessionOwners owners, SessionControls controls
             {
                 ConversationCommandKind.Topic => conversations.Choose(command.Target),
                 ConversationCommandKind.Person => conversations.Turn(command.Target),
+                ConversationCommandKind.Follower => string.IsNullOrWhiteSpace(command.Target)
+                    ? ConversationResult.Refused("open", new Refusal("conversation-follower-absent", "No companion was named."))
+                    : conversations.OpenFollower(owners.World?.Place ?? default, new FollowerDefinitionId(command.Target)),
                 _ => conversations.Close(),
             };
 

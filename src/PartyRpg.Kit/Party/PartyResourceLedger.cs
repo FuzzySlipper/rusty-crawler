@@ -36,6 +36,7 @@ public sealed class PartyResourceLedger
 {
     private readonly PartyEntity _party;
     private readonly IProvisionDayRule? _provisioning;
+    private readonly IFoundGoldRule? _findings;
 
     /// <summary>Creates the one settlement path over the party whose accounts it moves.</summary>
     /// <param name="party">
@@ -49,11 +50,13 @@ public sealed class PartyResourceLedger
     /// <exception cref="ArgumentNullException">The party is null.</exception>
     public PartyResourceLedger(
         PartyEntity party,
-        IProvisionDayRule? provisioning = null)
+        IProvisionDayRule? provisioning = null,
+        IFoundGoldRule? findings = null)
     {
         ArgumentNullException.ThrowIfNull(party);
         _party = party;
         _provisioning = provisioning;
+        _findings = findings;
     }
 
     /// <summary>Settles one charge against the party's purse and larder, whole or not at all.</summary>
@@ -129,6 +132,14 @@ public sealed class PartyResourceLedger
 
         if (gained.Coins > 0) purse.Credit(gained.Coins);
         if (gained.Food.Amount > 0) food.Credit(gained.Food.Amount);
+    }
+
+    /// <summary>Divides a found reward through the game's rule and credits its kept gold and all its food.</summary>
+    public FoundGoldDivision Find(PartyCost gained)
+    {
+        FoundGoldDivision division = _findings?.Divide(_party, gained.Coins) ?? new(gained.Coins, 0);
+        Credit(new PartyCost(division.Kept, gained.Food));
+        return division;
     }
 
     /// <summary>Spends one camping or resting day, charged by the ruleset's day rule.</summary>

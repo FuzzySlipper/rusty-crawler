@@ -465,7 +465,8 @@ internal readonly record struct SpellReading(
     SummonReading? Summons = null,
     ReanimateReading? Reanimates = null,
     int PerDay = 0,
-    ItemMagicShape? ItemMagic = null)
+    ItemMagicShape? ItemMagic = null,
+    bool SacrificesFollower = false)
 {
     /// <summary>The reading of a spell whose category this field does not describe.</summary>
     internal static readonly SpellReading None = new(
@@ -653,6 +654,13 @@ internal static class Readings
     };
 
     internal static SpellReading Dispel() => SpellReading.None with { Dispels = true };
+
+    internal static SpellReading Sacrifice() => SpellReading.None with
+    {
+        SacrificesFollower = true,
+        Expresses = "the named hired companion departs, every character's health and spell pools are filled, and standing falls by fifteen; story companions are refused before payment",
+        Divergence = "departure settles immediately rather than waiting for the donor's animation; conditions are retained, so this is no resurrection",
+    };
 
     /// <summary>What this build cannot apply for a spell, and who owns it.</summary>
     internal static SpellReading NotYet(string missing, string receiver) =>

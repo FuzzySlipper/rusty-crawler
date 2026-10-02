@@ -74,7 +74,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// world whose program does not answer the rank.
 /// </para>
 /// </remarks>
-internal sealed class MightAndMagic7Conversation : IConversationRule
+internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerConversationRule
 {
     /// <summary>The definition kind a person's own entry is declared under.</summary>
     internal const string PersonDefinitionKind = "person";
@@ -167,7 +167,8 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         Func<PartyQuests?>? journal,
         Func<MightAndMagic7Fixtures?>? events,
         Func<PartyEntity?>? party,
-        IReadOnlyList<string> notes)
+        IReadOnlyList<string> notes,
+        Func<PartyResourceLedger?>? accounts)
     {
         _events = events ?? (() => null);
         _party = party ?? (() => null);
@@ -178,6 +179,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         _quests = quests;
         _journal = journal;
         _notes = notes;
+        Followers = new MightAndMagic7Followers(id => Facts(id)?.Follower, _party, accounts ?? (() => null));
     }
 
     /// <summary>How many ranks the people of this world can hand out, or zero when it states no ladder.</summary>
@@ -185,6 +187,9 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
 
     /// <summary>What reading the people tables noticed, for the composition to report.</summary>
     internal IReadOnlyList<string> Notes => _notes;
+
+    /// <summary>The follower policy over these exact people and the session's canonical party accounts.</summary>
+    internal MightAndMagic7Followers Followers { get; }
 
     /// <summary>How many people the content carries.</summary>
     internal int PersonCount => _people.Count;
@@ -241,7 +246,8 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         Func<PartyQuests?>? journal = null,
         Func<MightAndMagic7Fixtures?>? events = null,
         Func<PartyEntity?>? party = null,
-        Func<PlaceId, PlacementDefinition, bool>? stands = null)
+        Func<PlaceId, PlacementDefinition, bool>? stands = null,
+        Func<PartyResourceLedger?>? accounts = null)
     {
         if (catalog is null) return null;
         List<ContentValidationIssue> issues = [];
@@ -363,6 +369,10 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
                 topics)
             {
                 Slots = slots,
+                Follower = new MightAndMagic7FollowerFacts(name, entry.GetString("portrait"), ReadInt(entry, "profession"),
+                    entry.GetBoolean("canJoin") == true,
+                    entry.GetDouble("hirePrice") is { } price && price >= 0 && price <= int.MaxValue && price == Math.Floor(price) ? (int)price : null,
+                    entry.GetString("joinText"), entry.GetString("dismissText")),
             };
         }
 
@@ -449,7 +459,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
                 $"{errands} errands are carried, over {quests.ErrandGiverCount} people who give them, at {quests.Definitions.Count} definitions in all."));
         }
 
-        return new MightAndMagic7Conversation(people, present, services, promotions, quests, journal, events, party, notes)
+        return new MightAndMagic7Conversation(people, present, services, promotions, quests, journal, events, party, notes, accounts)
         {
             Table = table,
             Greetings = greetings,
@@ -479,6 +489,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
             foreach (string id in named)
             {
                 if (!_people.TryGetValue(id, out PersonFacts? person)) continue;
+                if (party?.Followers.Find(new FollowerDefinitionId(id)) is not null) continue;
 
                 // Somebody a map event moved to another house lives there now, not where content placed them
                 // (OpenEnroth src/GUI/UI/UIHouses.cpp:401 lists the people whose own record names the house).
@@ -493,6 +504,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
             foreach ((string id, int moved) in MightAndMagic7PersonState.Moved(party.Records))
             {
                 if (moved != home || !_people.TryGetValue(id, out PersonFacts? person)) continue;
+                if (party.Followers.Find(new FollowerDefinitionId(id)) is not null) continue;
                 if (!people.Any(present => string.Equals(present.Id, id, StringComparison.Ordinal))) people.Add(person.Who);
             }
         }
@@ -575,6 +587,12 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         List<ConversationOffer> offers = [];
         if (Facts(context.Speaker) is { } person)
         {
+            if (Followers.Joined(person.Id))
+                offers.Add(new ConversationOffer(new ConversationTopic("follower-dismiss", "Leave the party"), Verdict.Met));
+            else if (context.Placement is not null && person.Follower?.CanHire == true)
+                offers.Add(new ConversationOffer(new ConversationTopic("follower-hire", $"Join the party ({MightAndMagic7Followers.HirePrice(person.Follower)?.ToString(CultureInfo.InvariantCulture) ?? "unknown"} gold)"), Followers.HireOffer(person.Id)));
+            // A companion's party presence permits conversation, not remote use of their old house or event.
+            if (context.Placement is null) return offers;
             foreach (TopicFacts topic in TopicsOf(person, context.Party))
             {
                 Verdict availability = Verdict.Met;
@@ -846,6 +864,9 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     /// <inheritdoc />
     public ConversationAnswer Take(ConversationTopic topic, ConversationContext context)
     {
+        if (topic.Id == "follower-hire") return Followers.Hire(context.Speaker);
+        if (topic.Id == "follower-dismiss") return Followers.Dismiss(context.Speaker);
+        if (context.Placement is null) return new ConversationAnswer("That companion offers no such topic while travelling.");
         // What the town makes of the party is answered from the party's own standing rather than from a
         // table: the person repeats the band the world has the party in, in this game's words for it, and
         // what is said is recorded on the party the same way any other line is.
@@ -1047,7 +1068,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     /// <summary>The counter a placement keeps, or null when it keeps none.</summary>
     private ServiceDefinition? Counter(ConversationContext context)
     {
-        if (_services is null) return null;
+        if (_services is null || context.Placement is null) return null;
         return !string.Equals(context.Placement.Content.Kind, ServicePlacementKind, StringComparison.Ordinal)
             ? null
             : _services.Describe(new ServiceTargetRequest(context.Place, context.Placement));
@@ -1061,7 +1082,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     /// the same place the kinds' operations and stock are answered from.
     /// </remarks>
     private static string KeeperGreeting(ConversationContext context) =>
-        context.Placement.Content.Kind switch
+        context.Placement?.Content.Kind switch
         {
             ServicePlacementKind => $"'Welcome. {CounterGreeting(Kind(context))}'",
             ResidencePlacementKind => "'Yes? What brings you to my door?'",
@@ -1071,8 +1092,8 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     /// <summary>What kind of building a counter is, as its own placement states it.</summary>
     private static string Kind(ConversationContext context)
     {
-        string fixture = context.Placement.Source.GetString("fixture");
-        return fixture.Length > 0 ? fixture : context.Placement.Source.GetString("kind");
+        string fixture = context.Placement?.Source.GetString("fixture") ?? string.Empty;
+        return fixture.Length > 0 ? fixture : context.Placement?.Source.GetString("kind") ?? string.Empty;
     }
 
     /// <summary>What a keeper of one kind of building says when the party walks up.</summary>
@@ -1145,6 +1166,9 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     /// <summary>Who one of the people the table holds is, or null when it holds nobody of that id.</summary>
     /// <param name="person">The person's id, as the table writes it.</param>
     internal ConversationPerson? PersonOf(string person) => Facts(person)?.Who;
+
+    /// <inheritdoc />
+    public ConversationPerson? Follower(FollowerDefinitionId definition) => PersonOf(definition.Value);
 
     private PersonFacts? Facts(string person) => _people.TryGetValue(person, out PersonFacts? facts) ? facts : null;
 
@@ -1337,6 +1361,9 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
 
         /// <summary>The topic table row each of the person's dialogue slots raises, by position, zero for none.</summary>
         public IReadOnlyList<int> Slots { get; init; } = [];
+
+        /// <summary>The authored hiring facts, read with this person's other immutable content.</summary>
+        public MightAndMagic7FollowerFacts? Follower { get; init; }
     }
 
     /// <summary>One thing a person can be asked about, as this game reads it from content.</summary>

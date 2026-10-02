@@ -315,7 +315,7 @@ public sealed class PartyQuests : IItemRetentionRule
             else if (record.Amount > 0) _party.Records.Set(record.Record, record.Amount);
         }
 
-        if (rewards.Coins > 0) _ledger!.Credit(PartyCost.OfGold(rewards.Coins));
+        FoundGoldDivision found = rewards.Coins > 0 ? _ledger!.Find(PartyCost.OfGold(rewards.Coins)) : default;
 
         List<QuestRewardItem> delivered = [];
         foreach (QuestObjectiveReading objective in reading.Objectives)
@@ -345,7 +345,7 @@ public sealed class PartyQuests : IItemRetentionRule
             QuestAction.TurnIn,
             quest,
             QuestStage.TurnedIn,
-            new QuestPayment(award, rewards.Coins, taken, rewards.Records, delivered)));
+            new QuestPayment(award, found.Kept, taken, rewards.Records, delivered) { GoldShare = found.Share }));
     }
 
     /// <summary>

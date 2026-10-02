@@ -106,12 +106,12 @@ Owns:
     permanent resistance (`:4788-4817`), which `MightAndMagic7Fixtures` writes into the member's own stored
     resistances (the kit's `CharacterResistances`, saved with the member and capped at a byte), and by a genie
     lamp this build does not grant (#9148); a Lich's floor is read as a floor under the stored figure. Followers
-    are #8514 and further special-item resistance powers #9148. A special attack's saving throw reads the same sum.
+    have presence and gold-finding policy below; further profession terms are routed to #9151 and special-item resistance powers to #9148. A special attack's saving throw reads the same sum.
   - **the scores every sum reads** (`Character.cpp:729-765`, `GetActualStat`): the score the character carries
     at the share their age leaves of it (`MightAndMagic7Ageing`, the donor's table at `:222-232`), plus a potion's
     boost of that score on them and the party's day of the gods, which adds to all seven (`:2360-2387`). Faithful
     for those terms; ordinary working item bonuses for Might, Endurance and Speed are added by their property
-    strength (approximate repertoire). The conditions multiplier and a follower's luck (#8514) remain absent. The pools are set by progression and are not re-read while a boost runs (ours).
+    strength (approximate repertoire). The conditions multiplier and the profession contributions routed to #9151 remain absent. The pools are set by progression and are not re-read while a boost runs (ours).
   - **what a spell adds** (`Character.cpp:2322-2395`, `GetMagicalBonus`): every buff is read as the character's
     own plus the party's of the same name, so a potion on one member and a spell on the band are one reading —
     a haste takes the donor's flat twenty-five ticks whichever carries it (`:1723-1728`), and nothing the party
@@ -519,7 +519,7 @@ that pays no experience, told through `PartyProgression.Deed` under its own word
 collects the fine** (`TownHall.cpp:30-45`, `:71-91`): while the party owes one, the hall offers the debt, and a
 repayment takes what was asked, no more than is owed and no more than the purse holds. The donor's last mover the
 wrong way, the dark sacrifice it charges fifteen points for (`CastSpellInfo.cpp:2800-2809`), needs a follower to
-give up (#8514), and will be told through the same deed entry. A
+give up; it now removes a real hired companion and is told through the same zero-experience deed entry. A
 person says what the town makes of the party
 once the party is worth an opinion: `MightAndMagic7Conversation` composes one line for every person the NPC
 table describes, gated on a standing condition at the "Friendly" band's own floor — the same vocabulary every
@@ -552,9 +552,7 @@ itself is absent; actual Knight-tier bout earning is routed to #9144. The
 Fame carries no bands, because the donor
 gives it none: it prints fame as a bare number (`UIQuickReference.cpp:134-143`) and reads it in exactly one
 place, whether somebody will join the party, gated on the party's fame exceeding their own and disabled in the
-donor with a note that it is an MM8 behaviour (`UIDialogue.cpp:70-95`). Nothing can join a party in this build
-— there is no follower owner — so that gate has nothing to guard yet and is routed to #8514 rather than
-faked. Standing and accomplishments ride the party's own save section: reputation, fame, and the
+donor with a note that it is an MM8 behaviour (`UIDialogue.cpp:70-95`). This game hires through authored fees and a hired limit; it does not adopt that disabled MM8 fame gate. Standing and accomplishments ride the party's own save section: reputation, fame, and the
 party's effects are all durable state, and the ruleset suite turns an errand in, saves through the engine's
 store, resumes, and reads the same band and the same record back.
 
@@ -736,11 +734,11 @@ line for the slot (`history-line`, which the importer reads from `history.txt` u
 with its `%30` and `%31`–`%34` codes written as `{date}` and `{member:1}`–`{member:4}`) into the journal once, as a
 `Chronicle` line with the day written as this build writes days (the donor spells the month,
 `OpenEnroth/src/GUI/GUIWindow.cpp:953-965`: approximate); a slot the table lacks is `fixture-history-unknown`.
-**Refused by name** (`fixture-step-not-interpreted`, `fixture-variable-not-interpreted`), each naming the task that
-would interpret it: `hireling` (#8514); every other instruction and variable is refused by name without one. Over
-the operator's install a fresh party using each of the 810 fixture and floor-trigger events once has 808 run — 145 of
+**Refused by name** (`fixture-step-not-interpreted`, `fixture-variable-not-interpreted`): unsupported instructions
+and variables name the missing behavior; NPC group news points to #9150. Over
+the operator's install a fresh party using each of the 810 fixture and floor-trigger events once has all 810 run — 145 of
 them taking it along a travel link, 54 setting it down elsewhere in its place, and 3 ambush plates putting 80
-creatures on the field — and 2 refused, both at `hireling`; the ruleset suite counts it and holds every refusal to name its receiver. On the first region the town well gives fifty points of fire resistance and its note, the wells east
+creatures on the field — and none refused; the ruleset suite checks these counts. On the first region the town well gives fifty points of fire resistance and its note, the wells east
 and west of the temple five hit and spell points from thirty charges a day, the western well two points of luck
 for good from eight a month, and the town sign is read; the first obelisk is the second region's (the first
 region has none). **What is ours**: the active character a run starts on is the first member able to act,
@@ -770,8 +768,8 @@ states none is offered; a comparison of a variable this game does not interpret 
 A regular run passes over the offer steps, as the donor's does. A run that meets a step this game does not
 interpret settles nothing and the person still says what the run had said (the topic table's own text when it had
 said nothing), with the refusal as the residue. Over the operator's install, a fresh party choosing each of the 365
-topic-raised events once has 353 run — 3 of them taking the party along a world-issued link: the crossing to
-Harmondale (68) and the temples' (69, 70) — and 12 stop at a named step, all `hireling` (#8514); `bounties` and `arena-wins-knight` now compare
+topic-raised events once has 364 run — 3 of them taking the party along a world-issued link: the crossing to
+Harmondale (68) and the temples' (69, 70) — and one stops at `set-npc-group-news`, routed to #9150; `bounties` and `arena-wins-knight` now compare
 the canonical counted records; the ruleset suite counts it. **What is ours**: the donor offers at most four scripted topics at once (`NPCTopics.cpp:603`), this build
 every one its check allows; a topic said once is withheld for the rest of the conversation, as every topic is.
 Fidelity per system — what matches
@@ -843,3 +841,39 @@ The [item-effect record](../../docs/evidence/item-enchanting.md) records focused
 World-targeted Telekinesis (#9145), character Preservation (#9146), and additional original special-item
 powers and Genie Lamp use (#9148) are concrete receivers. Preservation is character survival, not gear
 protection (`OpenEnroth/src/Engine/Objects/Character.cpp:1310-1321`).
+
+## Followers
+
+`PartyFollowers` is attached to the one party by its factory and saved with it: actual person identities,
+hired/story kinds and join order. Companions share the party's pack and accounts; they have no individual
+inventory, purse, combat entity or clock. This game has no encumbrance, so joining adds no weight mechanism.
+The ordinary conversation offers an imported hireable person at their authored profession fee and judges
+that fee against the shared ledger and the typed `followers.hired-limit` (two by default). A burglar's hiring
+fee is zero. Missing authored fees withhold the offer by name. Story `hireling` add/set steps join outside
+that limit; subtract steps remove presence, and `hireling-speciality` compares current profession presence
+or removes matching companions. Fixture writes are collected in the existing run overlay and settle only
+when the complete run succeeds. These policies reference OpenEnroth `src/GUI/UI/NPCTopics.cpp:762-814`,
+`src/Engine/Objects/Character.cpp:3899-3906,4356-4359,5624-5645` and OpenEnroth `src/Engine/Party.cpp:48-57`.
+
+Names and portrait identifiers come from the same person catalog conversation already reads. The party
+projection shows every joined companion and a Talk action; travelling conversation uses that person's
+identity without inventing a world placement or permitting remote counter/global-event use. Dismissal
+removes presence, frees a hired place and closes that travelling conversation anchor. Joined people are
+omitted from their authored location's people list until they depart. Current load validation names unknown
+companion identities, duplicate presence and invalid joining kinds before rebuilding the party.
+
+Found container/event and quest gold goes through the shared ledger's finding rule. It applies the factor,
+banker and pirate bonuses in that order and sums the joined companions' authored profession prices for
+the salary, divided by 10000, with a minimum one coin for a positive finding and nonzero salary. A salary
+never exceeds the finding. Ordinary sales and refunds use direct credit and pay no salary. These rules
+follow OpenEnroth `src/Engine/Party.cpp:859-902` and profession identities in OpenEnroth `src/Engine/Objects/NPCEnums.h`;
+other profession abilities are carried by #9151 rather than claimed by this mechanism.
+
+Sacrifice names an actual hired companion through the existing opaque spell aim and casting workflow.
+Story or absent companions are refused before payment. A successful cast removes that hired presence,
+fills every character's health and spell pools without clearing conditions, and lowers standing by fifteen
+through the existing zero-experience deed rule. It settles immediately rather than waiting for the donor's
+animation (OpenEnroth `src/Engine/Spells/CastSpellInfo.cpp:2774-2812`, OpenEnroth `src/Engine/Party.cpp:686-692`): approximate,
+with no new timer or resurrection claim. Focused `FollowerPolicyTests` exercise ordinary semantic hiring,
+limits, story events, salary, travelling dismissal, current persisted save/resume, refused-run atomicity,
+unknown saved identities and the real Sacrifice producer. Live hire/dismiss evidence remains to be recorded.

@@ -1,5 +1,6 @@
 using PartyRpg.Kit.Alchemy;
 using PartyRpg.Kit.Combat;
+using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Journal;
 using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Magic;
@@ -52,8 +53,8 @@ internal sealed class ProjectionReadings
     /// <param name="party">The party, when the session has one.</param>
     /// <param name="stamp">The party's change stamp, read once for the whole projection.</param>
     /// <param name="standing">The game's reading of the party's standing, which reads the party alone.</param>
-    public PartySnapshot Party(PartyEntity? party, long stamp, IStandingRule? standing) =>
-        Read(ref _party, new PartyKey(party, stamp), () => PartySnapshot.From(party, standing));
+    public PartySnapshot Party(PartyEntity? party, long stamp, IStandingRule? standing, IFollowerConversationRule? followers) =>
+        Read(ref _party, new PartyKey(party, stamp), () => PartySnapshot.From(party, standing, followers));
 
     /// <summary>The members a played party was made with, which the creation block shows once creation is over.</summary>
     /// <param name="party">The party, when the session has one.</param>

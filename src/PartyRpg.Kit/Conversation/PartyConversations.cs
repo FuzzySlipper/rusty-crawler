@@ -184,6 +184,19 @@ public sealed class PartyConversations
     public ConversationResult Open(PlaceId place, PlacementDefinition placement, ConversationSubject subject)
     {
         ArgumentNullException.ThrowIfNull(placement);
+        return OpenPresent(place, placement, subject);
+    }
+
+    /// <summary>Speaks with an actual party companion, without inventing a placement in the world.</summary>
+    public ConversationResult OpenFollower(PlaceId place, FollowerDefinitionId definition)
+    {
+        if (_party?.Followers.Find(definition) is null || _rule is not IFollowerConversationRule followers || followers.Follower(definition) is not { } person)
+            return Record(ConversationResult.Refused("open", new Refusal("conversation-follower-absent", "That companion is not travelling with the party.")));
+        return OpenPresent(place, null, new ConversationSubject(definition.Value, [person]));
+    }
+
+    private ConversationResult OpenPresent(PlaceId place, PlacementDefinition? placement, ConversationSubject subject)
+    {
         ArgumentNullException.ThrowIfNull(subject);
 
         _place = place;
@@ -318,7 +331,7 @@ public sealed class PartyConversations
         _topic = found.Topic.Id;
         string residue = Say(answer);
         _topic = string.Empty;
-        return Record(ConversationResult.Applied(
+        ConversationResult result = ConversationResult.Applied(
             "say",
             $"{_speaker?.Name ?? "Whoever is here"}: {answer.Text}",
             _speaker?.Name ?? string.Empty,
@@ -326,7 +339,10 @@ public sealed class PartyConversations
             answer.Text,
             residue,
             answer.Handoff,
-            OnOffer.Count));
+            OnOffer.Count);
+        // A departed companion cannot remain a remote conversation anchor. Preserve the departure answer.
+        if (_placement is null && _party?.Followers.Find(new FollowerDefinitionId(_subject.Id)) is null) Close();
+        return Record(result);
     }
 
     /// <summary>

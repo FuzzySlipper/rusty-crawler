@@ -293,7 +293,8 @@ internal static class MightAndMagic7Party
         MightAndMagic7Skills? skills = MightAndMagic7Skills.Read(content);
         return new PartyEntityFactory(
             equipmentUse: MightAndMagic7EquipmentUse.Read(content, skills),
-            health: new MightAndMagic7Health());
+            health: new MightAndMagic7Health(),
+            hiredLimit: MightAndMagic7Tuning.Read(content).Whole(MightAndMagic7Tuning.HiredLimit));
     }
 
     /// <summary>Reads the members a party entry declares, reporting every one it cannot read.</summary>

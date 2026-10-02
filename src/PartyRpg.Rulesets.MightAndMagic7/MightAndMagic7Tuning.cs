@@ -89,12 +89,17 @@ internal static class MightAndMagic7Tuning
     /// <summary>Permanent ordinary-property trade premium per strength; donor standard bonus arithmetic, Item.cpp:159.</summary>
     internal static readonly TuningHandle EnchantValuePerStrength = new("item.enchant-value-per-strength", 100, 0, 100_000, "trade premium per permanent item property strength");
 
+    /// <summary>The two hired places of the source game; story companions are outside this ceiling.</summary>
+    internal static readonly TuningHandle HiredLimit = new("followers.hired-limit", 2, 0, 16, "the accompanying people who may occupy hired places");
+
     internal static readonly IReadOnlyList<TuningHandle> Handles =
     [
+        HiredLimit,
         EnchantChancePerRank, EnchantWeaponValue, EnchantEquipmentValue, EnchantMasterLow, EnchantGrandMasterLow, EnchantValuePerStrength,
         FixtureBonusHours, TheftBanHours,
         ErrandExperience, ErrandCoins, BountyPerLevel, LessonBasePrice, ShopStockLines, CoachFare, BoatFare, CoachDays, BoatDays, SleepHours, RoofedRestRations,
     ];
+
 
     /// <summary>The values the selected content states, with every other handle at its default.</summary>
     /// <param name="catalog">The selected content, or null for every default.</param>

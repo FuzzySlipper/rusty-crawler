@@ -135,6 +135,7 @@ function party(overrides = {}) {
     standingDetail: '',
     awards: [],
     debts: [],
+    followers: [],
     conditions: '',
     hitPoints: 40,
     hitPointsMax: 40,
@@ -4620,6 +4621,29 @@ test('the fight shows the product resolver sentence without computing its damage
     const sentence = 'Roderick hits: 11 Phys; additional 6 Fire; 17 total damage.';
     h.emit(snapshot('running', 1, 60, 60, movement(), { combat: combat({ resolved: true, resolutionMessage: sentence }) }));
     assert.equal(h.panel().querySelector('.crawler-combat-resolution').textContent, sentence);
+    ui.dispose();
+  } finally { h.restore(); }
+});
+
+test('companions render authored portraits and claim the published conversation action then disappear on departure', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+    h.emit(snapshot('running', 1, 60, 60, movement(), { party: party({ followers: [
+      { id: 'npc-1', name: 'Guide', portrait: '701', kind: 'hired', canTalk: true, talkAction: 'conversation.follower' },
+      { id: 'npc-4', name: 'Witness', portrait: '704', kind: 'story', canTalk: false, talkAction: 'conversation.follower' },
+    ] }) }));
+    const section = h.panel().querySelector('.crawler-followers');
+    assert.equal(section.hidden, false);
+    const guide = section.querySelector('[data-follower="npc-1"]');
+    assert.match(guide.textContent, /Guide.*hired.*portrait 701/);
+    assert.equal(guide.dataset.portrait, '701');
+    assert.equal(section.querySelector('[data-follower="npc-4"]').disabled, true);
+    guide.click();
+    assert.deepEqual(h.claims.at(-1).value.data, { action: 'conversation.follower', target: 'npc-1' });
+    h.emit(snapshot('running', 2, 120, 120, movement(), { party: party() }));
+    assert.equal(section.hidden, true);
+    assert.equal(section.querySelectorAll('button').length, 0);
     ui.dispose();
   } finally { h.restore(); }
 });

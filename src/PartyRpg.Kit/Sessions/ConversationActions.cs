@@ -60,6 +60,9 @@ public static class ConversationActions
     /// <summary>Turns to another of the people present, carrying the person's identity.</summary>
     public const string Person = "conversation.person";
 
+    /// <summary>Speaks with a companion carried by the party, carrying its definition identity.</summary>
+    public const string Follower = "conversation.follower";
+
     /// <summary>
     /// Tries to lift what the person spoken with carries, carrying the member who tries.
     /// </summary>
@@ -93,6 +96,9 @@ public enum ConversationCommandKind
     /// <summary>Turn to the person the command names.</summary>
     Person,
 
+    /// <summary>Speak with a companion travelling with the party.</summary>
+    Follower,
+
     /// <summary>Try to lift what the person spoken with carries.</summary>
     Steal,
 
@@ -124,12 +130,13 @@ public sealed class ConversationInput
         if (inbox.Activated(_leave)) commands.Add(ConversationCommand.Leave);
         foreach (UiAction action in inbox.Take(
             _actionContract,
-            name => name is ConversationActions.Topic or ConversationActions.Person or ConversationActions.Steal or ConversationActions.Leave))
+            name => name is ConversationActions.Topic or ConversationActions.Person or ConversationActions.Follower or ConversationActions.Steal or ConversationActions.Leave))
         {
             commands.Add(action.Name switch
             {
                 ConversationActions.Topic => new ConversationCommand(ConversationCommandKind.Topic, action.Text("target")),
                 ConversationActions.Person => new ConversationCommand(ConversationCommandKind.Person, action.Text("target")),
+                ConversationActions.Follower => new ConversationCommand(ConversationCommandKind.Follower, action.Text("target")),
                 ConversationActions.Steal => new ConversationCommand(ConversationCommandKind.Steal, Member: action.Int("member") ?? 0),
                 _ => ConversationCommand.Leave,
             });

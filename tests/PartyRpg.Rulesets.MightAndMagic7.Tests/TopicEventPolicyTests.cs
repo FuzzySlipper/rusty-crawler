@@ -107,7 +107,8 @@ public sealed partial class FixturePolicyTests
                 actors: _ => [],
                 journal: () => journal,
                 topics: conversation.SpokenTopic,
-                greetings: conversation.HasGreeting);
+                greetings: conversation.HasGreeting,
+                followers: conversation.Followers);
             MightAndMagic7Interaction rule = new(fixtures: fixtures);
             string topic = string.Create(CultureInfo.InvariantCulture, $"topic-{spoken.Id}");
             Assert.NotNull(conversation.SpokenTopic(topic));
@@ -137,14 +138,9 @@ public sealed partial class FixturePolicyTests
 
         // The figures the ruleset README states for the operator's install: what a fresh party's choice of each topic
         // reaches. The three moves are the world's own: the crossing to Harmondale (link 68) and the temples' (69, 70).
-        Assert.Equal(353, applied);
+        Assert.Equal(364, applied);
         Assert.Equal(3, travelled);
-        // Counted deeds read canonical records; only hireling steps remain refused (#8514).
-        string[] stated =
-        [
-            "hireling: 12",
-        ];
-        Assert.Equal(stated, refused.Select(entry => string.Create(CultureInfo.InvariantCulture, $"{entry.Key}: {entry.Value}")));
+        Assert.Equal(["set-npc-group-news: 1"], refused.Select(entry => string.Create(CultureInfo.InvariantCulture, $"{entry.Key}: {entry.Value}")));
     }
 
     [Fact]

@@ -4,6 +4,7 @@ using System.Globalization;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
@@ -45,6 +46,8 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     private readonly MightAndMagic7Summons _summons;
     private RunningSpellEffects? _running;
     private readonly MightAndMagic7ItemMagic? _items;
+    private readonly Func<MightAndMagic7Followers?> _followers;
+    private readonly Func<PartyProgression?> _progression;
 
     /// <summary>Creates this game's effect path over its own spell table.</summary>
     /// <param name="spells">This game's magic, which states what each spell does and rolls.</param>
@@ -72,9 +75,13 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         Func<SessionWorld?>? world = null,
         Func<MightAndMagic7Combat?>? combat = null,
         CorpseGround? corpses = null,
-        MightAndMagic7ItemMagic? items = null)
+        MightAndMagic7ItemMagic? items = null,
+        Func<MightAndMagic7Followers?>? followers = null,
+        Func<PartyProgression?>? progression = null)
     {
         _items = items;
+        _followers = followers ?? (() => null);
+        _progression = progression ?? (() => null);
         _spells = spells ?? throw new ArgumentNullException(nameof(spells));
         _clock = clock;
         _world = world ?? (() => null);
@@ -132,6 +139,10 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         // would act on and who owns the way to name one. A spell that was paid for and then changed nothing
         // would be the worst of both: the points are gone and the player was told nothing.
         SpellReading reading = _spells.ReadingOf(application.Spell);
+        if (reading.SacrificesFollower)
+            return _followers() is { } followers && _progression() is not null
+                ? followers.CanSacrifice(application.Party, application.TargetName)
+                : new Refusal("spell-follower-owner-absent", "This session supplies no companion and standing owners for Sacrifice.");
         if (reading.ItemMagic is { } itemShape)
             return _items is { } items ? items.Judge(application, itemShape) : new Refusal(MightAndMagic7Codes.ItemMagicTarget, "This composition supplies no item-table effect owner.");
         if (reading.Unaimable)
@@ -235,6 +246,8 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     public IReadOnlyList<SpellAim> AimsOf(SpellDefinition spell)
     {
         SpellReading reading = _spells.ReadingOf(spell);
+        if (reading.SacrificesFollower)
+            return _followers()?.SacrificeAims() ?? [];
         if (reading.ItemMagic is not null) return _items?.Aims() ?? [];
         if (reading.Travel == TravelShape.None || _world() is not { } world) return [];
 
@@ -1205,6 +1218,17 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     private SpellApplicationOutcome Utility(SpellApplication application)
     {
         SpellReading reading = _spells.ReadingOf(application.Spell);
+        if (reading.SacrificesFollower)
+        {
+            MightAndMagic7Followers followers = _followers()!;
+            string name = followers.Describe(application.TargetName)!.Name;
+            application.Party.Followers.Dismiss(new FollowerDefinitionId(application.TargetName));
+            foreach (PartyMember member in application.Party.Members) member.Resources.RestoreAll();
+            _progression()!.Deed(MightAndMagic7Standing.SacrificeSource);
+            return SpellApplicationOutcome.Expressed(application.Spell.Effect,
+                $"{application.Spell.Name}: {name} is given up; every character's health and spell pools are filled, conditions remain, and the party's standing falls by 15.",
+                [new SpellEffectFact("departed", name), new SpellEffectFact("standing", "-15")]);
+        }
         if (reading.ItemMagic is { } itemShape) return _items!.Apply(application, itemShape);
         if (reading.Dispels)
         {

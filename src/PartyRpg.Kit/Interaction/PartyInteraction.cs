@@ -513,8 +513,12 @@ public sealed class PartyInteraction : IWorldInteractionScene
             }
         }
 
-        if (!outcome.Gain.IsFree && _world.Accounts is { } accounts) accounts.Credit(outcome.Gain);
         List<string> said = [];
+        if (!outcome.Gain.IsFree && _world.Accounts is { } accounts)
+        {
+            FoundGoldDivision found = accounts.Find(outcome.Gain);
+            if (found.Share > 0) said.Add($"Of {found.Total} found coins, companions take {found.Share}; the party keeps {found.Kept}.");
+        }
         if (taken.Count > 0) said.Add($"The party takes {string.Join(" and ", taken)}.");
         if (left.Count > 0) said.Add($"It could not take {string.Join(" and ", left)}.");
         return string.Join(" ", said);

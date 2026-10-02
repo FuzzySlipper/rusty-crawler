@@ -656,7 +656,7 @@ public sealed class PartyRpgSession : IGameSession
             _world,
             MovementSnapshot.From(LiveWorld?.Movement.Last, LiveWorld?.Mover?.MayFly == true, FootingSnapshot.From(LiveWorld?.Ground(), Party)),
             ClockSnapshot.From(Clock),
-            _readings.Party(Party, party, _owners.Rules.Standing),
+            _readings.Party(Party, party, _owners.Rules.Standing, _owners.Rules.Conversation as IFollowerConversationRule),
             // While a party is being made the flow is the screen's subject; once one is played, the members shown
             // are the party's own, whether it was created in this run or resumed.
             _creation is { } creation

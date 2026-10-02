@@ -194,7 +194,9 @@ and custody and `Restore` rebuilds them), `PartyPurse`, `PartyFood`,
 `PartyReputation`, the running effects on the party and on each member (`ActiveEffects`,
 written only by `RunningSpellEffects`), each member's stored base resistances (`CharacterResistances` —
 what a permanent gift added, by kind of harm, carried in the member's seed; a ruleset's racial and class terms
-are read beside it, never stored), `PartyRecords`, `PartyHoldings`, `PartyPassages`, `PartyMemberships`,
+are read beside it, never stored), `PartyFollowers` (authored person identities, hired/story kinds and join order;
+the factory attaches it and the current save carries it, with no separate follower actors, packs, purses or clock),
+`PartyRecords`, `PartyHoldings`, `PartyPassages`, `PartyMemberships`,
 `PartyDebts` (what the party owes, account by account, written by a game's crimes and the service mechanism's theft
 and repayment), `PartyBans` (the counters shut against the party until a moment of the one clock),
 the minting of durable identities in
@@ -400,7 +402,16 @@ owners an admitted update does and no caller forwards an advance by hand, `GameD
 training, and spell durations register against, `GameCalendar.Boundaries` for a rule that acts every
 interval of its own length (a regeneration's five minutes) however the advances were cut, day and night from a `DaylightWindow`, and the
 `IWorldTimeSource` day count the world's respawn reads).
-Of the owner map, only followers (#8514) and item enchantments (#8513) have no producer yet.
+Followers are produced by the game's actual conversation and content-event paths. `PartyFollowers` judges
+duplicates and the explicitly supplied hired limit; story joins stay outside it. A game's
+`IFollowerConversationRule` reads authored names and portraits for the party projection, and
+`PartyConversations.OpenFollower` talks to actual joined presence without inventing a world placement.
+Departure closes that travelling conversation anchor. Item enchantments likewise have the actual casting,
+combat, equipment, counter and current-save producers described above.
+
+The shared `PartyResourceLedger.Find` asks `IFoundGoldRule` to divide found gold before crediting the kept
+portion. Container and quest rewards use it; ordinary `Credit` for sales and refunds never does. The game
+owns the finding bonuses and salary, and the result names total, share and kept coins.
 
 Persistence landed with the party. `SessionSave` is one current schema and nothing else: the party's own
 `PartySave`, `ClockSave`'s elapsed game time and owned deadlines, and `WorldSave`'s place, pose, and per-place state, with no

@@ -40,6 +40,8 @@ public sealed record QuestPayment(
     IReadOnlyList<QuestRewardRecord> Records,
     IReadOnlyList<QuestRewardItem> Delivered)
 {
+    /// <summary>The found reward's portion paid away before Coins entered the purse.</summary>
+    public int GoldShare { get; init; }
     /// <summary>A payment of nothing, which a refused or unremarkable operation carries.</summary>
     public static QuestPayment None { get; } = new(null, 0, [], [], []);
 
@@ -109,7 +111,7 @@ public sealed record QuestResult(
         {
             QuestAction.Offer => $"The errand '{Quest}' was offered and is in the party's journal.",
             QuestAction.Accept => $"The errand '{Quest}' was taken.",
-            _ => $"The errand '{Quest}' was finished.",
+            _ => $"The errand '{Quest}' was finished." + (Payment.GoldShare > 0 ? $" Companions take {Payment.GoldShare} of the reward; the party keeps {Payment.Coins}." : string.Empty),
         };
     }
 

@@ -89,6 +89,9 @@ public sealed class PartyEntity : IDisposable
     /// <summary>The party's one food supply.</summary>
     public PartyFood Food => _party.Get<PartyFood>();
 
+    /// <summary>The companions travelling with this party, sharing its pack and accounts.</summary>
+    public PartyFollowers Followers => _party.Get<PartyFollowers>();
+
     /// <summary>The party's reputation and fame.</summary>
     public PartyReputation Reputation => _party.Get<PartyReputation>();
 
@@ -133,6 +136,7 @@ public sealed class PartyEntity : IDisposable
         {
             long stamp = Math.Max(Inventory.Stamp, Purse.Stamp);
             stamp = Math.Max(stamp, Food.Stamp);
+            stamp = Math.Max(stamp, Followers.Stamp);
             stamp = Math.Max(stamp, Reputation.Stamp);
             stamp = Math.Max(stamp, Effects.Stamp);
             stamp = Math.Max(stamp, Records.Stamp);
@@ -521,7 +525,8 @@ public sealed class PartyEntity : IDisposable
             [.. Memberships.All],
             [.. Debts.All],
             [.. Bans.All],
-            Roster.SelectedMember);
+            Roster.SelectedMember,
+            [.. Followers.All]);
     }
 
     /// <summary>Disposes the store the party was created in.</summary>

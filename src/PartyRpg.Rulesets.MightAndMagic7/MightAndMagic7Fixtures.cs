@@ -239,6 +239,7 @@ internal sealed class MightAndMagic7Fixtures
     private readonly Func<int, bool> _greetings;
     private readonly Func<PlaceId, PlacePopulation?> _population;
     private readonly Func<string, IReadOnlyList<int>> _starting;
+    private readonly MightAndMagic7Followers? _followers;
 
     /// <summary>Creates this game's fixtures over the map events content carries.</summary>
     /// <param name="events">The map events and the discovery table.</param>
@@ -286,9 +287,11 @@ internal sealed class MightAndMagic7Fixtures
         Func<string, SpokenTopic?>? topics = null,
         Func<int, bool>? greetings = null,
         Func<PlaceId, PlacePopulation?>? population = null,
-        Func<string, IReadOnlyList<int>>? starting = null)
+        Func<string, IReadOnlyList<int>>? starting = null,
+        MightAndMagic7Followers? followers = null)
     {
         _starting = starting ?? (_ => []);
+        _followers = followers;
         _topics = topics ?? (_ => null);
         _greetings = greetings ?? (_ => false);
         _population = population ?? (_ => null);
@@ -909,6 +912,7 @@ internal sealed class MightAndMagic7Fixtures
         private readonly Dictionary<PlacementContentId, string> _changes = [];
         private readonly List<string> _residue = [];
         private readonly Dictionary<int, string> _classes = [];
+        private Dictionary<string, FollowerKind>? _companions;
         private Refusal? _refused;
         private int? _bank;
         private int? _reputation;
@@ -944,6 +948,11 @@ internal sealed class MightAndMagic7Fixtures
         private int Variable(int slot) => (int)(Kept(VariableKey(slot)) ?? 0);
 
         private PartyEntity? Party => _context.Party;
+
+        private Dictionary<string, FollowerKind> Companions(PartyEntity party) => _companions ??=
+            party.Followers.All.ToDictionary(follower => follower.Definition.Value, follower => follower.Kind, StringComparer.Ordinal);
+
+        private string PersonId(int row) => $"npc-{row.ToString(CultureInfo.InvariantCulture)}";
 
         /// <summary>Walks one event from a step, collecting what it would do; answers with a refusal or null.</summary>
         internal Refusal? Execute(MapEvent mapEvent, int start)
@@ -1055,6 +1064,8 @@ internal sealed class MightAndMagic7Fixtures
                     case "set-npc-greeting":
                         if (Greet(mapEvent, current) is { } refusedGreeting) return refusedGreeting;
                         break;
+                    case "set-npc-group-news":
+                        return NotInterpreted(_target, mapEvent, current, "a 'set-npc-group-news' instruction awaiting imported group/news arguments and their conversation reader (#9150)");
                     case "npc-set-item":
                         if (Hand(mapEvent, current) is { } refusedItem) return refusedItem;
                         break;
@@ -1413,7 +1424,9 @@ internal sealed class MightAndMagic7Fixtures
                 }
 
                 case "hireling":
-                    return (false, VariableNotInterpreted(_target, mapEvent, step, "this build keeps no hirelings, #8514"));
+                    return (Companions(party).ContainsKey(PersonId(step.Value)), null);
+                case "hireling-speciality":
+                    return (Companions(party).Keys.Any(id => _rules._followers?.Describe(id)?.Profession == step.Value), null);
 
                 // Whether the party is invisible, whatever the value (OpenEnroth src/Engine/Objects/Character.cpp:3979-3980):
                 // the spell's party-wide effect, the one the fight reads for whether a creature notices the party.
@@ -1604,7 +1617,33 @@ internal sealed class MightAndMagic7Fixtures
                     Keep(CounterKey(step.Index), _context.Clock?.Elapsed.Milliseconds ?? 0);
                     return null;
                 case ("hireling", _):
-                    return VariableNotInterpreted(_target, mapEvent, step, "this build keeps no hirelings, #8514");
+                {
+                    string id = PersonId(step.Value);
+                    if (_rules._followers?.Describe(id) is not { } facts)
+                        return new Refusal("follower-unknown", $"{_target.Name} names person '{id}', whom this world does not declare.");
+                    Dictionary<string, FollowerKind> companions = Companions(party);
+                    if (op == "subtract")
+                    {
+                        if (!companions.Remove(id)) return null;
+                        _effects.Add(() => MightAndMagic7Followers.Depart(party, id));
+                        _done.Add($"{facts.Name} leaves the party.");
+                    }
+                    else if (!companions.ContainsKey(id))
+                    {
+                        companions.Add(id, FollowerKind.Story);
+                        _effects.Add(() => _rules._followers.JoinStory(party, id));
+                        _done.Add($"{facts.Name} accompanies the party.");
+                    }
+                    return null;
+                }
+                case ("hireling-speciality", "subtract"):
+                    foreach (string id in Companions(party).Keys.Where(id => _rules._followers?.Describe(id)?.Profession == step.Value).ToArray())
+                    {
+                        Companions(party).Remove(id);
+                        _effects.Add(() => MightAndMagic7Followers.Depart(party, id));
+                        _done.Add($"{_rules._followers!.Describe(id)!.Name} leaves the party.");
+                    }
+                    return null;
                 case ("history", "add" or "set"):
                     return History(mapEvent, step, party);
                 case ("item", "subtract"):

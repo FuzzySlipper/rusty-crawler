@@ -140,6 +140,14 @@ export interface PartyView {
   readonly awards: readonly AwardView[];
   /** What the party owes, account by account; empty when it owes nothing. */
   readonly debts: readonly DebtView[];
+  readonly followers: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly portrait: string;
+    readonly kind: string;
+    readonly canTalk: boolean;
+    readonly talkAction: string;
+  }[];
   /** The conditions acting on the party, empty when none act. */
   readonly conditions: string;
   readonly hitPoints: number;
@@ -316,6 +324,10 @@ export function readParty(f: Fields): PartyView {
       detail: award.text('detail'),
     })),
     debts: f.list('debts', (debt) => ({ account: debt.text('account'), coins: debt.number('coins') })),
+    followers: f.list('followers', (follower) => ({
+      id: follower.text('id'), name: follower.text('name'), portrait: follower.text('portrait'),
+      kind: follower.text('kind'), canTalk: follower.flag('canTalk'), talkAction: follower.text('talkAction'),
+    })),
     conditions: f.text('conditions'),
     hitPoints: f.number('hitPoints'),
     hitPointsMax: f.number('hitPointsMax'),

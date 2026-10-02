@@ -28,6 +28,7 @@ public sealed class ChangeStampTests
         [typeof(PartyFood)] = (["Credit", "TrySpend", "TryDebit"], ["CanCover", "RequireMeasured"]),
         [typeof(PartyReputation)] = (["ChangeReputation", "ChangeFame"], []),
         [typeof(PartyRecords)] = (["Mark", "Set", "Increment", "Remove"], ["Has", "CountOf"]),
+        [typeof(PartyFollowers)] = (["Join", "Dismiss"], ["Find", "CanJoin"]),
         [typeof(PartyHoldings)] = (["Hold"], ["BalanceOf"]),
         [typeof(PartyPassages)] = (["Hold", "Spend"], ["Holds", "RouteTo", "IndexOf"]),
         [typeof(PartyMemberships)] = (["Grant"], ["Holds"]),
@@ -52,7 +53,7 @@ public sealed class ChangeStampTests
     [
         "purse credit", "purse debit", "food credit", "food spend", "food debit", "reputation", "fame",
         "record mark", "record set", "record increment", "record remove", "holding", "passage hold", "passage spend", "membership",
-        "debt owed", "debt paid", "ban laid", "ban lapsed", "mark stolen",
+        "debt owed", "debt paid", "ban laid", "ban lapsed", "mark stolen", "follower join", "follower dismiss",
         "acquire", "release", "consume", "acquire part of a stack", "identify", "damage item", "repair item", "spend a charge", "enchant item", "harden item", "recharge item",
         "party effect start", "party effect end", "member effect start",
         "rename", "change class", "attribute set", "attribute change",
@@ -92,6 +93,7 @@ public sealed class ChangeStampTests
         ItemInstance coat = party.CreateItem(Coat);
         Assert.True(party.AcquireItem(coat).Admitted);
         party.Records.Mark("seen");
+        party.Followers.Join(new FollowerDefinitionId("guide"), FollowerKind.Hired);
         party.Passages.Hold(new PlaceId("harbour"), "ferry");
         GameClock clock = TestClock.Create();
         RunningSpellEffects effects = new(party, clock);
@@ -115,6 +117,8 @@ public sealed class ChangeStampTests
             "record increment" => () => Assert.Equal(2, party.Records.Increment("seen")),
             "record remove" => () => Assert.True(party.Records.Remove("seen")),
             "holding" => () => party.Holdings.Hold("bank", 50),
+            "follower join" => () => party.Followers.Join(new FollowerDefinitionId("helper"), FollowerKind.Story),
+            "follower dismiss" => () => party.Followers.Dismiss(new FollowerDefinitionId("guide")),
             "passage hold" => () => party.Passages.Hold(new PlaceId("island"), "boat"),
             "passage spend" => () => Assert.True(party.Passages.Spend(new PlaceId("harbour"))),
             "membership" => () => party.Memberships.Grant("guild"),

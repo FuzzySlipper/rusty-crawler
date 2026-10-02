@@ -55,8 +55,8 @@ internal readonly record struct ReputationBand(string Word, int Floor, string Re
 /// and one nobody saw two (<c>src/GUI/UI/Houses/Shops.cpp:1147-1171</c>), and every attempt on a person's purse
 /// one (<c>src/Engine/Objects/Actor.cpp:1236</c>) — each a deed that pays no experience, told through
 /// <see cref="PartyProgression.Deed"/>. The donor's last mover the wrong way, the dark sacrifice it charges
-/// fifteen points for (<c>src/Engine/Spells/CastSpellInfo.cpp:2800-2809</c>), needs a follower to give up; see the
-/// ruleset's README for where it is routed.
+/// fifteen points for (<c>src/Engine/Spells/CastSpellInfo.cpp:2800-2809</c>), removes an actual hired follower
+/// through the utility effect path and reaches this rule as a zero-experience deed.
 /// </para>
 /// <para>
 /// <b>The bands do three things, and the third is the donor's own arithmetic.</b> They word what a person
@@ -72,8 +72,8 @@ internal readonly record struct ReputationBand(string Word, int Floor, string Re
 /// beside the reputation category (<c>src/GUI/UI/UIQuickReference.cpp:134-143</c>) and reads it in exactly
 /// one place: whether somebody will join the party, gated on the party's fame exceeding their own
 /// (<c>src/GUI/UI/UIdialogue.cpp:78</c>, which the donor disables with a note that it is an MM8 behaviour).
-/// This build has no follower owner yet (#8514), so nothing can join the party and that gate has nothing to
-/// guard. Fame is published as its own number and nothing here
+/// This game's hiring uses authored fees and the hired limit, not that disabled fame gate.
+/// Fame is published as its own number and nothing here
 /// invents a band for it.
 /// </para>
 /// <para>
@@ -212,6 +212,9 @@ internal sealed class MightAndMagic7Standing : IStandingRule
             case EventStepSource when request.Event == ProgressionEventKind.Deed:
                 // An event step states how far it moves the opinion (AfterEventStep), and that is the move.
                 return (int)Math.Clamp(request.Amount, int.MinValue, int.MaxValue);
+            case SacrificeSource when request.Event == ProgressionEventKind.Deed:
+                // OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:2800-2809, with our standing's sign.
+                return -15;
         }
 
         if (request.Event != ProgressionEventKind.Award || !string.Equals(request.Source, PartyQuests.QuestSource, StringComparison.Ordinal)) return 0;
@@ -220,6 +223,7 @@ internal sealed class MightAndMagic7Standing : IStandingRule
 
     /// <summary>The word a map event's step that writes the reputation is credited as, a deed whose figure is the move.</summary>
     internal const string EventStepSource = "event-step";
+    internal const string SacrificeSource = "sacrifice";
 
     /// <summary>How far an event step may push a reputation either way, which is the donor's own bound.</summary>
     internal const int EventStepLimit = 10000;

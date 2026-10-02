@@ -94,7 +94,7 @@ public readonly record struct ConversationTargetRequest(PlaceId Place, Placement
 /// </para>
 /// </remarks>
 /// <param name="Place">The place the conversation is happening in.</param>
-/// <param name="Placement">The placement the person stands at.</param>
+/// <param name="Placement">The placement the person stands at, or null for a companion travelling with the party.</param>
 /// <param name="Subject">Who is present.</param>
 /// <param name="Speaker">The identity of whoever is speaking now, which is one of the subject's people.</param>
 /// <param name="Said">
@@ -105,7 +105,7 @@ public readonly record struct ConversationTargetRequest(PlaceId Place, Placement
 /// <param name="Clock">The session's one clock, or null when its ruleset composed none.</param>
 public sealed record ConversationContext(
     PlaceId Place,
-    PlacementDefinition Placement,
+    PlacementDefinition? Placement,
     ConversationSubject Subject,
     string Speaker,
     IReadOnlyList<ConversationLine> Said,

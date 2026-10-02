@@ -102,7 +102,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   `GameClock`
   over an authored calendar is the only time, and every advance reaches every owner registered with it.
 - **Party.** `PartyEntity` is one entity with its components: roster and members, one durable selected member and shared inventory of
-  item instances, per-member equipment, purse and larder, reputation and fame, running effects, records,
+  item instances, per-member equipment, purse and larder, hired and story followers, reputation and fame, running effects, records,
   holdings, passages, memberships, debts and bans. Every charge is judged and settled through one ledger. Creation is a
   session mode with its own flow, and the scenario path builds a party through the same factory and the
   same owner composition (a parity suite proves every owner answers on both); the
@@ -153,9 +153,9 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 
 **Open residue and its receivers** (Den task ids; Den owns their status):
 
-- Stone 5, interaction and services: a fixture event refuses only at a hireling step (#8514).
+- Stone 5, interaction and services: a topic event reaches uncarried NPC group news (#9150).
 - Stone 7, progression and magic: actual arena earning remains (#9144); world-targeted Telekinesis (#9145),
-  character Preservation (#9146), additional special-item powers (#9148), and followers (#8514) remain.
+  character Preservation (#9146), additional special-item powers (#9148), and follower profession benefits (#9151) remain.
 
 When a stone lands or a residue closes, update this section, `README.md`, and the owning project README
 together.

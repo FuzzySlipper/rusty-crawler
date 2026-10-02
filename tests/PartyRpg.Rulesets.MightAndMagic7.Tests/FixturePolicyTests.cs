@@ -781,7 +781,8 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
                 people: person => conversation?.PersonOf(person),
                 actors: place => [.. placed.PlacementsOf(place).Where(MightAndMagic7Fixtures.IsActor).Select(placement => new PlaceActor(placement, Down: false))],
                 journal: () => journal,
-                population: place => live.Place == place ? live : null));
+                population: place => live.Place == place ? live : null,
+                followers: conversation?.Followers));
             (InteractionOutcome outcome, _) = Use(rule, Fixture(mapEvent.Id, mapEvent.Label, string.Empty), mapEvent.Place, party, clock, transitions: graph.TransitionsFrom(mapEvent.Place));
             if (outcome.IsApplied)
             {
@@ -811,7 +812,7 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
         // The figures the ruleset README states for the operator's install: 810 events, 653 a fixture raises and 168 a
         // plate does (11 both).
         Assert.Equal(810, events.Events.Count(candidate => candidate.Raised || candidate.Stepped));
-        Assert.Equal(808, applied);
+        Assert.Equal(810, applied);
 
         // Of those, a fresh party's use of a travel event takes it along a link 145 times — the rest stop at a
         // condition it does not meet — and sets it down elsewhere in its own place 54 times; and the three plates
@@ -819,9 +820,7 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
         Assert.Equal(145, travelled);
         Assert.Equal(54, relocated);
         Assert.Equal(80, summoned);
-        string[] stated = ["hireling: 2"];
-        Assert.Equal(stated, refused.Select(entry => string.Create(CultureInfo.InvariantCulture, $"{entry.Key}: {entry.Value}")));
-        Assert.Equal(2, refused.Values.Sum());
+        Assert.Empty(refused);
     }
 
     private static string Between(string text, string before, string after)

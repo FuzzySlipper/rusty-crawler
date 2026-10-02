@@ -1,8 +1,19 @@
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Conversation;
+using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.World;
 
 namespace PartyRpg.Kit.Presentation;
+
+/// <summary>A party companion's authored words and ordinary conversation action.</summary>
+public sealed record FollowerSnapshot(string Id, string Name, string Portrait, string Kind, bool CanTalk)
+{
+    internal uint Write(UiValueBuilder builder) => builder.Object(
+        ("id", builder.String(Id)), ("name", builder.String(Name)), ("portrait", builder.String(Portrait)),
+        ("kind", builder.String(Kind)), ("canTalk", builder.Boolean(CanTalk)),
+        ("talkAction", builder.String(ConversationActions.Follower)));
+}
 
 /// <summary>One thing the party has accomplished, as the panel shows it.</summary>
 /// <remarks>
@@ -107,6 +118,9 @@ public sealed record PartySnapshot(
     /// </remarks>
     public IReadOnlyList<PartyDebt> Debts { get; init; } = [];
 
+    /// <summary>The companions actually travelling with the party, in join order.</summary>
+    public IReadOnlyList<FollowerSnapshot> Followers { get; init; } = [];
+
     /// <summary>The party of a session that holds none.</summary>
     public static PartySnapshot None => new(false, 0, 0, 0, string.Empty, 0, 0, string.Empty, []);
 
@@ -118,7 +132,7 @@ public sealed record PartySnapshot(
     /// layer's reading of a threshold it does not own.
     /// </param>
     /// <returns>The party's accounts and standing, or the not-known value.</returns>
-    public static PartySnapshot From(PartyEntity? party, IStandingRule? standing = null)
+    public static PartySnapshot From(PartyEntity? party, IStandingRule? standing = null, IFollowerConversationRule? followers = null)
     {
         if (party is null) return None;
         int hitPoints = 0;
@@ -166,6 +180,12 @@ public sealed record PartySnapshot(
             reading.Reading ?? string.Empty)
         {
             Debts = party.Debts.All,
+            Followers = [.. party.Followers.All.Select(follower =>
+            {
+                ConversationPerson? person = followers?.Follower(follower.Definition);
+                return new FollowerSnapshot(follower.Definition.Value, person?.Name ?? follower.Definition.Value,
+                    person?.Portrait ?? string.Empty, follower.Kind == FollowerKind.Hired ? "hired" : "story", person is not null);
+            })],
         };
     }
 
@@ -238,6 +258,7 @@ public sealed record PartySnapshot(
             ("awards", builder.Array([.. Awards.Select(award => award.Write(builder))])),
             // What the party owes, one row per account: the account is the game's own word for it, and the coins
             // are what a counter that collects it would take.
+            ("followers", builder.Array([.. Followers.Select(follower => follower.Write(builder))])),
             ("debts", builder.Array([.. Debts.Select(debt => builder.Object(
                 ("account", builder.String(debt.Account)),
                 ("coins", builder.Number(debt.Coins))))])));

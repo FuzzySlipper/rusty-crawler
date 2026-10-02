@@ -57,6 +57,7 @@ export const ACTIONS = {
   // A conversation's choices: a topic to bring up, or another person to turn to.
   conversationTopic: 'conversation.topic',
   conversationPerson: 'conversation.person',
+  conversationFollower: 'conversation.follower',
   // A hand in the purse of the person spoken with, naming the member who tries.
   conversationSteal: 'conversation.steal',
   // The skill-spend control: the member drawn and the skill on that row; the product judges ceiling and price.

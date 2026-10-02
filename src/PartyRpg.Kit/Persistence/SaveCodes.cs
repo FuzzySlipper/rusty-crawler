@@ -9,6 +9,10 @@ namespace PartyRpg.Kit.Persistence;
 /// </remarks>
 public static class SaveCodes
 {
+    /// <summary>A companion's saved identity or joining kind cannot be rebuilt.</summary>
+    public const string SaveFollowerInvalid = "save-follower-invalid";
+    /// <summary>The save records the same accompanying person twice.</summary>
+    public const string SaveFollowerTwice = "save-follower-twice";
     /// <summary>The selected member cannot be rebuilt from the saved party.</summary>
     public const string SaveMemberSelectionInvalid = "save-member-selection-invalid";
 

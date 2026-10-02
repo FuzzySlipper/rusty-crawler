@@ -57,6 +57,7 @@
         "detail": "Thief"
       }
     ],
+    "followers": [],
     "debts": [
       {
         "account": "fine",

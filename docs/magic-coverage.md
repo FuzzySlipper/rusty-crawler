@@ -131,8 +131,8 @@ the shipped `POTION.TXT` states what each potion is for in words and no numbers 
 | light | 1 | 0 | 0 | 1 |
 | travel | 3 | 3 | 0 | 6 |
 | detection | 3 | 0 | 0 | 3 |
-| utility | 8 | 8 | 3 | 19 |
-| **all** | **80** | **16** | **3** | **99** |
+| utility | 8 | 9 | 2 | 19 |
+| **all** | **80** | **17** | **2** | **99** |
 
 ## Every spell
 
@@ -236,7 +236,7 @@ master, and four grand master.
 | 93 | damage | 2 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 94 | condition | 2 | foe | implemented | an undead creature the casting named, not immune to dark, is bound to serve on its own state: the fight puts it on the party's side and it fights what fights the party, until the clock ends it (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:2719-2762); a living creature is not bound and the casting is spent, as the donor's is |  |
 | 95 | utility | 2 | caster | implemented | pain reflection on the caster: the harm a creature's blow or missile does them is turned back onto that creature through its own resistance by the fight's damage application, until its own deadline; the donor gives it to every character at master and above (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:2813-2840), and this game's own table aims it at the caster |  |
-| 96 | utility | 3 | none | not yet | a follower to give up | a follower owner: the party keeps no followers until hirelings and story companions land |
+| 96 | utility | 3 | none | approximated | departure settles immediately rather than waiting for the donor's animation; conditions are retained, so this is no resurrection |  |
 | 97 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 98 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 99 | damage | 4 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |

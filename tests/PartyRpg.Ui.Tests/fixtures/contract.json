@@ -7,6 +7,7 @@
     "combat.turn-based",
     "combat.turn-skip",
     "combat.turn-wait",
+    "conversation.follower",
     "conversation.leave",
     "conversation.person",
     "conversation.steal",

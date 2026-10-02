@@ -115,6 +115,7 @@ public sealed class ProjectionContractTests
         .. ProductIdentity.ServicePayloadActions,
         ConversationActions.Topic,
         ConversationActions.Person,
+        ConversationActions.Follower,
         ConversationActions.Steal,
         ConversationActions.Leave,
         RestActions.Rest,

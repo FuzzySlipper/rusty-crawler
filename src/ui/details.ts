@@ -122,6 +122,9 @@ export function mountDetails(host: Host): Details {
   const useResidue = result('crawler-use-residue');
 
   const hint = element('p', 'crawler-hint');
+  const companions = section('crawler-followers');
+  const companionsList = element('div', 'crawler-followers-list');
+  companions.append(head('Companions'), companionsList);
   hint.textContent = 'Pause or resume with the button.';
 
   for (const control of [action, saveButton, useButton]) {
@@ -191,6 +194,16 @@ export function mountDetails(host: Host): Details {
     // that names no band shows the numbers alone rather than a word invented for a threshold this panel does not own.
     panel.dataset.party = party.present ? 'present' : 'none';
     rows.party.textContent = party.present ? String(party.members) : '—';
+    companions.hidden = !party.present || party.followers.length === 0;
+    companionsList.replaceChildren(...party.followers.map((follower) => {
+      const talk = button(`${follower.name} · ${follower.kind}${follower.portrait === '' ? '' : ` · portrait ${follower.portrait}`}`);
+      talk.disabled = !follower.canTalk;
+      talk.dataset.action = follower.talkAction;
+      talk.dataset.follower = follower.id;
+      talk.dataset.portrait = follower.portrait;
+      talk.addEventListener('click', () => claim(follower.talkAction, { target: follower.id }));
+      return talk;
+    }));
     rows.pack.textContent = party.present ? String(party.pack) : '—';
     rows.coins.textContent = party.present ? String(party.coins) : '—';
     // What the party owes, account by account, as the product published it: owing is not paying, so a fine the
@@ -348,7 +361,7 @@ export function mountDetails(host: Host): Details {
 
   return {
     top: [title, ruleset, bundle, place],
-    bottom: [details, action, saveButton, useButton, saveResult, useResult, useResidue, hint],
+    bottom: [details, companions, action, saveButton, useButton, saveResult, useResult, useResidue, hint],
     awards,
     render,
   };

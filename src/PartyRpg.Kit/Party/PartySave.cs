@@ -58,7 +58,8 @@ public sealed record PartySave
         IReadOnlyList<string>? memberships = null,
         IReadOnlyList<PartyDebt>? debts = null,
         IReadOnlyList<PartyBan>? bans = null,
-        PartyMemberId? selectedMember = null)
+        PartyMemberId? selectedMember = null,
+        IReadOnlyList<PartyFollower>? followers = null)
     {
         ArgumentNullException.ThrowIfNull(members);
         ArgumentNullException.ThrowIfNull(items);
@@ -88,10 +89,14 @@ public sealed record PartySave
         Memberships = memberships ?? [];
         Debts = debts ?? [];
         Bans = bans ?? [];
+        Followers = followers ?? [];
     }
 
     /// <summary>The member ordinary combat orders address, or none when nobody can act.</summary>
     public PartyMemberId? SelectedMember { get; init; }
+
+    /// <summary>The accompanying people's content identities and how they joined.</summary>
+    public IReadOnlyList<PartyFollower> Followers { get; init; }
 
     /// <summary>The member identity cursor a restored party mints from.</summary>
     public ulong NextMemberValue { get; }
