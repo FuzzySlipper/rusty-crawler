@@ -691,6 +691,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
 
         IReadOnlyList<QuestDefinition> given = quests.GivenBy(context.Speaker);
         if (quests.Arena?.Offered(context) is { } bout) given = [.. given, bout];
+        if (quests.Arena?.Settled(context) is { } settled) given = [.. given, settled];
         foreach (QuestDefinition definition in given)
         {
             QuestInstance? instance = journal?.Instance(definition.Id);
@@ -710,6 +711,12 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
                 continue;
             }
 
+            if (instance.Stage == QuestStage.TurnedIn && quests.Arena?.Definition(definition.Id) is not null)
+            {
+                offers.Add(new ConversationOffer(new ConversationTopic(MightAndMagic7Identities.TurnInTopicPrefix + definition.Id.Value,
+                    definition.Name + " — already settled"), Verdict.Met));
+                continue;
+            }
             if (instance.Stage == QuestStage.Accepted)
             {
                 if (quests.Arena?.Definition(definition.Id) is not null)

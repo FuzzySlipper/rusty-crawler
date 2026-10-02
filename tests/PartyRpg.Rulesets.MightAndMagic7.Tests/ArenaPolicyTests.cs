@@ -41,7 +41,9 @@ public sealed class ArenaPolicyTests
         Assert.Equal(QuestStage.TurnedIn, resumed.Live.Owners.Quests!.Instance(bout)!.Stage);
         Assert.Equal(1, resumed.Live.Party.Records.CountOf(MightAndMagic7Deeds.ArenaWins));
         Assert.Equal(before + 4000, resumed.Live.Party.Purse.Coins);
-        Assert.False(resumed.Live.Owners.Quests.TurnIn(bout, "npc-300").IsApplied);
+        resumed.Use(); resumed.Choose(MightAndMagic7Identities.TurnInTopicPrefix + bout.Value);
+        Assert.False(resumed.Live.Owners.Quests.Last!.IsApplied);
+        Assert.Equal(QuestCodes.QuestAlreadyFinished, resumed.Live.Owners.Quests.Last.Refusal!.Code);
         Assert.Equal(before + 4000, resumed.Live.Party.Purse.Coins);
         MightAndMagic7Ruleset.Instance.Save(resumed.Session);
         using Mission settled = new(mission.Persistence, resume: true);
