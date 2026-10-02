@@ -96,9 +96,12 @@ internal static class MightAndMagic7Tuning
     /// <summary>The donor's Knight reward per highest party level.</summary>
     internal static readonly TuningHandle ArenaKnightGold = new("arena.knight-gold-per-level", 200, 0, 1_000_000, "Knight reward per highest party level");
 
+    /// <summary>World-use spell reach; donor ranged targeting depth, GameConfig.h:196 / Engine.cpp:457.</summary>
+    internal static readonly TuningHandle TelekinesisReach = new("spell.telekinesis-reach", 5120, 1, 100_000, "world-use spell reach, leaving ordinary Use at its own distance");
+
     internal static readonly IReadOnlyList<TuningHandle> Handles =
     [
-        HiredLimit,
+        HiredLimit, TelekinesisReach,
         ArenaKnightOpponents, ArenaKnightGold,
         EnchantChancePerRank, EnchantWeaponValue, EnchantEquipmentValue, EnchantMasterLow, EnchantGrandMasterLow, EnchantValuePerStrength,
         FixtureBonusHours, TheftBanHours,

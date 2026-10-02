@@ -7,6 +7,9 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// </remarks>
 public static class MightAndMagic7Codes
 {
+    /// <summary>A world spell aim is absent, changed, unavailable or outside Engine admission.</summary>
+    internal const string SpellWorldTargetUnavailable = "spell-world-target-unavailable";
+
     /// <summary>The refusal code <c>camp-hostiles-near</c>.</summary>
     public const string CampHostilesNear = "camp-hostiles-near";
 

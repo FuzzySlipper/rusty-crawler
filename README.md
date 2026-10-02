@@ -330,5 +330,8 @@ verification limits. Preservation uses the existing member effect and health own
 potion drinker remains unconscious after otherwise lethal wounds, until the original deadline. The current
 party save carries damage past zero; expiry neither heals nor resurrects. The spell keeps this game's
 caster-only carrier, approximating the donor's ally/party targeting. The [Preservation reading](docs/evidence/preservation.md)
-states the checks and live limits. World-targeted Telekinesis and further original special-item powers are
-explicit receivers #9145 and #9148.
+states the checks and live limits. Telekinesis offers the faced door or container at its typed spell reach
+through the same Engine interaction scene; ordinary Use keeps its own reach. Current aim identity and
+revision are rechecked before payment, and traps and requirements remain the canonical use path.
+The [world-spell reading](docs/evidence/telekinesis.md) states the approximation and verification limits.
+Further special-item powers remain with #9148.

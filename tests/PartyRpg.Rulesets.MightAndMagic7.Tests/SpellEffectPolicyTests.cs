@@ -340,21 +340,19 @@ public sealed class SpellEffectPolicyTests
     }
 
     [Fact]
-    public void A_spell_whose_target_this_build_cannot_aim_at_is_refused_by_name_before_it_is_paid_for()
+    public void An_unavailable_world_aim_is_refused_before_payment()
     {
         (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(Content());
         using IGameSession session = Casting(context, ui);
         MightAndMagic7Session live = (MightAndMagic7Session)session;
         int before = live.Party!.Members[0].Resources.SpellPoints.Current;
 
-        // Telekinesis acts on a door or a container across the room. Nothing in this build can aim a spell at
-        // one, so the cast is refused where it is judged — before a point is spent — and the sentence names
-        // the owner that would have to supply the aim.
+        // This content has no door or container to aim at; no points are spent on an absent aim.
         Cast(session, ui, 1, "42", string.Empty);
         ProjectedNode refused = Magic(ui);
         Assert.Equal("refused", refused.Field("outcome").AsString());
-        Assert.Equal(SpellCodes.SpellTargetUnavailable, refused.Field("code").AsString());
-        Assert.Contains(ReceiverOf(42), refused.Field("message").AsString(), StringComparison.Ordinal);
+        Assert.Equal("spell-world-target-unavailable", refused.Field("code").AsString());
+        Assert.Contains("door or container", refused.Field("message").AsString(), StringComparison.Ordinal);
         Assert.Equal(before, live.Party.Members[0].Resources.SpellPoints.Current);
 
         // A travel spell whose destination the party has never been to is refused by name for the same reason

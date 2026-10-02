@@ -471,7 +471,8 @@ internal readonly record struct SpellReading(
     ReanimateReading? Reanimates = null,
     int PerDay = 0,
     ItemMagicShape? ItemMagic = null,
-    bool SacrificesFollower = false)
+    bool SacrificesFollower = false,
+    bool UsesWorld = false)
 {
     /// <summary>The reading of a spell whose category this field does not describe.</summary>
     internal static readonly SpellReading None = new(
@@ -656,6 +657,14 @@ internal static class Readings
         ItemMagic = shape,
         Expresses = "a property, hardening or recharge on the named party item through the canonical instance; item aims use the ordinary casting workflow",
         Divergence = "enchantment properties and weapon magnitudes are approximate; common item eligibility, quest refusal, mastery strength and clock duration are explicit",
+    };
+
+    /// <summary>Uses the Engine-focused door or container through the world's canonical workflow.</summary>
+    internal static SpellReading WorldUse() => SpellReading.None with
+    {
+        UsesWorld = true,
+        Expresses = "the faced visible door or container at stated spell reach, through the same Engine scene and canonical use workflow",
+        Divergence = "doors and containers only; traps and requirements remain ordinary uses rather than the donor's Telekinesis trap bypass; ordinary Use retains its reach",
     };
 
     internal static SpellReading Dispel() => SpellReading.None with { Dispels = true };

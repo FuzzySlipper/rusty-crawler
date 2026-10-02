@@ -57,6 +57,49 @@ public sealed class InteractionTests
         Assert.Equal(InteractionCodes.InteractionOutOfReach, refused.Code);
         Assert.Contains("out of reach", refused.Message, StringComparison.Ordinal);
     }
+    [Fact]
+    public void Action_reach_uses_the_same_engine_focus_and_restores_ordinary_reach()
+    {
+        TestRule rule = new(only: "chest");
+        rule.Outcomes["chest"] = (_, _) => InteractionOutcome.Applied("searched", "The chest is searched.");
+        using Hall hall = Hall.Build(rule, new PlacePose(-900, 0, 0, 1536, 0));
+        InteractionTarget target = Assert.IsType<InteractionTarget>(hall.Interaction.AimAtReach(1200));
+        Assert.Equal(InteractionReason.OutOfReach, hall.Interaction.FocusReason);
+        Assert.Equal(InteractionCodes.InteractionOutOfReach, hall.Interaction.Use().Code);
+        Assert.True(hall.World.InteractAtReach(target, 1200)!.IsApplied);
+        Assert.Equal("searched", hall.World.Interactions.StateOf(HallPlace, target.Content).State);
+        Assert.Equal(InteractionCodes.InteractionOutOfReach, hall.Interaction.Use().Code);
+        Assert.Null(hall.Interaction.AimAtReach(500));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void An_action_aim_cannot_use_a_new_revision_or_a_target_behind_the_party(bool revised)
+    {
+        TestRule rule = new(only: "chest");
+        rule.Outcomes["chest"] = (_, _) => InteractionOutcome.Applied("searched", "The chest is searched.");
+        using Hall hall = Hall.Build(rule, new PlacePose(-900, 0, 0, 1536, 0));
+        InteractionTarget target = Assert.IsType<InteractionTarget>(hall.Interaction.AimAtReach(1200));
+        if (revised) hall.World.Interactions.Record(HallPlace, target.Content, "changed");
+        else hall.Move(new PlacePose(-900, 0, 0, 512, 0));
+        Assert.False(hall.World.InteractAtReach(target, 1200)!.IsApplied);
+        Assert.Equal(revised ? "changed" : "", hall.World.Interactions.StateOf(HallPlace, target.Content).State);
+    }
+
+    [Fact]
+    public void Action_eligibility_cannot_be_shadowed_by_a_nearer_ordinary_target_and_occlusion_still_blocks()
+    {
+        using Hall hall = Hall.Build(new TestRule(), new PlacePose(0, 0, 0, 0, 0));
+        Assert.Null(hall.Interaction.AimAtReach(1200, definition => definition.Kind.Value == "chest"));
+        hall.Move(new PlacePose(-900, 0, 0, 1536, 0));
+        Assert.Equal("chest", hall.Interaction.AimAtReach(1200, definition => definition.Kind.Value == "chest")!.Definition.Kind.Value);
+        using Hall blind = Hall.Build(new TestRule(only: "chest"), new PlacePose(-900, 0, 0, 1536, 0), mover: new BlindMover());
+        Assert.Null(blind.Interaction.AimAtReach(1200));
+        Assert.Equal(InteractionReason.Occluded, blind.Interaction.FocusReason);
+        Assert.Empty(blind.World.Interactions.StateOf(HallPlace, new("chest", "chest-0")).State);
+    }
+
     private static readonly ContentLayout Layout = new("packs", "imports", "bundles");
     private static readonly PlaceId HallPlace = new("1");
     private static readonly UseIntentNames UseControls = new("test.use", "test.ui.action.v1");

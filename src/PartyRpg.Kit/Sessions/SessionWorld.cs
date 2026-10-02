@@ -366,6 +366,16 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         return Journey(interaction, result);
     }
 
+    /// <summary>Uses a held aim at action-specific reach and reports it through the ordinary world path.</summary>
+    public InteractionResult? InteractAtReach(InteractionTarget expected, double reach, Func<InteractionTargetDefinition, bool>? eligible = null)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (Interaction is not { } interaction) return null;
+        InteractionResult result = interaction.UseAtReach(expected, reach, eligible);
+        Report(result);
+        return Journey(interaction, result);
+    }
+
     /// <summary>
     /// Runs what a person's word set going as one use of the placement the person stands at, and takes the journey it
     /// leads to through the one transition path.

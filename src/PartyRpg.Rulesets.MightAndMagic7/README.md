@@ -846,8 +846,14 @@ ordinary buy/sell/identify/repair operations. Artifacts keep fixed definition id
 one-copy registry. The complete original special-item power repertoire is not claimed.
 
 The [item-effect record](../../docs/evidence/item-enchanting.md) records focused checks and live limits.
-World-targeted Telekinesis (#9145) and additional original special-item powers and Genie Lamp use (#9148)
-are concrete receivers.
+Telekinesis offers only the current Engine-aimed door/container through the ordinary casting panel.
+Its `spell.telekinesis-reach` tuning defaults to the donor ranged-target depth of 5120. The same scene
+scopes reach and eligible kinds, revalidates current identity/revision and Engine sight/availability before
+payment, uses the canonical workflow, and restores ordinary reach. Requirements, traps, yield, world
+state and Knowledge retain their existing owners. A valid attempted use can meet a canonical lock or trap;
+that attempt costs the casting, unlike an Engine-unavailable or stale aim, which refuses before payment.
+The [world-spell record](../../docs/evidence/telekinesis.md) states the narrower repertoire and evidence.
+Additional original special-item powers and Genie Lamp use (#9148) remain a concrete receiver.
 
 ## Preservation
 

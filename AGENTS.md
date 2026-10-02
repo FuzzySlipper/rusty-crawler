@@ -132,7 +132,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   binding puts it on the party's `Ally` side.
 - **Growth and magic.** `PartyProgression` is the one writer of experience, levels, skill points, ranks and
   promotions; the first training step of a service visit includes rest on the one clock (the light/dark choice lives in the character's class and is irreversible). Skills have four
-  masteries under this game's ceilings; promotion requires recovery from a laid-out condition; item spells change the actual instance's property, hardening and charge capacity through the same casting workflow; nine schools and 99 spells share one casting workflow whose eight
+  masteries under this game's ceilings; promotion requires recovery from a laid-out condition; item spells change the actual instance's property, hardening and charge capacity through the same casting workflow; Telekinesis uses the same Engine scene at explicit spell reach for doors and containers; ordinary Use retains its reach. Nine schools and 99 spells share one casting workflow whose eight
   effect categories each reach their owner, stated per spell in `docs/magic-coverage.md`; alchemy mixes the
   shipped recipes. Preservation on the caster or potion drinker keeps below-empty health unconscious until
   its member effect expires; saves carry the wound's deficit and the original deadline. Counted deeds accumulate on party records through once-only quest turn-in; town-hall
@@ -157,7 +157,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 **Open residue and its receivers** (Den task ids; Den owns their status):
 
 - Stone 5, interaction and services: a topic event reaches uncarried NPC group news (#9150).
-- Stone 7, progression and magic: world-targeted Telekinesis (#9145), additional special-item powers (#9148),
+- Stone 7, progression and magic: additional special-item powers (#9148),
   and follower profession benefits (#9151) remain.
 
 When a stone lands or a residue closes, update this section, `README.md`, and the owning project README

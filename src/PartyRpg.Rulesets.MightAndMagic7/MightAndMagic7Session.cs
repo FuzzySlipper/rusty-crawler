@@ -114,7 +114,8 @@ internal sealed class MightAndMagic7Session : IGameSession
         CorpseGround corpses = new();
         MightAndMagic7ItemMagic? itemMagic = spells is null ? null : new(Declared(context.Content), spells, clock, context.Engine?.Random, () => owners.Party);
         MightAndMagic7SpellEffects? spellEffects = spells is null ? null : new MightAndMagic7SpellEffects(spells, clock, () => owners.World, () => composed, corpses, itemMagic,
-            () => conversation?.Followers, () => owners.Progression);
+            () => conversation?.Followers, () => owners.Progression,
+            MightAndMagic7Tuning.Read(Declared(context.Content)).Whole(MightAndMagic7Tuning.TelekinesisReach));
         // This game's automap is read beside them: how far a walking party sees, what each place's own map
         // squares and features are drawn as, the zoom ladder, and what a detection reveals over it. Both halves
         // are read from the content the product loaded — the maps themselves come from the placed-map document

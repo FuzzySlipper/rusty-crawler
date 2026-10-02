@@ -61,6 +61,8 @@ public sealed class PartyInteraction : IWorldInteractionScene
     private readonly List<PlacementDefinition> _bodies = [];
     private InteractionReadout _focus = new(null, InteractionReason.NoCandidate, []);
     private InteractionResult? _result;
+    private double? _reach;
+    private Func<InteractionTargetDefinition, bool>? _eligible;
 
     /// <summary>Creates the mechanism over the live world it resolves uses against.</summary>
     /// <param name="world">The live state a use reads and settles against.</param>
@@ -150,6 +152,61 @@ public sealed class PartyInteraction : IWorldInteractionScene
         AdoptFocus();
         _result = InteractionResult.Refused(FocusedTarget, new Refusal(CodeFor(reason), MessageFor(reason, receipt.Message)));
         return _result;
+    }
+
+    /// <summary>Reads the Engine's current aim with an explicit action reach, then restores ordinary reach.</summary>
+    /// <remarks>The same selection and scene acquire the target; this grants no targeted-use assistance.</remarks>
+    public InteractionTarget? AimAtReach(double reach, Func<InteractionTargetDefinition, bool>? eligible = null)
+    {
+        CheckReach(reach);
+        double? previous = _reach;
+        var previousEligible = _eligible;
+        try
+        {
+            _reach = reach;
+            _eligible = eligible;
+            Update();
+            return FocusReason == InteractionReason.Ready ? FocusedTarget : null;
+        }
+        finally
+        {
+            _reach = previous;
+            _eligible = previousEligible;
+            Update();
+        }
+    }
+
+    /// <summary>Uses an earlier aim at explicit reach through the same freshly validated Engine focus.</summary>
+    /// <remarks>A changed place, content identity, runtime number or revision refuses before resolution.</remarks>
+    public InteractionResult UseAtReach(InteractionTarget expected, double reach, Func<InteractionTargetDefinition, bool>? eligible = null)
+    {
+        ArgumentNullException.ThrowIfNull(expected);
+        CheckReach(reach);
+        double? previous = _reach;
+        var previousEligible = _eligible;
+        try
+        {
+            _reach = reach;
+            _eligible = eligible;
+            Update();
+            if (FocusedTarget is not { } fresh || fresh.Id != expected.Id ||
+                fresh.Number != expected.Number || fresh.State.Revision != expected.State.Revision)
+                return _result = InteractionResult.Refused(expected, new Refusal(InteractionCodes.InteractionTargetGone,
+                    "The earlier aim is no longer the available target the party faces."));
+            return Use();
+        }
+        finally
+        {
+            _reach = previous;
+            _eligible = previousEligible;
+            Update();
+        }
+    }
+
+    private static void CheckReach(double reach)
+    {
+        if (!double.IsFinite(reach) || reach <= 0 || reach > float.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(reach), "Action reach must be a finite positive Engine distance.");
     }
 
     /// <summary>
@@ -330,7 +387,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
 
             // What the party sets off by walking onto it is never aimed at: an entrance raises it (Raise), and a
             // reticle that offered a plate in the floor would offer a use the party makes with its feet.
-            if (definition.Verb == InteractionVerb.Tread) continue;
+            if (definition.Verb == InteractionVerb.Tread || _eligible?.Invoke(definition) == false) continue;
 
             Vector3 point = _space.Position(placement.Pose);
             double distance = Vector3.Distance(point, eye);
@@ -345,7 +402,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
                 new TargetIdentity((ulong)index, (ulong)state.Revision),
                 definition.Name,
                 point,
-                (float)definition.Reach,
+                (float)(_reach ?? definition.Reach),
                 _world.InSight(eye, point, placement.Content) ? InteractionVisibility.Visible : InteractionVisibility.Occluded,
                 // Availability is left available whatever the requirements are: a lock is a requirement this
                 // game states, and the answer to it is a sentence naming what the door needs. Handing the
@@ -353,7 +410,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
                 InteractionAvailability.Available));
             // Query distance describes what is observed, not what may be used. Each candidate still carries
             // its own reach, which the Engine checks before selecting or admitting a use.
-            furthest = Math.Max(furthest, Math.Max(distance, definition.Reach));
+            furthest = Math.Max(furthest, Math.Max(distance, _reach ?? definition.Reach));
         }
 
         InteractionQuery query = new(
