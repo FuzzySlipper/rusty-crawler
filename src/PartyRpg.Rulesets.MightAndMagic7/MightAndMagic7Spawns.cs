@@ -135,13 +135,19 @@ internal sealed class MightAndMagic7Spawns : IPlacementExpansion
 
     /// <inheritdoc />
     /// <remarks>
-    /// A creature of a group the place's events hid does not stand, one of a group they showed again does, and any other
-    /// stands unless its record is one the level holds hidden.
+    /// A creature — or a person a map's own record stands, which the donor holds hidden the same way — of a group the
+    /// place's events hid does not stand, one of a group they showed again does, and any other stands unless its record
+    /// is one the level holds hidden.
     /// </remarks>
     public bool Stands(PlaceId place, PlacementDefinition placement)
     {
         ArgumentNullException.ThrowIfNull(placement);
-        if (!string.Equals(placement.Content.Kind, MightAndMagic7Combat.CreaturePlacementKind, StringComparison.Ordinal)) return true;
+        if (!string.Equals(placement.Content.Kind, MightAndMagic7Combat.CreaturePlacementKind, StringComparison.Ordinal) &&
+            !string.Equals(placement.Content.Kind, MightAndMagic7Combat.PersonPlacementKind, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
         if (_kept(place) is { } values && MightAndMagic7Fixtures.IsGroupHidden(values, GroupOf(placement)) is { } hidden) return !hidden;
         return !Hidden(placement.Source.Payload);
     }

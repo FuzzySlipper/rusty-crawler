@@ -188,7 +188,8 @@ internal sealed class MightAndMagic7Session : IGameSession
             quests,
             () => owners.Quests,
             () => events,
-            () => owners.Party);
+            () => owners.Party,
+            spawns.Stands);
         if (conversation is not null)
         {
             // What reading the people tables noticed is reported where the other composition notes are: a

@@ -147,6 +147,9 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     private readonly Func<MightAndMagic7Fixtures?> _events;
     private readonly Func<PartyEntity?> _party;
     private readonly IReadOnlyList<string> _notes;
+
+    /// <summary>Whether a placement stands this visit, which a person the level holds hidden does not.</summary>
+    private Func<PlaceId, PlacementDefinition, bool> Stands { get; init; } = (_, _) => true;
     private IReadOnlyDictionary<string, TopicFacts> Table { get; init; } = new Dictionary<string, TopicFacts>(StringComparer.Ordinal);
 
     /// <summary>The greeting table, by row: what is said on a first meeting and on a later one.</summary>
@@ -221,6 +224,10 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     /// The party being played, or null while there is none: who lives in a house is what the game's own events have left
     /// on its records (<see cref="MightAndMagic7PersonState"/>), which the people a house's placement holds are read from.
     /// </param>
+    /// <param name="stands">
+    /// Whether a placement stands on the field this visit (<see cref="MightAndMagic7Spawns.Stands"/>): a person a map's
+    /// own record holds hidden is not there to be spoken with. Absent, everybody placed is there.
+    /// </param>
     /// <returns>This game's dialogue policy over that content, or null when no content was loaded.</returns>
     /// <exception cref="ContentValidationException">Content declares people that cannot be spoken with; every problem is named.</exception>
     internal static MightAndMagic7Conversation? Read(
@@ -230,7 +237,8 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         MightAndMagic7Quests? quests = null,
         Func<PartyQuests?>? journal = null,
         Func<MightAndMagic7Fixtures?>? events = null,
-        Func<PartyEntity?>? party = null)
+        Func<PartyEntity?>? party = null,
+        Func<PlaceId, PlacementDefinition, bool>? stands = null)
     {
         if (catalog is null) return null;
         List<ContentValidationIssue> issues = [];
@@ -441,6 +449,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         {
             Table = table,
             Greetings = greetings,
+            Stands = stands ?? ((_, _) => true),
         };
     }
 
@@ -452,6 +461,10 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         bool house = string.Equals(kind, ServicePlacementKind, StringComparison.Ordinal)
             || string.Equals(kind, ResidencePlacementKind, StringComparison.Ordinal);
         if (!placed && !house) return null;
+
+        // A person a map's own record holds hidden is not there (OpenEnroth src/Engine/Graphics/Indoor.cpp:979-998 keeps
+        // a Disabled record unshown and unrun), so there is nobody at the placement to speak with.
+        if (placed && !Stands(request.Place, request.Placement)) return null;
 
         List<ConversationPerson> people = [];
         PartyEntity? party = _party();

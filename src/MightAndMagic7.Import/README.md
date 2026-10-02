@@ -58,7 +58,9 @@ Owns:
   (`topicSlots`), and every topic-table row with an answer or a global event of its number is written as a `person-topic` entry whoever owns it,
   which is what a topic change can make a slot raise; a person placement carries its actor record's `group`,
   its `attributes` (which hold the aggressor bit `0x80000`) and, when non-zero, the kind it says it counts as
-  (`hostilityGroup`), as a creature's actor record does; no shipped person record carries either.
+  (`hostilityGroup`), as a creature's actor record does; no shipped person record carries either. A person record
+  the level holds hidden — AI state 19 or the bit `0x10000`, the reading a creature's record gets — is written
+  `hidden` (one shipped record, Castle Harmondale's NPC row 56).
   A step comparing or setting a character's `class` names the class in `which` — the class table's row its value
   numbers (`PlaceFixtureEmitter.Classed`) — so no reader needs the table's order — and an `npc-set-item` step carries
   its `person`, `item` and whether it gives (`on`). No step is interpreted here; the write summary counts the steps of each kind, which is

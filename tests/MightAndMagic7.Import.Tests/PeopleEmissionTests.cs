@@ -95,6 +95,10 @@ public sealed class PeopleEmissionTests
             Assert.Equal(0x80000, standing.Attributes);
             Assert.Equal(42, standing.HostilityGroup);
 
+            // The record carries neither the hiding bit nor the disabled state, so the person is not held hidden.
+            Assert.False(standing.Hidden);
+            Assert.Equal(0, people.HiddenPlacementCount);
+
             // Two of them are placed in buildings by the table's own column, and the import knows which of
             // those buildings it managed to place a door for: the other one is a remainder with a reason.
             Assert.Equal(2, people.ResidentCount);

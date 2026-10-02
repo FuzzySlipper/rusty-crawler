@@ -165,6 +165,48 @@ public sealed class TopicEventStepTests
         }
     }
 
+    [Fact]
+    public void A_person_a_maps_own_record_holds_hidden_does_not_stand_until_their_group_is_shown()
+    {
+        PlaceId place = new("21");
+        Dictionary<string, long> kept = new(StringComparer.Ordinal);
+        MightAndMagic7Spawns spawns = MightAndMagic7Spawns.Compose(null, random: null, _ => kept);
+        Assert.False(spawns.Stands(place, Person(group: 0, hidden: true)));
+        Assert.True(spawns.Stands(place, Person(group: 0, hidden: false)));
+
+        // Hidden in a group, the person stands once the place's events show the group again.
+        PlacementDefinition grouped = Person(group: 34, hidden: true);
+        Assert.False(spawns.Stands(place, grouped));
+        kept[MightAndMagic7Fixtures.HiddenGroupKey(34)] = 0;
+        Assert.True(spawns.Stands(place, grouped));
+    }
+
+    [ImportedFact("people.json")]
+    public void The_one_person_a_maps_own_record_holds_hidden_is_nobody_to_speak_with()
+    {
+        // Over the operator's install the one person record the level holds hidden is Castle Harmondale's first actor,
+        // which the donor keeps Disabled: it is placed, does not stand, and answers nobody.
+        ContentCatalog catalog = ImportedContent.Load();
+        MightAndMagic7Spawns spawns = MightAndMagic7Spawns.Compose(catalog, random: null);
+        MightAndMagic7Conversation conversation = MightAndMagic7Conversation.Read(catalog, MightAndMagic7Services.Read(catalog), stands: spawns.Stands)!;
+        PlaceId castle = new("21");
+        PlacementDefinition[] people = [.. PlacePopulationContent.Read(MightAndMagic7World.Graph(catalog), spawns).PlacementsOf(castle)
+            .Where(placement => placement.Content.Kind == MightAndMagic7Conversation.PersonPlacementKind)];
+        PlacementDefinition hidden = Assert.Single(people, placement => !spawns.Stands(castle, placement));
+        Assert.Equal("person-0", hidden.Content.Id);
+        Assert.Null(conversation.Describe(new ConversationTargetRequest(castle, hidden)));
+        Assert.All(people.Where(placement => placement != hidden), placement => Assert.NotNull(conversation.Describe(new ConversationTargetRequest(castle, placement))));
+    }
+
+    private static PlacementDefinition Person(int group, bool hidden)
+    {
+        string marked = hidden ? ", \"hidden\": true" : string.Empty;
+        string json = string.Create(
+            CultureInfo.InvariantCulture,
+            $$"""{ "id": "person-0", "kind": "person", "sourceField": "actors", "sourceIndex": 0, "x": 0, "y": 0, "z": 0, "group": {{group}}{{marked}}, "people": [ "npc-56" ] }""");
+        return new PlacementDefinition(new PlacementContentId("person", "person-0"), "actors", 0, PlacePose.Origin, new ContentEntry("person-0", JsonDocument.Parse(json).RootElement.Clone()));
+    }
+
     /// <summary>A rule running the given global events, with one person the people table holds, and a party.</summary>
     private static (MightAndMagic7Interaction Rule, PartyEntity Party) Compose(params string[] globalEvents)
     {

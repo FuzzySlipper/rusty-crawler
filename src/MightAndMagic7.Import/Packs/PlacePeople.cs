@@ -102,6 +102,13 @@ public sealed record PlacePerson(
 /// row's kind, 9999 the party's own, anything else a kind's index in the hostility matrix
 /// (<c>src/Engine/Snapshots/EntitySnapshots.cpp:1494-1499</c>).
 /// </param>
+/// <param name="Hidden">
+/// Whether the level holds the person hidden until something reveals them, read as a creature's record is
+/// (<see cref="PlaceCreatures.HiddenAiState"/> or <see cref="PlaceCreatures.HiddenAttribute"/>): the donor neither
+/// shows nor runs a <c>Disabled</c> actor, whether or not it names a person — an interior's load keeps the record's
+/// own state (OpenEnroth <c>src/Engine/Graphics/Indoor.cpp:979-998</c>) and a region's turns the bit into it
+/// (<c>src/Engine/Graphics/Outdoor.cpp:617-618</c>).
+/// </param>
 public sealed record PlacePersonPlacement(
     int PlaceId,
     string PlacementId,
@@ -115,7 +122,8 @@ public sealed record PlacePersonPlacement(
     int MonsterId,
     int Group = 0,
     int Attributes = 0,
-    int HostilityGroup = 0);
+    int HostilityGroup = 0,
+    bool Hidden = false);
 
 /// <summary>Everybody a building holds, by the NPC table's own placement column.</summary>
 /// <param name="BuildingId">The building's id, which is the row the table places people in.</param>
@@ -157,6 +165,9 @@ public sealed record PlacePeopleSummary(
 
     /// <summary>How many people stand at a position a map states for them.</summary>
     public int PlacementCount => Placements.Count;
+
+    /// <summary>How many of the people standing at a position of their own the level holds hidden.</summary>
+    public int HiddenPlacementCount => Placements.Count(placement => placement.Hidden);
 
     /// <summary>How many distinct people stand at a position of their own.</summary>
     public int PlacedPersonCount => Placements.Select(placement => placement.PersonId).Distinct().Count();
@@ -344,7 +355,8 @@ public static class PlacePeopleEmitter
                     actor.MonsterId,
                     actor.Group,
                     actor.Attributes,
-                    actor.HostilityGroup));
+                    actor.HostilityGroup,
+                    actor.AiState == PlaceCreatures.HiddenAiState || (actor.Attributes & PlaceCreatures.HiddenAttribute) != 0));
             }
         }
 

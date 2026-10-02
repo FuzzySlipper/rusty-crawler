@@ -644,7 +644,10 @@ name. `npc-set-item` (`EvtInterpreter.cpp:538-539`, `Actor.cpp:139-165`) gives a
 back, as the party record `person-item:<person>:<item>` (`MightAndMagic7PersonState`, judged on load): a thief's hand
 finds it first (`Character.cpp:1254-1260`, `MightAndMagic7Theft`) and a fallen person's body gives it up
 (`Actor.cpp:3519-3529`, `MightAndMagic7Corpses`); ours: the packs carry no item a person's own map record names, so a
-take of one changes nothing, and the donor's three slots are not counted. `compare` of `invisible` holds while the party
+take of one changes nothing, and the donor's three slots are not counted. A person a map's own record holds hidden
+(`"hidden": true`, the one shipped one Castle Harmondale's NPC row 56, which the donor keeps `Disabled` in an
+interior, `Indoor.cpp:979-998`) is read by the same `Stands`: they are not created and the conversation answers
+nobody at their placement, until an event shows their group — which, with no group, nothing does. `compare` of `invisible` holds while the party
 carries the invisibility spell's party-wide effect, whatever the value (`OpenEnroth/src/Engine/Objects/Character.cpp:3979-3980`:
 faithful) — the alarm plates skip their call to the guards for an invisible party — and of `alert` holds when the
 value is zero: the donor compares the map's alert status for equality (`Character.cpp:3956-3958`), reads it only from
