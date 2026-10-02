@@ -86,6 +86,10 @@ internal static partial class PackWriter
                 // src/Engine/Objects/Actor.cpp:4145-4156) — so it is carried beside the name a person reads.
                 string internalName = monster.Fields.Count > 2 ? monster.Fields[2].Trim() : string.Empty;
                 if (internalName.Length > 0) writer.WriteString("internalName", internalName);
+                // Arena candidates exclude timid inhabitants and special rows. The original checks
+                // Wimp AI and the special-monster identity boundary (MonsterEnumFunctions.cpp:118-129).
+                // Our normalized reading recognises the table's z-prefixed special internal names.
+                writer.WriteBoolean("arenaEligible", monster.AiType != "Wimp" && !internalName.StartsWith("z", StringComparison.OrdinalIgnoreCase));
                 writer.WriteNumber("level", monster.Level);
                 writer.WriteNumber("hitPoints", monster.HitPoints);
                 writer.WriteNumber("armorClass", monster.ArmorClass);

@@ -40,7 +40,7 @@ internal sealed class MightAndMagic7Arena
         if (content is null) return null;
         var places = content.Entries("place").Select(x => x.Entry).ToDictionary(x => x.Id);
         var people = content.Entries("person").Select(x => x.Entry.Id).ToHashSet();
-        var monsters = content.Entries("monster").Select(x => (Row: x.Entry.Id, Level: x.Entry.GetInt32("level") ?? 1)).ToArray();
+        var monsters = content.Entries("monster").Where(x => x.Entry.GetBoolean("arenaEligible") != false).Select(x => (Row: x.Entry.Id, Level: x.Entry.GetInt32("level") ?? 1)).ToArray();
         Dictionary<string, Bout> bouts = new(StringComparer.Ordinal);
         List<ContentValidationIssue> issues = [];
         foreach (var (pack, document, entry) in content.Entries("arena-bout"))

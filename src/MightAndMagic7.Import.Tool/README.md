@@ -53,3 +53,7 @@ explicit feet positions on an authored 700-unit ring. The centre follows OpenEnr
 from a source table. The ruleset reads these world values from the normalized place and supplies bout
 selection and reward policy. Older arena packs without the positions must be rewritten; the runtime
 refuses them by name rather than placing challengers at guessed coordinates.
+
+Monster rows also state `arenaEligible`. Wimp AI and z-prefixed special internal names are excluded.
+This adapts the original Wimp/special-identity exclusions described in OpenEnroth `src/Engine/Objects/MonsterEnumFunctions.cpp:118-129`;
+it is an explicit normalized eligibility reading rather than a runtime name filter.
