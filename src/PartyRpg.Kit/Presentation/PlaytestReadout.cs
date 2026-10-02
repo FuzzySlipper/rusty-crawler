@@ -240,6 +240,16 @@ public static class PlaytestReadout
         writer.WriteBoolean("ready", actor.Ready);
         writer.WriteBoolean("down", actor.Down);
         writer.WriteString("activity", actor.Activity);
+        writer.WritePropertyName("pose");
+        if (actor.Pose is { } pose)
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("x", pose.X);
+            writer.WriteNumber("y", pose.Y);
+            writer.WriteNumber("z", pose.Z);
+            writer.WriteEndObject();
+        }
+        else writer.WriteNullValue();
         writer.WriteEndObject();
     }
 }

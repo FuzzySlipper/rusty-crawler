@@ -54,6 +54,22 @@ public sealed class CombatStateTests
     }
 
     [Fact]
+    public void Observation_reads_a_creatures_live_pose_after_motion_and_the_shared_party_pose()
+    {
+        using PartyEntity party = Party();
+        using SessionWorld world = World(party, monsterAt: 100);
+        CombatState combat = Fight(world, party);
+        Arrive(world);
+        combat.Step();
+        PlacePopulationEntity creature = Assert.Single(combat.Opposition).Subject.Entity!;
+        PlacePose moved = new(250, -175, 32, 0, 0);
+        creature.MoveTo(moved);
+        CombatSnapshot reading = CombatSnapshot.From(combat);
+        Assert.Equal(moved, Assert.Single(reading.Enemies).Pose);
+        Assert.All(reading.Members, member => Assert.Equal(world.Party.PlacePose, member.Pose));
+    }
+
+    [Fact]
     public void Entering_and_leaving_a_fight_leaves_the_place_the_pose_and_the_population_exactly_as_they_were()
     {
         using PartyEntity party = Party();

@@ -95,6 +95,12 @@ public sealed class PlaytestRegistrationTests
             Assert.True(root.GetProperty("steering").GetProperty("available").GetBoolean());
             Assert.Equal("A door", root.GetProperty("facing").GetProperty("label").GetString());
             Assert.Equal(0, root.GetProperty("combat").GetProperty("hostile").GetArrayLength());
+            foreach (JsonElement member in root.GetProperty("combat").GetProperty("members").EnumerateArray())
+            {
+                Assert.Equal(root.GetProperty("pose").GetProperty("x").GetDouble(), member.GetProperty("pose").GetProperty("x").GetDouble());
+                Assert.Equal(root.GetProperty("pose").GetProperty("y").GetDouble(), member.GetProperty("pose").GetProperty("y").GetDouble());
+                Assert.Equal(root.GetProperty("pose").GetProperty("z").GetDouble(), member.GetProperty("pose").GetProperty("z").GetDouble());
+            }
         }
 
         using (JsonDocument forward = Json(catalog.Execute($"playtest.action {ProductIdentity.MoveForwardIntent}")))

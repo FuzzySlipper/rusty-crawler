@@ -15,7 +15,7 @@ Implemented today:
   ruleset context; the panel names those keys and no others, so a hint cannot drift from the declaration.
 - `CrawlerProduct` registers the Engine's `PlaytestDebugModule` and `InteractionDebugModule` in the generated
   debug catalog (`IDebugCommandModuleSource`). `ProductPlaytest` answers `playtest.observe` with the session's
-  own snapshot, `playtest.action <intent>` with each declared keyboard control's physical key (`KeyW`, `Space`),
+  own snapshot including canonical live combat actor positions, `playtest.action <intent>` with each declared keyboard control's physical key (`KeyW`, `Space`),
   hold or tap, a nominal input window, and whether the session would take it now (the controls block's answer,
   or the steering rule for movement, and that rule with the party's flight for rising and sinking), and `playtest.look` by turning the party through its facing rule
   (yaw only). Every query resolves the session held when it is asked, so a restart or an accepted creation

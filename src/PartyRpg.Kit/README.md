@@ -143,7 +143,8 @@ a use may leave its own words blank — and ends the conversation when the use t
 `SaveRequests`. The session answers a playtest harness between updates without stepping anything:
 `IGameSession.Inspect` returns the snapshot its projection is built from (the world read live), and
 `IGameSession.Look` turns the party through its pose owner's facing rule when its turn keys would;
-`PlaytestReadout` writes that snapshot as the compact observation and states, once, whether the movement keys
+`PlaytestReadout` writes that snapshot as the compact observation, including each combat actor's feet position
+read from the live population entity or the shared party pose, and states, once, whether the movement keys
 would step the party now (`PlaytestReadout.Steering`, refusing with a `PlaytestCodes` code). Every reader takes its actions from one `ActionInbox` per update — each payload parsed
 once, each semantic action's name the kit's own constant beside its reader, a product declaring only keys
 and contracts — and an action on the session's contracts that nothing took is reported as

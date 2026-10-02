@@ -1,4 +1,5 @@
 using PartyRpg.Kit.Combat;
+using PartyRpg.Kit.World;
 
 namespace PartyRpg.Kit.Presentation;
 
@@ -38,6 +39,7 @@ namespace PartyRpg.Kit.Presentation;
 /// <c>holding</c>, <c>attacking</c>, or <c>down</c>. Empty for the party's own members, whose doing is the
 /// player's and is published as the last order instead.
 /// </param>
+/// <param name="Pose">The canonical live feet position for playtest observation, or null when unstated.</param>
 public sealed record CombatActorSnapshot(
     string Id,
     string Name,
@@ -48,7 +50,8 @@ public sealed record CombatActorSnapshot(
     int HitPointsMax = 0,
     string Conditions = "",
     bool Down = false,
-    string Activity = "")
+    string Activity = "",
+    PlacePose? Pose = null)
 {
     /// <summary>Writes one actor of a fight: who it is, whether it may act, and how long it owes.</summary>
     /// <param name="builder">The projection being built.</param>
@@ -205,7 +208,8 @@ public sealed record CombatSnapshot(
                 hitPointsMax,
                 conditions,
                 down,
-                activity.GetValueOrDefault(combatant.Id, string.Empty));
+                activity.GetValueOrDefault(combatant.Id, string.Empty),
+                combatant.Subject.Entity?.Pose ?? combat.PartyPose);
             if (combatant.Side != CombatSide.Party)
             {
                 // Only the actors actually fighting are published as enemies: a creature that has not

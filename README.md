@@ -199,7 +199,8 @@ engine's renderer and refuses to load without one (a software Vulkan driver such
 diagnostics and persistence, so the frame the renderer presents is empty and the game is the DOM panel
 over it. A session driven through the agent playtest service's browser takes the player's keys; with
 `--live-debug` the product's `playtest.observe`, `playtest.action` and `interaction.inspect` commands read the
-place, pose, facing target, hostiles and each control's key and availability without scraping the panel.
+place, pose, facing target, hostiles (including their canonical live feet positions) and each control's key
+and availability without scraping the panel.
 
 The offline importer reads the operator's own installation and never writes to it:
 
