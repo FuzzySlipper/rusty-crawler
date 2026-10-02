@@ -11,6 +11,7 @@ What is published here is text only: no game data, no screenshots, no saves, and
 
 | Record | What it shows |
 | --- | --- |
+| [`door-collision-feasibility.md`](door-collision-feasibility.md) | The supported Engine collision replacement path and the moved-vertex constraint found across 786 imported doors; implementation and doorway traversal remain unproved. |
 | [`navigation-admission.md`](navigation-admission.md) | All 76 imported geometries admitted navigation in the real Engine, counts and cost, with canonical body routing around an authored wall; imported live pursuit remains separate. |
 | [`service-panel.md`](service-panel.md) | Seven service operations through the existing panel at imported Harmondale counters, with patient and bank quantities, actual charges and a fare arrival. |
 | [`residue-verification.md`](residue-verification.md) | The code gate, corrected donor citation, three review lanes and focused checks for travel, containers, interaction saves, promotion and rest. |
