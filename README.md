@@ -250,6 +250,10 @@ pack loaded first. `write` also
 emits each place's collision geometry into the world pack, in the engine's own spatial artifact, and
 refuses a place whose solid faces cannot be closed enough for a party to stand on — the shape and the
 rules are in [`docs/research/mm7-map-formats.md`](docs/research/mm7-map-formats.md) §8.
+Its collision vertex bounds also supply a navigation region beside the artifact. Engine derives walkable
+supports in the party's same scene with the actual controller body; creatures query routes from their feet
+and hold by name when a route or derivation is unavailable. Sampling is approximate, and collision remains
+admitted when a navigation derivation exceeds its separate budget.
 
 Den serves the product through `.den-serve.json` (preferred port 4176, `--live-debug`). The procedure for
 a live check — serving a checkout of its own, staging content and a pose, driving the product and reading

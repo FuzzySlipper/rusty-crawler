@@ -45,6 +45,9 @@ internal static class MightAndMagic7World
     /// <summary>The property of a place's geometry entry that names its ground: its water and its fluid faces.</summary>
     internal const string GeometrySurfacesProperty = "surfaces";
 
+    /// <summary>The request region emitted beside the unchanged Engine collision artifact.</summary>
+    internal const string GeometryNavigationProperty = "navigationRegion";
+
     /// <summary>
     /// The definition kind that carries the reaches a walking party takes this game's transitions
     /// through, one entry per trigger face, keyed by the link it takes and the face it came from.
@@ -322,7 +325,7 @@ internal static class MightAndMagic7World
         // A place's geometry comes from the catalog when content carries any. Without a catalog there is no
         // world either, but the mover is composed here where both are still in hand.
         IPlaceGeometrySource? geometry = context.Content is { } catalog
-            ? new ContentPlaceGeometry(catalog, GeometryDefinitionKind, GeometryArtifactProperty, GeometrySurfacesProperty)
+            ? new ContentPlaceGeometry(catalog, GeometryDefinitionKind, GeometryArtifactProperty, GeometrySurfacesProperty, GeometryNavigationProperty)
             : null;
 
         EnginePartyMover mover = new(spatial, movement, engine.Content, MightAndMagic7Movement.Navigation, geometry);

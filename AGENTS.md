@@ -96,7 +96,9 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   take one transition path that charges the clock
   and the larder once. Movement and collision are the Engine's (the character step over each place's
   spatial artifact, flying mode under a flight, and the water a place's packs name beside it); a fall past the
-  threshold and standing in water harm members through the ruleset's rules. `GameClock`
+  threshold and standing in water harm members through the ruleset's rules. Engine derives navigation in that
+  same scene for the actual body; pursuit uses foot-position waypoints or holds by name when unavailable.
+  `GameClock`
   over an authored calendar is the only time, and every advance reaches every owner registered with it.
 - **Party.** `PartyEntity` is one entity with its components: roster and members, one shared inventory of
   item instances, per-member equipment, purse and larder, reputation and fame, running effects, records,
@@ -137,7 +139,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 
 **Open residue and its receivers** (Den task ids; Den owns their status):
 
-- Stone 3, world: creatures cannot path around a wall because places carry no navigation cells (#8665).
+- Stone 3, world: imported pursuit around interior walls still needs its live reading (#8665).
 - Stone 5, interaction and services: a door's collision, and a face group an event makes passable,
   do not move (#8594); a container above or below the floor cannot be used (#8697); deadlines (fatigue, wards, light, haste) block
   a save by name instead of being carried (#8617); towns have no house doors and camping is priced per

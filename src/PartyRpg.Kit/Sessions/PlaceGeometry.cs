@@ -21,8 +21,9 @@ public sealed record PlaceGeometry
     /// <param name="path">The artifact's own path, which identifies it to the engine's content owner.</param>
     /// <param name="artifact">The artifact document's bytes, exactly as content wrote them.</param>
     /// <param name="surfaces">The place's named ground, or null when content names none.</param>
+    /// <param name="navigation">The region over which Engine derives navigation from the admitted collision.</param>
     /// <exception cref="ArgumentException">The artifact has no path or no bytes.</exception>
-    public PlaceGeometry(string path, ReadOnlyMemory<byte> artifact, PlaceSurfaces? surfaces = null)
+    public PlaceGeometry(string path, ReadOnlyMemory<byte> artifact, PlaceSurfaces? surfaces = null, PlaceNavigationRegion? navigation = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         if (artifact.Length == 0)
@@ -35,6 +36,7 @@ public sealed record PlaceGeometry
         Path = path;
         Artifact = artifact;
         Surfaces = surfaces ?? PlaceSurfaces.None;
+        Navigation = navigation;
     }
 
     /// <summary>The artifact's own path, which identifies it to the engine's content owner.</summary>
@@ -49,7 +51,16 @@ public sealed record PlaceGeometry
     /// not define.
     /// </summary>
     public PlaceSurfaces Surfaces { get; }
+
+    /// <summary>The navigation request's region and sampling scale, separate from the unchanged Engine document.</summary>
+    public PlaceNavigationRegion? Navigation { get; }
 }
+
+/// <summary>Where navigation is derived from a place's collision, in the Engine's axes.</summary>
+/// <param name="Minimum">The collision's least coordinates.</param>
+/// <param name="Maximum">The collision's greatest coordinates.</param>
+/// <param name="CellSize">The requested navigation sampling width.</param>
+public sealed record PlaceNavigationRegion(Vector3 Minimum, Vector3 Maximum, double CellSize);
 
 /// <summary>Where a place's collision geometry comes from, when the loaded content carries any.</summary>
 public interface IPlaceGeometrySource
@@ -81,6 +92,7 @@ public sealed class ContentPlaceGeometry : IPlaceGeometrySource
     private readonly string _definitionKind;
     private readonly string _artifactProperty;
     private readonly string? _surfacesProperty;
+    private readonly string? _navigationProperty;
 
     /// <summary>Creates the reader.</summary>
     /// <param name="catalog">The validated content the world was built from.</param>
@@ -91,9 +103,10 @@ public sealed class ContentPlaceGeometry : IPlaceGeometrySource
     /// <c>positions</c> as three-number arrays in the engine's axes, and <c>triangles</c> as three-index arrays. Null
     /// for content whose places name no ground; an entry without the property names none either.
     /// </param>
+    /// <param name="navigationProperty">The property naming a navigation region, or null for content without derived navigation.</param>
     /// <exception cref="ArgumentNullException">No content catalog was supplied.</exception>
     /// <exception cref="ArgumentException">A name is missing, so no entry could ever be found.</exception>
-    public ContentPlaceGeometry(ContentCatalog catalog, string definitionKind, string artifactProperty, string? surfacesProperty = null)
+    public ContentPlaceGeometry(ContentCatalog catalog, string definitionKind, string artifactProperty, string? surfacesProperty = null, string? navigationProperty = null)
     {
         ArgumentNullException.ThrowIfNull(catalog);
         ArgumentException.ThrowIfNullOrWhiteSpace(definitionKind);
@@ -102,6 +115,7 @@ public sealed class ContentPlaceGeometry : IPlaceGeometrySource
         _definitionKind = definitionKind;
         _artifactProperty = artifactProperty;
         _surfacesProperty = surfacesProperty;
+        _navigationProperty = navigationProperty;
     }
 
     /// <inheritdoc />
@@ -128,10 +142,34 @@ public sealed class ContentPlaceGeometry : IPlaceGeometrySource
             return new PlaceGeometry(
                 $"{pack.PackId}/{document.DocumentId}/{entry.Id}.json",
                 Encoding.UTF8.GetBytes(artifact.GetRawText()),
-                Surfaces(place, pack, document, entry));
+                Surfaces(place, pack, document, entry),
+                Navigation(place, pack, document, entry));
         }
 
         return null;
+    }
+
+    /// <summary>Reads the content's request metadata without parsing or changing the Engine artifact.</summary>
+    private PlaceNavigationRegion? Navigation(PlaceId place, LoadedPack pack, ContentDocument document, ContentEntry entry)
+    {
+        if (_navigationProperty is null) return null;
+        string where = $"Place '{place}' in '{pack.PackId}/{document.DocumentId}'";
+        if (!entry.Payload.TryGetProperty(_navigationProperty, out JsonElement region) || region.ValueKind != JsonValueKind.Object)
+            throw new InvalidOperationException($"{where} promises derived navigation but carries no '{_navigationProperty}' region; its navigation cannot be admitted. Rewrite the content that promised it.");
+        Vector3 Vector(string name)
+        {
+            if (!region.TryGetProperty(name, out JsonElement list) || list.ValueKind != JsonValueKind.Array || list.GetArrayLength() != 3)
+                throw new InvalidOperationException($"{where} has no three-coordinate navigation '{name}'.");
+            float[] values = [.. list.EnumerateArray().Select(value => value.GetSingle())];
+            if (values.Any(value => !float.IsFinite(value)))
+                throw new InvalidOperationException($"{where} has a non-finite navigation '{name}'.");
+            return new Vector3(values[0], values[1], values[2]);
+        }
+        Vector3 minimum = Vector("minimum"), maximum = Vector("maximum");
+        double cellSize = region.GetProperty("cellSize").GetDouble();
+        if (minimum.X >= maximum.X || minimum.Y > maximum.Y || minimum.Z >= maximum.Z || !double.IsFinite(cellSize) || cellSize <= 0)
+            throw new InvalidOperationException($"{where} has inverted navigation bounds or an unusable cell size {cellSize}.");
+        return new PlaceNavigationRegion(minimum, maximum, cellSize);
     }
 
     /// <summary>
@@ -221,7 +259,7 @@ public sealed class ContentPlaceGeometry : IPlaceGeometrySource
 /// <param name="Admitted">Whether the engine admitted geometry for it.</param>
 /// <param name="CollisionVertices">How many collision vertices the admitted artifact carried.</param>
 /// <param name="CollisionTriangles">How many collision triangles the admitted artifact carried.</param>
-/// <param name="NavigationCells">How many walkable navigation cells the admitted artifact carried.</param>
+/// <param name="NavigationCells">How many walkable navigation cells Engine published for the place.</param>
 public sealed record PlaceGeometryAdmission(
     PlaceId Place,
     bool Admitted,
@@ -229,6 +267,9 @@ public sealed record PlaceGeometryAdmission(
     ulong CollisionTriangles,
     ulong NavigationCells)
 {
+    /// <summary>Why navigation is unavailable while the collision remains admitted.</summary>
+    public string? NavigationReason { get; init; }
+
     /// <summary>The scene holds nothing for this place: the party stands on nothing in it.</summary>
     /// <param name="place">The place whose geometry was asked for.</param>
     public static PlaceGeometryAdmission Empty(PlaceId place) => new(place, false, 0, 0, 0);
@@ -250,7 +291,7 @@ public sealed record PlaceGeometryAdmission(
 /// doorway or a corridor bend in the game's places, not a claim about a stride.
 /// </param>
 /// <param name="SteeringBudget">
-/// How many navigation cells one steering query may visit before it gives up and the creature walks straight at
-/// its target.
+/// How many navigation cells one steering query may visit before the creature holds by name.
 /// </param>
-public sealed record PlaceNavigationPolicy(ulong GridId, uint ChunkSize, uint MaxStepCells, float SteeringStep, uint SteeringBudget);
+/// <param name="MaximumCells">The separate budget for deriving the whole place's navigation.</param>
+public sealed record PlaceNavigationPolicy(ulong GridId, uint ChunkSize, uint MaxStepCells, float SteeringStep, uint SteeringBudget, uint MaximumCells);

@@ -36,6 +36,9 @@ public sealed record PlaceCollision(
     /// <summary>The named ground surfaces the place's collision carries, each a mesh in the engine's axes.</summary>
     public IReadOnlyList<PlaceSurface> Surfaces { get; init; } = [];
 
+    /// <summary>The region and sampling scale for Engine-derived navigation, absent when collision was refused.</summary>
+    public CollisionNavigationRegion? NavigationRegion { get; init; }
+
     /// <summary>How many of the place's terrain squares are water.</summary>
     public int WaterSquares { get; init; }
 
@@ -50,6 +53,12 @@ public sealed record PlaceCollision(
     public CollisionSourceCounts CountOf(CollisionSource source) =>
         Counts.TryGetValue(source, out CollisionSourceCounts counts) ? counts : CollisionSourceCounts.None;
 }
+
+/// <summary>Collision vertex bounds in Engine axes and the sampling scale requested for their navigation.</summary>
+/// <param name="Minimum">The least coordinate on each axis, from the collision vertices.</param>
+/// <param name="Maximum">The greatest coordinate on each axis, from the same vertices.</param>
+/// <param name="CellSize">The navigation sampling width: fine indoors, a terrain square outdoors.</param>
+public sealed record CollisionNavigationRegion(double[] Minimum, double[] Maximum, double CellSize);
 
 /// <summary>One named kind of ground in a place, and the triangles that are it.</summary>
 /// <param name="Surface">
@@ -192,9 +201,18 @@ public static class PlaceCollisionEmitter
             refusal)
         {
             Surfaces = refusal is null ? surfaces : [],
+            NavigationRegion = refusal is null ? NavigationRegion(mesh, map.Kind) : null,
             WaterSquares = waterSquares,
             FluidFaces = FluidFacesOf(map),
         };
+    }
+
+    /// <summary>States a navigation request over the same geometry, without deriving any walkable cells.</summary>
+    private static CollisionNavigationRegion NavigationRegion(CollisionMesh mesh, MapKind kind)
+    {
+        (double[] minimum, double[] maximum) = CollisionArtifact.Bounds(mesh);
+        return new CollisionNavigationRegion(minimum, maximum,
+            kind == MapKind.Outdoor ? OutdoorMap.TerrainCellSize : 128);
     }
 
     /// <summary>How many of a map's solid faces the level marks fluid.</summary>

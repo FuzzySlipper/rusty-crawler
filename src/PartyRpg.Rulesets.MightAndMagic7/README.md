@@ -205,7 +205,9 @@ Boundary rules:
 Implemented today: `MightAndMagic7Ruleset` (the compiled ruleset and its identity) and
 `MightAndMagic7Session`, which composes the kit's session shell with this game's identity: this game's
 world and movement policy (`MightAndMagic7World`, `MightAndMagic7Movement` — the party's body and walk
-speed, cited from the donor, and the engine's own controller tuning scaled to that body; the reach within which a
+speed, cited from the donor, and the engine's own controller tuning scaled to that body; collision-derived
+navigation uses that same body, step and slope, with 131,072 derivation columns and a separate 1,024-cell pursuit
+query budget (ours). A named navigation hold leaves collision and ordinary party movement available; the reach within which a
 creature its record stands under the ground is stood on it, a region's whole ground range, as the donor lifts an
 outdoor actor below the floor onto it (`Outdoor.cpp:1648-1649`, `OutdoorTerrain.h:146`); the donor's fall harm,
 which a feather fall the party carries spares (`Outdoor.cpp:1426`); and the jump spell's leap, the party's own jump

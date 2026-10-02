@@ -35,12 +35,18 @@ public sealed class ScriptedSpatialService : ISpatialService
     /// <summary>Every navigation step evaluated, in order.</summary>
     public List<NavigationStepRequest> NavigationSteps { get; } = [];
 
+    /// <summary>Every collision-derived navigation publication, in order.</summary>
+    public List<CollisionNavigationReplaceRequest> NavigationReplacements { get; } = [];
+
+    /// <summary>What deriving navigation answers; by default the scripted cell count.</summary>
+    public Func<CollisionNavigationReplaceRequest, CollisionNavigationReplaceReceipt>? DeriveNavigation { get; set; }
+
     /// <summary>How many navigation cells an admission reports.</summary>
     public ulong NavigationCells { get; set; }
 
     /// <summary>What a navigation step answers; by default, that the scene has no projection.</summary>
     public Func<NavigationStepRequest, NavigationStepResult> Navigation { get; set; } =
-        _ => new NavigationStepResult(default, NavigationPathOutcome.ProjectionUnavailable, default, default, 0, 0, 0, 0, 0);
+        _ => default(NavigationStepResult) with { Outcome = NavigationPathOutcome.ProjectionUnavailable };
 
     /// <summary>Where a character step ends; by default where it started, since this double collides with nothing.</summary>
     public Func<CharacterStepRequest, Vector3> StepEnds { get; set; } = request => request.Position;
@@ -135,7 +141,25 @@ public sealed class ScriptedSpatialService : ISpatialService
     public NavigationReplaceReceipt ReplaceVoxelNavigation(NavigationVoxelReplaceRequest request) => throw Unsupported();
 
     /// <inheritdoc />
-    public CollisionNavigationReplaceReceipt ReplaceCollisionNavigation(CollisionNavigationReplaceRequest request) => throw Unsupported();
+    public CollisionNavigationReplaceReceipt ReplaceCollisionNavigation(CollisionNavigationReplaceRequest request)
+    {
+        NavigationReplacements.Add(request);
+        return DeriveNavigation?.Invoke(request) ?? default(CollisionNavigationReplaceReceipt) with { WalkableCellCount = NavigationCells };
+    }
+
+    /// <inheritdoc />
+    public CollisionNavigationConfig DefaultCollisionNavigationConfig() => default(CollisionNavigationConfig) with
+    {
+        GridId = 1, CellSize = 1, ChunkSize = 16, MaximumCells = 65536,
+        Character = DefaultCharacterControllerConfig(), SupportsPerColumn = 8, VerticalSearchCells = 1,
+        SnapAbove = 0.101, SnapBelow = 0.101,
+    };
+
+    /// <inheritdoc />
+    public CollisionNavigationColumnResult ExplainCollisionNavigationColumn(CollisionNavigationColumnRequest request) => throw Unsupported();
+
+    /// <inheritdoc />
+    public CollisionNavigationEdgeReadout ExplainCollisionNavigationEdge(CollisionNavigationEdgeRequest request) => throw Unsupported();
 
     /// <inheritdoc />
     public NavigationTraversalReplaceReceipt ReplaceNavigationTraversal(NavigationTraversalReplaceRequest request) => throw Unsupported();

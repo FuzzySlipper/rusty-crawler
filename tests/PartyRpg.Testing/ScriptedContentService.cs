@@ -43,6 +43,12 @@ public sealed class ScriptedContentService : IContentService
     public ContentBundle OpenBundle(ContentBundleOpenRequest request) => throw Unsupported();
 
     /// <inheritdoc />
+    public ContentBundle OpenContainer(ContentContainerOpenRequest request) => throw Unsupported();
+
+    /// <inheritdoc />
+    public ContentSha256 ReadBundleIdentity(ContentBundle request) => throw Unsupported();
+
+    /// <inheritdoc />
     public ReadOnlyMemory<ContentReferenceInfo> ReadBundleFiles(ContentBundle request) => throw Unsupported();
 
     /// <inheritdoc />

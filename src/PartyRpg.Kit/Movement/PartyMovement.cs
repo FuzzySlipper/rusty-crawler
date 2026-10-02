@@ -77,6 +77,9 @@ public sealed class PartyMovement : IDisposable
     /// <summary>The party's motion: the engine continuation, the surface, and what a step means.</summary>
     public PartyMotion Motion { get; }
 
+    /// <summary>The same body profile navigation derives its supports and edges for.</summary>
+    public CharacterControllerConfig Controller => _tuning.Controller;
+
     /// <summary>
     /// Moves the party by one step of the world's admitted time.
     /// </summary>

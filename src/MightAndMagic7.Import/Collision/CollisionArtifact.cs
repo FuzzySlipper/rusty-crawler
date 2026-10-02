@@ -322,7 +322,7 @@ public static class CollisionArtifact
         (mesh.Triangles[index * 3], mesh.Triangles[(index * 3) + 1], mesh.Triangles[(index * 3) + 2]);
 
     /// <summary>The least and greatest value on each axis, which is the bounds the engine is given.</summary>
-    private static (double[] Min, double[] Max) Bounds(CollisionMesh mesh)
+    internal static (double[] Min, double[] Max) Bounds(CollisionMesh mesh)
     {
         double[] min = [double.PositiveInfinity, double.PositiveInfinity, double.PositiveInfinity];
         double[] max = [double.NegativeInfinity, double.NegativeInfinity, double.NegativeInfinity];

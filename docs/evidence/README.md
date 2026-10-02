@@ -11,6 +11,7 @@ What is published here is text only: no game data, no screenshots, no saves, and
 
 | Record | What it shows |
 | --- | --- |
+| [`navigation-admission.md`](navigation-admission.md) | All 76 imported geometries admitted navigation in the real Engine, counts and cost, with canonical body routing around an authored wall; imported live pursuit remains separate. |
 | [`service-panel.md`](service-panel.md) | Seven service operations through the existing panel at imported Harmondale counters, with patient and bank quantities, actual charges and a fare arrival. |
 | [`residue-verification.md`](residue-verification.md) | The code gate, corrected donor citation, three review lanes and focused checks for travel, containers, interaction saves, promotion and rest. |
 | [`container-rest-and-interaction-save.md`](container-rest-and-interaction-save.md) | Four uses of an imported trapped chest, rest beside dead members, and an opened door retained after restart. |

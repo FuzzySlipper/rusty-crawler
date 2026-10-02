@@ -29,6 +29,12 @@ Every repository scan walks through `Repository.Files`, which never enters `.cla
 
 ## Tuning a case pins
 
+The ruleset navigation cases also use the pinned pair's safe `EngineTestHost`: one authored wall route
+with the canonical controller, and admission of every imported geometry when operator packs are supplied.
+Test-project support locates that pair's native library; these cases create no GPU product or second runtime
+authority. `CRAWLER_NAVIGATION_REPORT` optionally names a local per-place admission report for a focused run.
+The browser pursuit reading remains separate from these mechanism checks.
+
 Tuning is approximate by design. A ruleset case that needs a value with a tuning handle reads the handle's default;
 a case that states a tuned value as a literal — a price, a band edge, a level ceiling, a blow's numbers — carries
 `[Trait("pins", "tuning")]`, so `dotnet test tests/PartyRpg.Rulesets.MightAndMagic7.Tests --filter pins=tuning`

@@ -115,6 +115,19 @@ internal static partial class PackWriter
                 if (place.FluidFaces > 0) writer.WriteNumber("fluidFaces", place.FluidFaces);
                 writer.WritePropertyName("artifact");
                 writer.WriteRawValue(artifact);
+                if (place.NavigationRegion is { } navigation)
+                {
+                    writer.WriteStartObject("navigationRegion");
+                    writer.WriteString("source", "collision-vertex-bounds");
+                    writer.WriteStartArray("minimum");
+                    foreach (double coordinate in navigation.Minimum) writer.WriteNumberValue(coordinate);
+                    writer.WriteEndArray();
+                    writer.WriteStartArray("maximum");
+                    foreach (double coordinate in navigation.Maximum) writer.WriteNumberValue(coordinate);
+                    writer.WriteEndArray();
+                    writer.WriteNumber("cellSize", navigation.CellSize);
+                    writer.WriteEndObject();
+                }
                 WriteSurfaces(writer, place.Surfaces);
             }));
         }

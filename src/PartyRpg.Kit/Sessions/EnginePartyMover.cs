@@ -174,12 +174,50 @@ public sealed class EnginePartyMover : IPartyMover
                 _navigation.MaxStepCells));
 
         _filled = true;
+        ulong cells = receipt.NavigationCellCount;
+        string? reason = null;
+        if (geometry.Navigation is { } region)
+        {
+            CollisionNavigationConfig defaults = _spatial.DefaultCollisionNavigationConfig();
+            CharacterControllerConfig body = _movement.Controller;
+            double scale = body.Shape.StandingHeight / defaults.Character.Shape.StandingHeight;
+            CollisionNavigationConfig config = defaults with
+            {
+                GridId = _navigation.GridId == 0 ? defaults.GridId : _navigation.GridId,
+                CellSize = region.CellSize,
+                ChunkSize = _navigation.ChunkSize,
+                MaximumCells = _navigation.MaximumCells,
+                Character = body,
+                MaximumDrop = body.Surface.MaximumStepHeight,
+                VerticalSearchCells = Math.Max(1u, (uint)Math.Ceiling(body.Surface.MaximumStepHeight / region.CellSize)),
+                SnapAbove = defaults.SnapAbove * scale,
+                SnapBelow = defaults.SnapBelow * scale,
+            };
+            // Collision bounds may be flat; the derivation region must include supports and headroom.
+            Vector3 minimum = region.Minimum with { Y = region.Minimum.Y - (float)region.CellSize };
+            Vector3 maximum = region.Maximum with { Y = region.Maximum.Y + body.Shape.StandingHeight };
+            try
+            {
+                CollisionNavigationReplaceReceipt navigation = _spatial.ReplaceCollisionNavigation(
+                    new CollisionNavigationReplaceRequest(_movement.Session, minimum, maximum, config));
+                cells = navigation.WalkableCellCount;
+                if (cells == 0) reason = "Engine derived no walkable supports for this place's body and collision.";
+            }
+            catch (EngineCallException error) when (error.Diagnostics.Span.ToArray().Any(diagnostic => diagnostic.Code == "CSHARP_COLLISION_NAVIGATION_BUDGET"))
+            {
+                // A derivation budget is recoverable: retain collision and name why pursuit must hold.
+                cells = 0;
+                reason = $"Navigation exceeds the {_navigation.MaximumCells}-column derivation budget; collision remains admitted.";
+            }
+        }
+        else if (cells == 0) reason = "The place supplies no navigation region or walkable artifact cells.";
+
         Current = new PlaceGeometryAdmission(
             place,
             Admitted: true,
             receipt.CollisionVertexCount,
             receipt.CollisionTriangleCount,
-            receipt.NavigationCellCount);
+            cells) { NavigationReason = reason };
         return Current;
     }
 

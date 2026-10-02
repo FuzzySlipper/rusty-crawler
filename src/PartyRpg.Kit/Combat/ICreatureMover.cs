@@ -81,6 +81,8 @@ public readonly record struct CreatureMoveOutcome(bool Moved, PlacePose Pose, do
 /// <summary>The codes a creature's step is refused with.</summary>
 public static class CreatureMoveCodes
 {
+    /// <summary>The place has no navigation or Engine found no usable pursuit route.</summary>
+    public const string Navigation = "creature.navigation";
     /// <summary>
     /// The refusal code <c>creature-embedded</c>: the creature's body stands inside collision the engine cannot
     /// resolve it out of, and no ground over its feet stands it clear.

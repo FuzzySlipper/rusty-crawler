@@ -140,15 +140,35 @@ public sealed class EngineCreatureMotion : ICreatureMover
             : Walker.At(request.From, _space);
 
         Vector3 position = _space.Position(request.From);
-        Vector3 target = _space.Position(request.TargetPose);
+        Vector3 target = _space.GroundPosition(request.TargetPose);
         CharacterControllerConfig controller = Paced(request.Speed);
 
-        // Where to walk is the engine's own answer when it has one: a creature steers at the next walkable
-        // point along the way to its target, so a corridor bend or a wall is walked around rather than
-        // pushed against. A place with no navigation projection, or a target nothing can reach, leaves the
-        // creature walking straight at its target, which is the honest answer when nothing can say better
-        // (#8665).
-        Vector3 steer = Steer(position, target);
+        // Navigation takes feet; the character solver takes the body centre. A refused pursuit holds by
+        // name and is tried again on the next admitted update, so moving a target can make it reachable.
+        bool placing = false;
+        Refusal? navigationHold = null;
+        Vector3 steer = target;
+        if (request.Purpose == CreatureMovePurpose.Toward)
+        {
+            if (_scene.Current is not { NavigationCells: > 0 })
+            {
+                navigationHold = new Refusal(CreatureMoveCodes.Navigation,
+                    $"Pursuit holds: {_scene.Current?.NavigationReason ?? "the place has no navigation"}");
+                if (_walkers.ContainsKey(request.Creature)) return CreatureMoveOutcome.Held(request.From, navigationHold);
+                placing = true;
+            }
+            else
+            {
+                NavigationStepResult nav = _spatial.EvaluateNavigationStep(new NavigationStepRequest(
+                    _scene.Session, _space.GroundPosition(request.From), target,
+                    _scene.Navigation.SteeringStep, _scene.Navigation.SteeringBudget));
+                if (nav.Outcome == NavigationPathOutcome.Reached) steer = nav.NextWaypoint;
+                else if (nav.Outcome == NavigationPathOutcome.StartNotWalkable && !_walkers.ContainsKey(request.Creature))
+                    placing = true; // One stationary body step preserves the existing buried-record settling path.
+                else return CreatureMoveOutcome.Held(request.From, new Refusal(CreatureMoveCodes.Navigation,
+                    $"Pursuit holds because Engine navigation reports {nav.Outcome}; it will be tried again when the party moves."));
+            }
+        }
         double x = steer.X - position.X;
         double z = steer.Z - position.Z;
         double distance = Math.Sqrt((x * x) + (z * z));
@@ -158,7 +178,7 @@ public sealed class EngineCreatureMotion : ICreatureMover
         // keeps the heading it had, because a direction between two identical points is no direction at all.
         float heading = distance > double.Epsilon ? (float)Math.Atan2(x, -z) : walker.Heading;
         CharacterControllerCommand command = new(
-            PlanarIntent: new Vector2(0, request.Purpose == CreatureMovePurpose.Toward ? 1 : -1),
+            PlanarIntent: placing ? Vector2.Zero : new Vector2(0, request.Purpose == CreatureMovePurpose.Toward ? 1 : -1),
             HeadingYawRadians: heading,
             JumpPressed: false,
             JumpHeld: false,
@@ -193,7 +213,7 @@ public sealed class EngineCreatureMotion : ICreatureMover
         PlacePose pose = _space.Position(receipt.Transform.Translation, from);
         double moved = (receipt.Transform.Translation - position).Length();
         _walkers[request.Creature] = new Walker(receipt.Motion, heading);
-        return new CreatureMoveOutcome(moved > 0, pose, moved, receipt.Motion.Grounded);
+        return new CreatureMoveOutcome(moved > 0, pose, moved, receipt.Motion.Grounded, navigationHold);
     }
 
     /// <summary>
@@ -313,31 +333,6 @@ public sealed class EngineCreatureMotion : ICreatureMover
         _disposed = true;
         _walkers.Clear();
         _held.Clear();
-    }
-
-    /// <summary>
-    /// The point a creature should walk toward: the engine's next walkable waypoint, or the target itself
-    /// when the engine has no navigation to steer by or no way to get there.
-    /// </summary>
-    /// <remarks>
-    /// The query is the read-only one. The engine also offers a proposal that retains the path it found, and
-    /// that retained path belongs to the scene rather than to a creature: one creature asking would throw
-    /// away the answer another was about to use.
-    /// </remarks>
-    /// <param name="position">Where the creature stands, in the engine's world.</param>
-    /// <param name="target">What it is walking at.</param>
-    private Vector3 Steer(Vector3 position, Vector3 target)
-    {
-        // A place whose admission carried no navigation cells has nothing to steer by, so the engine is not
-        // asked once per creature per update for an answer that can only be that there is none.
-        if (_scene.Current is not { NavigationCells: > 0 }) return target;
-
-        NavigationStepResult nav = _spatial.EvaluateNavigationStep(
-            new NavigationStepRequest(_scene.Session, position, target, _scene.Navigation.SteeringStep, _scene.Navigation.SteeringBudget));
-
-        // Only a path the engine found names a waypoint; any other outcome — no path, a budget spent, an end
-        // that is not walkable — leaves the creature walking straight at what it wants.
-        return nav.Outcome == NavigationPathOutcome.Reached ? nav.NextWaypoint : target;
     }
 
     /// <summary>

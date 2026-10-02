@@ -29,9 +29,113 @@ public sealed class EngineMovementTests
     private const double SettleReach = 1000;
 
     [Fact]
+    public void Collision_derived_navigation_uses_the_party_scene_and_actual_body_and_reports_derived_cells()
+    {
+        ScriptedSpatialService spatial = new() { NavigationCells = 23 };
+        CharacterControllerConfig body = spatial.DefaultCharacterControllerConfig() with
+        {
+            Shape = spatial.DefaultCharacterControllerConfig().Shape with { StandingHeight = 192 },
+            Surface = default(CharacterSurfaceConfig) with { MaximumStepHeight = 42 },
+        };
+        (EnginePartyMover mover, _) = Movers(spatial, body, derive: true);
+        PlaceGeometryAdmission admitted = mover.Enter(Place);
+        CollisionNavigationReplaceRequest request = Assert.Single(spatial.NavigationReplacements);
+        Assert.Same(Assert.Single(spatial.Admissions).Session, request.Session);
+        Assert.Equal(body, request.Config.Character);
+        Assert.Equal(0.101 * 192 / spatial.DefaultCharacterControllerConfig().Shape.StandingHeight, request.Config.SnapAbove, 3);
+        Assert.True(request.Config.SnapAbove < body.Surface.MaximumStepHeight);
+        Assert.Equal(65536u, request.Config.MaximumCells);
+        Assert.NotEqual(mover.Navigation.SteeringBudget, request.Config.MaximumCells);
+        Assert.True(request.WorldMin.Y < request.WorldMax.Y);
+        Assert.Equal(23ul, admitted.NavigationCells);
+        mover.Step(default, 1.0 / 60);
+        Assert.Same(request.Session, Assert.Single(spatial.Steps).Session);
+        mover.Dispose();
+    }
+
+    [Fact]
+    public void A_derivation_budget_refusal_preserves_collision_and_party_movement_but_names_the_pursuit_hold()
+    {
+        ScriptedSpatialService spatial = new()
+        {
+            DeriveNavigation = _ => throw new EngineCallException("Spatial", "ReplaceCollisionNavigation", 0,
+                new[] { new EngineDiagnostic("CSHARP_COLLISION_NAVIGATION_BUDGET", "region exceeds budget", "Spatial") }),
+        };
+        (EnginePartyMover mover, EngineCreatureMotion creatures) = Movers(spatial, spatial.DefaultCharacterControllerConfig(), derive: true);
+        PlaceGeometryAdmission admitted = mover.Enter(Place);
+        Assert.True(admitted.Admitted);
+        Assert.Equal(0ul, admitted.NavigationCells);
+        Assert.Contains("65536", admitted.NavigationReason);
+        mover.Step(default, 1.0 / 60);
+        Assert.Single(spatial.Steps);
+        CreatureMoveOutcome held = creatures.Move(Toward(PlacePose.Origin, new PlacePose(100, 0, 0, 0, 0)));
+        Assert.True(held.IsHeld);
+        Assert.Equal(CreatureMoveCodes.Navigation, held.Refusal!.Code);
+        Assert.Equal(2, spatial.Steps.Count);
+        Assert.Equal(Vector2.Zero, spatial.Steps[^1].Command.PlanarIntent);
+        creatures.Move(Toward(held.Pose, new PlacePose(100, 0, 0, 0, 0)));
+        Assert.Equal(2, spatial.Steps.Count);
+        mover.Dispose();
+    }
+
+    [Fact]
+    public void Navigation_queries_feet_and_the_character_solver_keeps_the_body_centre()
+    {
+        ScriptedSpatialService spatial = Navigable();
+        (EnginePartyMover mover, EngineCreatureMotion creatures) = Movers(spatial, spatial.DefaultCharacterControllerConfig(), centreHeight: 96);
+        mover.Enter(Place);
+        creatures.Move(Toward(new PlacePose(100, 0, 2, 0, 0), new PlacePose(100, 100, 2, 0, 0)));
+        Assert.Equal(2f, Assert.Single(spatial.NavigationSteps).From.Y);
+        Assert.Equal(2f, spatial.NavigationSteps[0].Target.Y);
+        Assert.Equal(98f, Assert.Single(spatial.Steps).Position.Y);
+        mover.Dispose();
+    }
+
+    [Fact]
+    public void A_buried_creature_in_a_place_without_navigation_is_stood_clear_before_pursuit_holds()
+    {
+        ScriptedSpatialService spatial = new()
+        {
+            Answer = (request, receipt) => request.Position.Y < 96 ? throw Embedded() : receipt,
+            Rays = request => default(SpatialHit) with { Present = true, Point = request.Origin with { Y = 96 } },
+        };
+        (EnginePartyMover mover, EngineCreatureMotion creatures) = Movers(spatial);
+        mover.Enter(Place);
+        CreatureMoveOutcome placed = creatures.Move(Toward(PlacePose.Origin, new PlacePose(100, 0, 96, 0, 0)));
+        Assert.Equal(96d, placed.Pose.Z);
+        Assert.Equal(CreatureMoveCodes.Navigation, placed.Refusal!.Code);
+        Assert.All(spatial.Steps, step => Assert.Equal(Vector2.Zero, step.Command.PlanarIntent));
+        Assert.Equal(2, spatial.Steps.Count);
+        creatures.Move(Toward(placed.Pose, new PlacePose(100, 0, 96, 0, 0)));
+        Assert.Equal(2, spatial.Steps.Count);
+        mover.Dispose();
+    }
+
+    [Fact]
+    public void A_buried_initial_navigation_start_gets_a_stationary_settling_step_then_a_fresh_feet_query()
+    {
+        ScriptedSpatialService spatial = new()
+        {
+            NavigationCells = 12,
+            Navigation = request => Answer(request.From.Y < 96 ? NavigationPathOutcome.StartNotWalkable : NavigationPathOutcome.Reached, request.Target),
+            Answer = (request, receipt) => request.Position.Y < 96 ? throw Embedded() : receipt,
+            Rays = request => default(SpatialHit) with { Present = true, Point = request.Origin with { Y = 96 } },
+        };
+        (EnginePartyMover mover, EngineCreatureMotion creatures) = Movers(spatial);
+        mover.Enter(Place);
+        CreatureMoveOutcome placed = creatures.Move(Toward(PlacePose.Origin, new PlacePose(100, 0, 96, 0, 0)));
+        Assert.Equal(96d, placed.Pose.Z);
+        Assert.All(spatial.Steps, step => Assert.Equal(Vector2.Zero, step.Command.PlanarIntent));
+        creatures.Move(Toward(placed.Pose, new PlacePose(100, 0, 96, 0, 0)));
+        Assert.Equal(96f, spatial.NavigationSteps[^1].From.Y);
+        Assert.Equal(new Vector2(0, 1), spatial.Steps[^1].Command.PlanarIntent);
+        mover.Dispose();
+    }
+
+    [Fact]
     public void A_place_s_geometry_the_party_s_steps_and_a_creature_s_steps_all_go_to_the_one_scene()
     {
-        ScriptedSpatialService spatial = new();
+        ScriptedSpatialService spatial = Navigable();
         (EnginePartyMover mover, EngineCreatureMotion creatures) = Movers(spatial);
 
         mover.Enter(Place);
@@ -70,10 +174,11 @@ public sealed class EngineMovementTests
         (EnginePartyMover mover, EngineCreatureMotion creatures) = Movers(spatial);
         mover.Enter(Place);
 
-        creatures.Move(Toward(new PlacePose(100, 0, 0, 0, 0), new PlacePose(100, 100, 0, 0, 0)));
+        CreatureMoveOutcome outcome = creatures.Move(Toward(new PlacePose(100, 0, 0, 0, 0), new PlacePose(100, 100, 0, 0, 0)));
 
         Assert.Empty(spatial.NavigationSteps);
-        Assert.Equal(0, Heading(spatial), precision: 5);
+        Assert.Equal(Vector2.Zero, Assert.Single(spatial.Steps).Command.PlanarIntent);
+        Assert.Equal(CreatureMoveCodes.Navigation, outcome.Refusal!.Code);
         mover.Dispose();
     }
 
@@ -99,7 +204,7 @@ public sealed class EngineMovementTests
     }
 
     [Fact]
-    public void A_navigation_answer_that_found_no_path_leaves_the_creature_walking_at_its_target()
+    public void A_navigation_answer_that_found_no_path_holds_then_retries_when_the_target_changes()
     {
         ScriptedSpatialService spatial = new()
         {
@@ -109,10 +214,16 @@ public sealed class EngineMovementTests
         (EnginePartyMover mover, EngineCreatureMotion creatures) = Movers(spatial);
         mover.Enter(Place);
 
-        creatures.Move(Toward(new PlacePose(100, 0, 0, 0, 0), new PlacePose(100, 100, 0, 0, 0)));
+        CreatureMoveOutcome outcome = creatures.Move(Toward(new PlacePose(100, 0, 0, 0, 0), new PlacePose(100, 100, 0, 0, 0)));
 
         Assert.Single(spatial.NavigationSteps);
-        Assert.Equal(0, Heading(spatial), precision: 5);
+        Assert.Empty(spatial.Steps);
+        Assert.Equal(CreatureMoveCodes.Navigation, outcome.Refusal!.Code);
+        Assert.Contains("NoPath", outcome.Refusal.Message);
+        spatial.Navigation = request => Answer(NavigationPathOutcome.Reached, request.Target);
+        creatures.Move(Toward(new PlacePose(100, 0, 0, 0, 0), new PlacePose(100, 150, 0, 0, 0)));
+        Assert.Equal(2, spatial.NavigationSteps.Count);
+        Assert.Single(spatial.Steps);
         mover.Dispose();
     }
 
@@ -125,6 +236,8 @@ public sealed class EngineMovementTests
         List<SpatialRaycastRequest> rays = [];
         ScriptedSpatialService spatial = new()
         {
+            NavigationCells = 12,
+            Navigation = request => Answer(NavigationPathOutcome.Reached, request.Target),
             Answer = (request, receipt) => request.Position.Y < Ground ? throw Embedded() : receipt,
             Rays = request =>
             {
@@ -166,6 +279,8 @@ public sealed class EngineMovementTests
         int rays = 0;
         ScriptedSpatialService spatial = new()
         {
+            NavigationCells = 12,
+            Navigation = request => Answer(NavigationPathOutcome.Reached, request.Target),
             Answer = (_, _) => throw Embedded(),
             Rays = _ =>
             {
@@ -206,6 +321,8 @@ public sealed class EngineMovementTests
         // The ground over the feet is found but the body still does not fit there: held, with the engine's sentence.
         ScriptedSpatialService spatial = new()
         {
+            NavigationCells = 12,
+            Navigation = request => Answer(NavigationPathOutcome.Reached, request.Target),
             Answer = (_, _) => throw Embedded(),
             Rays = request => default(SpatialHit) with { Present = true, Point = request.Origin with { Y = 50 } },
         };
@@ -221,6 +338,8 @@ public sealed class EngineMovementTests
         // A refusal that is not about where the body stands is not a creature's to absorb: it still surfaces.
         ScriptedSpatialService broken = new()
         {
+            NavigationCells = 12,
+            Navigation = request => Answer(NavigationPathOutcome.Reached, request.Target),
             Answer = (_, _) => throw new EngineCallException(
                 "Spatial",
                 "ProposeCharacterStep",
@@ -238,7 +357,7 @@ public sealed class EngineMovementTests
     {
         // The engine walks a body at the ground speeds of the profile its step is solved with; this double does the
         // same on open ground, so how far each creature goes is the pace its own request handed the engine.
-        ScriptedSpatialService spatial = new() { StepEnds = ScriptedSpatialService.AtProfilePace };
+        ScriptedSpatialService spatial = new() { NavigationCells = 12, Navigation = request => Answer(NavigationPathOutcome.Reached, request.Target), StepEnds = ScriptedSpatialService.AtProfilePace };
         CharacterControllerConfig profile = spatial.DefaultCharacterControllerConfig() with
         {
             Ground = default(CharacterGroundConfig) with { ForwardSpeed = 300, BackwardSpeed = 270, StrafeSpeed = 300, Acceleration = 3000 },
@@ -289,27 +408,35 @@ public sealed class EngineMovementTests
     private static (EnginePartyMover Mover, EngineCreatureMotion Creatures) Movers(ScriptedSpatialService spatial) =>
         Movers(spatial, spatial.DefaultCharacterControllerConfig());
 
-    private static (EnginePartyMover Mover, EngineCreatureMotion Creatures) Movers(ScriptedSpatialService spatial, CharacterControllerConfig profile)
+    private static (EnginePartyMover Mover, EngineCreatureMotion Creatures) Movers(ScriptedSpatialService spatial, CharacterControllerConfig profile, bool derive = false, double centreHeight = 0)
     {
+        PlaceSpace space = PlaceSpace.HeightIsThird(Facing, 0, centreHeight);
         PartyPoseOwner party = new(new PartyPose(Place, PlacePose.Origin), Facing);
-        PartyMovement movement = new(spatial, party, Space, new SpatialSessionConfig(0.5, 16, VoxelSurfaceMode.GreedyCubes));
-        EnginePartyMover mover = new(spatial, movement, new ScriptedContentService(), new PlaceNavigationPolicy(0, 16, 4, 512, 1024), new OnePlace());
-        return (mover, new EngineCreatureMotion(spatial, mover, Space, profile, SettleReach));
+        PartyMovement movement = new(spatial, party, space, new SpatialSessionConfig(0.5, 16, VoxelSurfaceMode.GreedyCubes), new MovementTuning(profile, FallPolicy.Free));
+        EnginePartyMover mover = new(spatial, movement, new ScriptedContentService(), new PlaceNavigationPolicy(0, 16, 0, 512, 1024, 65536), new OnePlace(derive));
+        return (mover, new EngineCreatureMotion(spatial, mover, space, profile, SettleReach));
     }
 
     private static CreatureMoveRequest Toward(PlacePose from, PlacePose target) =>
         new(Creature, from, Party, target, CreatureMovePurpose.Toward, Speed: 1, ElapsedSeconds: 1.0 / 60);
 
+    private static ScriptedSpatialService Navigable() => new()
+    {
+        NavigationCells = 12,
+        Navigation = request => Answer(NavigationPathOutcome.Reached, request.Target),
+    };
+
     private static NavigationStepResult Answer(NavigationPathOutcome outcome, Vector3 waypoint) =>
-        new(default, outcome, waypoint, default, 0, 0, 0, 0, 0);
+        default(NavigationStepResult) with { Outcome = outcome, NextWaypoint = waypoint };
 
     /// <summary>The heading the last step a creature proposed walks along.</summary>
     private static double Heading(ScriptedSpatialService spatial) => spatial.Steps[^1].Command.HeadingYawRadians;
 
     /// <summary>A geometry source with an artifact for the one place these cases enter.</summary>
-    private sealed class OnePlace : IPlaceGeometrySource
+    private sealed class OnePlace(bool derive) : IPlaceGeometrySource
     {
         public PlaceGeometry? For(PlaceId place) =>
-            place == Place ? new PlaceGeometry("places/1/collision.json", new byte[] { 1 }) : null;
+            place == Place ? new PlaceGeometry("places/1/collision.json", new byte[] { 1 }, navigation:
+                derive ? new PlaceNavigationRegion(Vector3.Zero, new Vector3(512, 0, 512), 128) : null) : null;
     }
 }

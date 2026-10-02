@@ -331,7 +331,12 @@ step through the `ICreatureMover` seam, reports what every creature is doing, an
 opposition is all down as cleared through the world's own per-place state; `EngineCreatureMotion` is the
 engine-backed mover — built over the party's own `EnginePartyMover`, so every creature's character step goes
 to the one scene the place's collision was admitted to, steered at the engine's waypoint only when the place's
-admission carried navigation cells and the engine reports the path reached, and no C# collision anywhere; each
+admission published navigation cells and the engine reports the path reached, and no C# collision anywhere;
+the place's collision bounds and sampling width travel beside the unchanged artifact, and `EnginePartyMover`
+asks Engine to derive navigation over that same scene for the actual controller body. A derivation budget
+refusal retains collision and names why pursuit holds. Queries use feet, not body centres; an unavailable or
+unreachable pursuit holds by name and is retried, while an initial stationary body step preserves settling
+even without navigation. Backing away retains its existing character-step path. Each
 step hands the engine the party's controller profile with its ground speeds and acceleration scaled to the pace
 the request states (the policy's `SpeedOf`, bounded to a twentieth to four times the profile's), so how far a
 creature goes is the engine's answer to its own pace; a

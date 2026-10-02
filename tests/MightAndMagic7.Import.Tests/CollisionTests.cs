@@ -218,6 +218,9 @@ public sealed class CollisionTests
         PlaceCollision two = PlaceCollisionEmitter.Emit(3, "Out01.odm", second);
 
         Assert.True(one.Emitted, one.Refusal?.Detail);
+        Assert.Equal(one.NavigationRegion!.Minimum, two.NavigationRegion!.Minimum);
+        Assert.Equal(one.NavigationRegion.Maximum, two.NavigationRegion.Maximum);
+        Assert.Equal(512d, one.NavigationRegion.CellSize);
         Assert.Equal(one.Artifact, two.Artifact);
         Assert.Equal(one.Vertices, two.Vertices);
         Assert.Equal(one.Triangles, two.Triangles);
@@ -245,6 +248,7 @@ public sealed class CollisionTests
         // no surface at all and the place is refused rather than emitted with a hole in it.
         IndoorMap interior = MapDecoder.DecodeIndoor(LodFixture.Stored("d01.blv", MapDecoderTests.IndoorPayload()));
         PlaceCollision refused = PlaceCollisionEmitter.Emit(14, "D01.blv", interior);
+        Assert.Null(refused.NavigationRegion);
         Assert.False(refused.Emitted);
         Assert.Equal("no-solid-geometry", refused.Refusal?.Code);
         Assert.Equal(1, refused.CountOf(CollisionSource.InteriorFace).Faces);

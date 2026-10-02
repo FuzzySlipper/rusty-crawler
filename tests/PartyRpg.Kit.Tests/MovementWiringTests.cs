@@ -470,6 +470,19 @@ public sealed class ContentPlaceGeometryTests
         """{"schemaVersion":1,"staticMeshArtifactId":"place-1","bounds":{"min":[0,0,0],"max":[10,10,10]},"collision":{"positions":[[0,0,0],[1,0,0],[0,0,1]],"triangles":[[0,1,2]]},"navigation":{"id":"nav","config":{"schemaVersion":1,"cellSize":64,"levelQuantum":64,"maximumSlopeDegrees":45,"requiredHeadroom":192,"supportProbeDrop":64},"cells":[{"column":0,"row":0,"level":0,"supportHeight":0,"walkable":true}]}}""";
 
     [Fact]
+    public void Navigation_request_metadata_travels_beside_the_unchanged_artifact_and_names_a_missing_region()
+    {
+        PlaceGeometry geometry = SurfaceSource($$"""{ "id":"1", "artifact":{{Artifact}}, "navigationRegion":{"minimum":[0,0,0],"maximum":[512,0,512],"cellSize":128} }""", navigation: true).For(new PlaceId("1"))!;
+        Assert.Equal(128d, geometry.Navigation!.CellSize);
+        Assert.Equal(new Vector3(512, 0, 512), geometry.Navigation.Maximum);
+        Assert.Equal(Artifact, Encoding.UTF8.GetString(geometry.Artifact.Span));
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
+            SurfaceSource($$"""{ "id":"1", "artifact":{{Artifact}} }""", navigation: true).For(new PlaceId("1")));
+        Assert.Contains("Place '1'", error.Message);
+        Assert.Contains("navigationRegion", error.Message);
+    }
+
+    [Fact]
     public void A_place_whose_content_carries_an_artifact_hands_on_the_document_byte_for_byte()
     {
         PlaceGeometry? geometry = Source(withArtifact: true).For(new PlaceId("1"));
@@ -534,7 +547,7 @@ public sealed class ContentPlaceGeometryTests
             SurfaceSource($$"""{ "id": "1", "artifact": {{Artifact}}, "surfaces": [ { "surface": "water", "positions": [ [0, 0, 0] ], "triangles": [ [0, 1, 2] ] } ] }""").For(new PlaceId("1")));
     }
 
-    private static ContentPlaceGeometry SurfaceSource(string geometry)
+    private static ContentPlaceGeometry SurfaceSource(string geometry, bool navigation = false)
     {
         ContentCatalog catalog = ContentCatalogLoader.Load(
             new InMemoryContentSource()
@@ -552,7 +565,7 @@ public sealed class ContentPlaceGeometryTests
                     $$"""{ "documentId": "geometry", "definitionKind": "place-geometry", "entries": [ {{geometry}} ] }"""),
             new ContentLayout("packs", "imports", "bundles")).RequireValid();
 
-        return new ContentPlaceGeometry(catalog, "place-geometry", "artifact", "surfaces");
+        return new ContentPlaceGeometry(catalog, "place-geometry", "artifact", "surfaces", navigation ? "navigationRegion" : null);
     }
 
     private static ContentPlaceGeometry Source(bool withArtifact, bool emptyArtifact = false)

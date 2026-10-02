@@ -293,11 +293,11 @@ internal static class MightAndMagic7Movement
 
     /// <summary>
     /// How this game's places are navigated: artifacts projected into one grid in cubic chunks of sixteen cells
-    /// with a four-cell climb, and a creature steering half a tile ahead — the width of a doorway or a corridor
-    /// bend in these places — with a thousand-cell budget before it walks straight at what it wants.
+    /// and a creature steering half a tile ahead with a thousand-cell query budget. Derivation has its own
+    /// 131,072-column budget, covering the imported interiors; derived edges use the actual controller's step and body.
     /// </summary>
     /// <remarks>Ours: no donor states a steering distance, and these are the values the kit used to assume.</remarks>
-    internal static PlaceNavigationPolicy Navigation { get; } = new(GridId: 0, ChunkSize: 16, MaxStepCells: 4, SteeringStep: 512, SteeringBudget: 1024);
+    internal static PlaceNavigationPolicy Navigation { get; } = new(GridId: 0, ChunkSize: 16, MaxStepCells: 0, SteeringStep: 512, SteeringBudget: 1024, MaximumCells: 131072);
 
     /// <summary>
     /// The donor's flight conditions: the flight runs, the place has no roof, and its caster can keep paying.

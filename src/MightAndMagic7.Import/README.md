@@ -91,6 +91,9 @@ Owns:
   the game's tile table (`dtile.bin`, `TerrainTileTable`) flags as water, and `fluid` for solid faces the level
   marks fluid, each over the same triangles the collision carries. The document's shape and what it must contain
   are in [`../../docs/research/mm7-map-formats.md`](../../docs/research/mm7-map-formats.md) §8.
+  The same vertices supply `navigationRegion` bounds beside the unchanged artifact, with their map file and
+  collision source counts retained. Sampling width is ours: 128 units indoors, 512 (one terrain square)
+  outdoors. The importer derives no cells; Engine does that at admission for the actual character body.
 
 Boundary rules:
 

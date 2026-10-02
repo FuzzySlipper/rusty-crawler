@@ -479,7 +479,7 @@ public sealed class PackWriterTests
             ContentBootstrapResult bootstrap = ContentBootstrap.Load(new FileContentSource(root), Layout, "imported");
             Assert.True(bootstrap.IsValid, string.Join("; ", bootstrap.Issues.Select(issue => issue.ToString())));
             PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog);
-            ContentPlaceGeometry source = new(bootstrap.Catalog, "place-geometry", "artifact", "surfaces");
+            ContentPlaceGeometry source = new(bootstrap.Catalog, "place-geometry", "artifact", "surfaces", "navigationRegion");
 
             PlaceDefinition region = graph.Places.First(place => place.Kind == PlaceKind.Region);
             PlaceGeometry? collision = source.For(region.Id);
@@ -490,6 +490,8 @@ public sealed class PackWriterTests
             Assert.Equal(126 * 2, collision.Surfaces.TriangleCount);
             Assert.Equal($"mm7-world/place-geometry/{region.Id.Value}.json", collision.Path);
             Assert.True(collision.Artifact.Length > 0);
+            Assert.NotNull(collision.Navigation);
+            Assert.Equal(512d, collision.Navigation.CellSize);
 
             using (JsonDocument document = JsonDocument.Parse(File.ReadAllText(Path.Combine(imports, "mm7-world", "place-geometry.json"))))
             {
