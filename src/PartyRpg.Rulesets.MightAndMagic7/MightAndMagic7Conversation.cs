@@ -521,6 +521,18 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         return new ConversationSubject(request.Placement.Content.Id, people);
     }
 
+    /// <summary>The entrance's hours, shared with its counter or stated by a household placement.</summary>
+    internal OpeningHours? HouseHours(ConversationTargetRequest request)
+    {
+        if (request.Placement.Content.Kind == ServicePlacementKind)
+            return _services?.Describe(new ServiceTargetRequest(request.Place, request.Placement))?.Hours?.Window;
+        if (request.Placement.Content.Kind != ResidencePlacementKind) return null;
+        ContentEntry source = request.Placement.Source;
+        return source.GetInt32(MightAndMagic7Schedules.OpenHourField) is { } open
+            && source.GetInt32(MightAndMagic7Schedules.ClosedHourField) is { } closed
+            ? new OpeningHours(open, closed) : null;
+    }
+
     /// <inheritdoc />
     public ConversationAnswer Greeting(ConversationContext context)
     {

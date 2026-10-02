@@ -201,6 +201,25 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
                         document.DocumentId));
                 }
 
+                if (string.Equals(ContentEntry.ReadString(placement, PlacePopulationContent.KindField), MightAndMagic7Conversation.ResidencePlacementKind, StringComparison.Ordinal))
+                {
+                    ContentEntry house = new("house", placement);
+                    int? open = house.GetInt32(MightAndMagic7Schedules.OpenHourField);
+                    int? closed = house.GetInt32(MightAndMagic7Schedules.ClosedHourField);
+                    if (house.Has(MightAndMagic7Schedules.OpenHourField) || house.Has(MightAndMagic7Schedules.ClosedHourField))
+                    {
+                        try
+                        {
+                            if (open is null || closed is null) throw new ArgumentOutOfRangeException("hours", "A house must state both entrance hours.");
+                            _ = new OpeningHours(open.Value, closed.Value);
+                        }
+                        catch (ArgumentOutOfRangeException error)
+                        {
+                            issues.Add(new ContentValidationIssue("house-hours-invalid", $"place '{entry.Id}' has a household with invalid hours: {error.Message}", pack.PackId, document.DocumentId));
+                        }
+                    }
+                }
+
                 foreach (JsonElement requirement in MightAndMagic7Containers.ReadArray(placement, RequiresField))
                 {
                     if (ReadKind(ContentEntry.ReadString(requirement, "kind")) is null)

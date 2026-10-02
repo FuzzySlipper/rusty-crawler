@@ -76,6 +76,13 @@ Owns:
   (`set-npc-greeting`, its person and `greeting` row); a move is a link the world issues, `scripted`. A person's topics
   are their slots — the topic table's row of each slot's number, with its first text and its `event` when the program
   holds one — and a row with neither, or a slot naming no row, is refused with its reason.
+- House entrances retain their building's opening hours on the existing service/residence placement,
+  beside the event and signing face provenance. Equal opening and closing hours mean an all-day window;
+  source rows remain unchanged in the building table. Their use runs the existing house event path.
+- Camping ground: a `ground` grid embedded in each outdoor place entry, resolved by `TerrainTileTable`
+  from the same tile records and tileset bases used for water. It carries `dtile.bin` and the map filename
+  as provenance, a sorted terrain palette and hexadecimal cell indices. The row orientation and edge
+  convention are documented in [`../../docs/research/mm7-map-formats.md`](../../docs/research/mm7-map-formats.md).
 - The automap raster: one `place-map` entry per place — a region on its own terrain grid at its own
   512-unit pitch with one height band per square, an interior on this importer's own 128-unit grid with a
   square marked wherever one of the level's own minimap outlines passes through it — which is what the

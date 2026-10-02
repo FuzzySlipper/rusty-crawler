@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Text.Json.Nodes;
 using PartyRpg.Kit;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
@@ -156,6 +157,53 @@ public sealed class ConversationPolicyTests
         ConversationSubject residence = fixture.Conversation.Describe(
             new ConversationTargetRequest(SomewherePlace, fixture.Placement("residence-9")))!;
         Assert.Equal("Mira", Assert.Single(residence.People).Name);
+    }
+
+    [Fact]
+    public void A_house_entrance_refuses_use_outside_its_hours_and_opens_when_the_clock_reaches_them()
+    {
+        var content = Staged().Select(file =>
+        {
+            if (!file.Path.EndsWith("/places.json", StringComparison.Ordinal)) return file;
+            JsonObject document = JsonNode.Parse(file.Text)!.AsObject();
+            JsonNode house = document["entries"]![0]!["placements"]![0]!;
+            house["kind"] = "residence";
+            house["openHour"] = 18;
+            house["closedHour"] = 6;
+            return (file.Path, document.ToJsonString());
+        }).ToArray();
+        var (context, ui) = RulesetTestContext.Create(content);
+        using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
+            RulesetTestContext.RulesetContext(context, ui) with
+            {
+                Use = new UseIntentNames(Declared.UseIntent, Declared.UiActionContract),
+                Conversation = new ConversationIntentNames(Declared.ConversationLeaveIntent, Declared.UiActionContract),
+            });
+        session.Start();
+        session.Update(RulesetTestContext.Update(1, 1, RulesetTestContext.Digital(Declared.UseIntent)));
+        ProjectedNode refused = ProjectedNode.Of(ui.Latest().Value);
+        Assert.False(refused.Field("conversation").Field("open").AsBoolean());
+        Assert.Equal("refused", refused.Field("interaction").Field("outcome").AsString());
+        Assert.Contains("18:00–06:00", refused.Field("interaction").Field("message").AsString(), StringComparison.Ordinal);
+        session.Update(RulesetTestContext.Update(1081, 1080, 1.0));
+        session.Update(RulesetTestContext.Update(1082, 1, RulesetTestContext.Digital(Declared.UseIntent)));
+        Assert.True(ProjectedNode.Of(ui.Latest().Value).Field("conversation").Field("open").AsBoolean());
+    }
+
+    [Fact]
+    public void A_counters_entrance_uses_the_same_hours_as_its_counter()
+    {
+        using Fixture fixture = Fixture.Build();
+        PlacementDefinition placement = fixture.Placement("service-7");
+        MightAndMagic7PeopleInteraction rule = new(fixture.Conversation, new MightAndMagic7Interaction());
+        InteractionTargetDefinition target = rule.Describe(new(SomewherePlace, placement, ""))!;
+        InteractionRequirement hours = Assert.Single(target.Requires);
+        InteractionContext context = new(SomewherePlace, placement, target, fixture.Party, fixture.Clock);
+        Assert.True(rule.Judge(hours, context).IsMet);
+        fixture.Clock.Advance(GameDuration.FromHours(9));
+        Assert.False(rule.Judge(hours, context).IsMet);
+        Assert.Contains("06:00–18:00", rule.Judge(hours, context).Explanation, StringComparison.Ordinal);
+        Assert.False(rule.Judge(hours, context with { Clock = null }).IsMet);
     }
 
     [Fact]

@@ -255,6 +255,18 @@ public sealed class CollisionTests
     }
 
     [Fact]
+    public void Ground_words_use_the_same_tile_records_and_reverse_source_rows_into_world_order()
+    {
+        TerrainTileTable tiles = TerrainTileTable.Read(SyntheticInstallation.TileTable());
+        OutdoorMap region = MapDecoder.DecodeOutdoor(LodFixture.Stored("out01.odm", MapDecoderTests.OutdoorPayload(waterRow: true)));
+        string[] ground = tiles.GroundSquares(region);
+        Assert.Equal(127 * 127, ground.Length);
+        Assert.All(ground.Take(127), word => Assert.Equal("default", word));
+        // The water and its shore share the water tileset, even though only one carries the water flag.
+        Assert.All(ground.TakeLast(127), word => Assert.Equal("water", word));
+    }
+
+    [Fact]
     public void A_regions_water_squares_are_the_ones_its_tile_table_flags_as_water()
     {
         // The fixture's first row of squares is the water tileset's base tile but for its last, a shore tile, and the

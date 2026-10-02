@@ -324,6 +324,37 @@ public sealed class RestAndSchedulePolicyTests
         Assert.Equal("camp-under-a-roof", ProjectedNode.Of(roofedUi.Latest().Value).Field("rest").Field("code").AsString());
     }
 
+    private const string TwoGrounds = """{ "origin": [0,0], "cellSize": 512, "columns": 2, "rows": 1, "terrains": ["grass","desert"], "kinds": "0001" }""";
+
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(511.9, 1)]
+    [InlineData(512, 5)]
+    [InlineData(600, 5)]
+    [InlineData(-1, 3)]
+    [InlineData(1024, 3)]
+    public void A_camp_reads_the_ground_at_the_party_and_falls_back_beyond_its_grid(double x, int charged)
+    {
+        using IGameSession session = Region(out RecordingUiService ui, "swamp", 0, startX: x, ground: TwoGrounds);
+        session.Update(RulesetTestContext.Update(1, 1, RulesetTestContext.Digital(Declared.CampIntent)));
+        ProjectedNode result = ProjectedNode.Of(ui.Latest().Value).Field("rest");
+        Assert.Equal("applied", result.Field("outcome").AsString());
+        Assert.Equal(charged, result.Field("charged").AsNumber());
+    }
+
+    [Theory]
+    [InlineData("false")]
+    [InlineData("{ \"origin\": [\"west\",0] }")]
+    [InlineData("{ \"origin\": [0,0], \"cellSize\": 512, \"columns\": 0, \"rows\": 1 }")]
+    [InlineData("{ \"origin\": [0,0], \"cellSize\": 512, \"columns\": 1, \"rows\": 1, \"terrains\": [\"unknown\"], \"kinds\": \"00\" }")]
+    [InlineData("{ \"origin\": [0,0], \"cellSize\": 512, \"columns\": 1, \"rows\": 1, \"terrains\": [\"grass\"], \"kinds\": \"01\" }")]
+    [InlineData("{ \"origin\": [0,0], \"cellSize\": 512, \"columns\": 1, \"rows\": 1, \"terrains\": [\"grass\"], \"kinds\": \"zz\" }")]
+    public void A_ground_that_cannot_price_every_cell_is_refused_before_play(string ground)
+    {
+        ContentValidationException error = Assert.Throws<ContentValidationException>(() => Region(out _, "grass", 0, ground: ground));
+        Assert.Contains(error.Issues, issue => issue.Code == "place-ground-invalid");
+    }
+
     [Fact]
     public void A_broken_camp_lasts_only_the_hours_it_lasted_and_costs_nothing()
     {
@@ -453,7 +484,9 @@ public sealed class RestAndSchedulePolicyTests
         string terrain,
         int encounterPercent,
         double? hostileAt = null,
-        double? peacefulAt = null)
+        double? peacefulAt = null,
+        double startX = 0,
+        string? ground = null)
     {
         // A creature is a placement of the creature kind naming its own monster row, which is the shape the
         // importer emits from a level's spawn records: what keeps a party from camping is a creature standing
@@ -471,7 +504,8 @@ public sealed class RestAndSchedulePolicyTests
             $$"""
             { "id": "9", "kind": "region", "name": "The Bracada Desert", "respawnDays": 672,
               "terrain": "{{terrain}}", "encounterPercent": {{encounterPercent}},
-              "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ],
+              {{(ground is null ? string.Empty : $"\"ground\": {ground},")}}
+              "entryPoints": [ { "id": "Party Start", "x": {{startX}}, "y": 0, "z": 0, "yaw": 0 } ],
               "placements": [ { "id": "light-0", "kind": "light", "x": -60, "y": 0, "z": 64 }{{spawn}} ] }
             """,
             start: "9",

@@ -115,7 +115,12 @@ public sealed record PlaceServicePlacement(
     string SourceTexture,
     string PositionSource,
     string HeightSource,
-    int FaceCount);
+    int FaceCount)
+{
+    /// <summary>The building's own entrance hours, including households without service definitions.</summary>
+    public int? OpenHour { get; init; }
+    public int? ClosedHour { get; init; }
+}
 
 /// <summary>One building row the import emitted no placement for, with the reason.</summary>
 /// <param name="BuildingId">The building's id.</param>
@@ -330,7 +335,12 @@ public static class PlaceServiceEmitter
                 chosen.Texture,
                 positionSource,
                 heightSource,
-                faces.Count));
+                faces.Count)
+            {
+                // Equal source hours mean always open (OpenEnroth UIHouses.cpp:304-317).
+                OpenHour = building.OpenHour is not null && building.OpenHour == building.ClosedHour ? 0 : building.OpenHour,
+                ClosedHour = building.ClosedHour is not null && building.OpenHour == building.ClosedHour ? 24 : building.ClosedHour,
+            });
 
             if (!recognized) continue;
 

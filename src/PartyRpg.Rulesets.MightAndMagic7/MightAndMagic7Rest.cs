@@ -27,20 +27,20 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// <b>Sleeping under a roof and camping in the open are different acts here.</b> The donor has one rest
 /// command whose food cost depends on where the party stands — two units indoors and the ground's own price
 /// outdoors (<c>src/GUI/UI/UIRest.cpp:44-49</c>, and the per-terrain table in
-/// <c>src/Engine/Data/TileEnumFunctions.cpp:113-127</c>). This game states that difference as two commands
+/// <c>src/Engine/Data/TileEnumFunctions.cpp:92-110</c>). This game states that difference as two commands
 /// instead: a rest is taken under a roof, and a camp is taken in the open. Both cost provisions and both
 /// restore the party; what a camp adds is the ground's price, the party's refusal to lie down with hostiles
 /// near, and the chance that the night is broken.
 /// </para>
 /// <para>
-/// <b>The ground is priced from content.</b> A place states the ground the party would camp on in its own
-/// entry, under <c>terrain</c>, and the words are the donor's own terrain names with the donor's prices: one
+/// <b>The ground is priced from content at the party's pose.</b> A region's normalized <c>ground</c> grid
+/// states the terrain underfoot, and the words use the donor's prices: one
 /// unit on grass, three on snow or swamp, four on badlands, five in the desert, and two on anything else —
 /// dirt, road, water, and every ground the donor's table does not name
-/// (<c>src/Engine/Data/TileEnumFunctions.cpp:113-127</c>, <c>foodRequiredForTileset</c>). The donor prices
-/// the <em>tile</em> the party stands on; imported content carries one ground per place rather than a
-/// terrain grid, so that is the resolution this game reads, and a place that states no ground costs the
-/// donor's default of two.
+/// (<c>src/Engine/Data/TileEnumFunctions.cpp:92-110</c>, <c>foodRequiredForTileset</c>). The donor reads
+/// the tile at the party's position (<c>src/Engine/Graphics/OutdoorTerrain.cpp:102-111</c>). When finer
+/// data is absent or does not cover the pose, the place's <c>terrain</c> remains the fallback; no named
+/// terrain costs the donor's default of two.
 /// </para>
 /// <para>
 /// <b>Hostiles near keep a camp from being made at all.</b> The donor refuses every rest with a living
@@ -85,7 +85,7 @@ internal sealed class MightAndMagic7Rest : IRestRule
 
 
     /// <summary>What a camp costs when the ground states no price of its own.</summary>
-    /// <remarks>OpenEnroth <c>src/Engine/Data/TileEnumFunctions.cpp:120-121</c>: the table's default is two.</remarks>
+    /// <remarks>OpenEnroth <c>src/Engine/Data/TileEnumFunctions.cpp:106-107</c>: the table's default is two.</remarks>
     internal const int DefaultTerrainRations = 2;
 
     /// <summary>How near a living creature keeps a party from lying down in the open, in place units.</summary>
@@ -124,7 +124,7 @@ internal sealed class MightAndMagic7Rest : IRestRule
 
     /// <summary>The ground words this game prices, and what a camp on each costs.</summary>
     /// <remarks>
-    /// OpenEnroth <c>src/Engine/Data/TileEnumFunctions.cpp:113-127</c>, <c>foodRequiredForTileset</c>: grass
+    /// OpenEnroth <c>src/Engine/Data/TileEnumFunctions.cpp:92-110</c>, <c>foodRequiredForTileset</c>: grass
     /// one, snow and swamp three, badlands four, desert five, and the default two that dirt, water, and
     /// cobble road all take. The words are the donor's own tileset names, lowercased for content.
     /// </remarks>
@@ -138,6 +138,7 @@ internal sealed class MightAndMagic7Rest : IRestRule
         ["dirt"] = DefaultTerrainRations,
         ["water"] = DefaultTerrainRations,
         ["road"] = DefaultTerrainRations,
+        ["default"] = DefaultTerrainRations,
     };
 
     /// <summary>The condition hunger and sleeplessness both put on a member, as this game names it.</summary>
@@ -153,14 +154,16 @@ internal sealed class MightAndMagic7Rest : IRestRule
     private readonly IRandomService? _random;
     private readonly Func<PlacePopulationEntity, bool> _harmless;
 
-    private MightAndMagic7Rest(IRandomService? random, TuningProfile tuning, Func<PlacePopulationEntity, bool>? harmless)
+    private MightAndMagic7Rest(IRandomService? random, TuningProfile tuning, Func<PlacePopulationEntity, bool>? harmless, IReadOnlyDictionary<PlaceId, MightAndMagic7Ground>? grounds = null)
     {
         _random = random;
         _tuning = tuning;
         _harmless = harmless ?? (_ => false);
+        _grounds = grounds ?? new Dictionary<PlaceId, MightAndMagic7Ground>();
     }
 
     private readonly TuningProfile _tuning;
+    private readonly IReadOnlyDictionary<PlaceId, MightAndMagic7Ground> _grounds;
 
     /// <summary>Reads this game's rest policy, and judges the ground every place states.</summary>
     /// <remarks>
@@ -185,15 +188,19 @@ internal sealed class MightAndMagic7Rest : IRestRule
     {
         if (catalog is null) return new MightAndMagic7Rest(random, MightAndMagic7Tuning.Read(null), harmless);
         List<ContentValidationIssue> issues = [];
+        Dictionary<PlaceId, MightAndMagic7Ground> grounds = [];
         foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries(PlaceGraphLoader.PlaceDefinitionKind))
         {
             string terrain = entry.GetString(TerrainField);
-            if (terrain.Length == 0 || TerrainCosts.ContainsKey(terrain)) continue;
-            issues.Add(new ContentValidationIssue(
-                "place-terrain-unknown",
-                $"place '{entry.Id}' camps on '{terrain}', which is not a ground this game prices: it knows {string.Join(", ", TerrainCosts.Keys)}.",
-                pack.PackId,
-                document.DocumentId));
+            if (terrain.Length > 0 && !TerrainCosts.ContainsKey(terrain))
+                issues.Add(new ContentValidationIssue(
+                    "place-terrain-unknown",
+                    $"place '{entry.Id}' camps on '{terrain}', which is not a ground this game prices: it knows {string.Join(", ", TerrainCosts.Keys)}.",
+                    pack.PackId,
+                    document.DocumentId));
+            MightAndMagic7Ground? ground = MightAndMagic7Ground.Read(entry, TerrainCosts.ContainsKey, text =>
+                issues.Add(new ContentValidationIssue("place-ground-invalid", $"place '{entry.Id}': {text}.", pack.PackId, document.DocumentId)));
+            if (ground is not null) grounds.Add(new PlaceId(entry.Id), ground);
         }
 
         if (issues.Count > 0)
@@ -203,7 +210,7 @@ internal sealed class MightAndMagic7Rest : IRestRule
                 issues);
         }
 
-        return new MightAndMagic7Rest(random, MightAndMagic7Tuning.Read(catalog), harmless);
+        return new MightAndMagic7Rest(random, MightAndMagic7Tuning.Read(catalog), harmless, grounds);
     }
 
     /// <inheritdoc />
@@ -263,7 +270,7 @@ internal sealed class MightAndMagic7Rest : IRestRule
 
             return RestQuote.Planned(
                 GameDuration.FromHours(_tuning.Whole(MightAndMagic7Tuning.SleepHours)),
-                new Provisions(Rations(place), ProvisionUnit.Portions));
+                new Provisions(Rations(place, request.Site.Pose), ProvisionUnit.Portions));
         }
 
         // A rest is a sleep under a roof: the party that wants to lie down in the open makes camp, where the
@@ -351,9 +358,9 @@ internal sealed class MightAndMagic7Rest : IRestRule
         Math.Clamp(place.Source.GetInt32(EncounterChanceField) ?? 0, 0, 100);
 
     /// <summary>What a camp on a place's ground costs, in provisions.</summary>
-    private static int Rations(PlaceDefinition place)
+    private int Rations(PlaceDefinition place, PlacePose pose)
     {
-        string terrain = place.Source.GetString(TerrainField);
+        string terrain = _grounds.GetValueOrDefault(place.Id)?.At(pose) ?? place.Source.GetString(TerrainField);
         return terrain.Length > 0 && TerrainCosts.TryGetValue(terrain, out int cost) ? cost : DefaultTerrainRations;
     }
 

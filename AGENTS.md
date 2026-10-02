@@ -111,7 +111,9 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   house whose own event does more than open it, runs the steps of its imported map event this game interprets and
   refuses the rest by name; a person's house and greeting are what those events left on the party's records. One service
   mechanism, an operation table judged before anything is settled, serves every shipped service kind; towns
-  keep hours on the one clock; rest, camp and wait are distinct; sleep leaves dead, petrified and eradicated members untouched and names them; conversations recompute their topics from
+  keep hours on the one clock, including service and residence entrances reached by ordinary use; rest, camp and wait
+  are distinct, camping reads the outdoor ground grid under the party with place terrain as fallback, and sleep
+  leaves dead, petrified and eradicated members untouched and names them; conversations recompute their topics from
   party state and hand off to counters, and a topic runs its global event as a use of the speaker's placement.
   The same panel reaches every counter operation; its offers show patient or coin amount, price and refusal
   from the mechanism before a transaction settles.
@@ -142,8 +144,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 
 **Open residue and its receivers** (Den task ids; Den owns their status):
 
-- Stone 5, interaction and services: a container above or below the floor cannot be used (#8697); towns have
-  no house doors and camping is priced per place (#8618); a fixture event refuses only at a hireling step (#8514).
+- Stone 5, interaction and services: a container above or below the floor cannot be used (#8697);
+  a fixture event refuses only at a hireling step (#8514).
 - Stone 6, combat: a fight is not carried in a save, and a save taken with one pending is refused (#8658);
   an order commands every member rather than a selected one (#8659).
 - Stone 7, progression and magic: the two counted deeds two ranks need

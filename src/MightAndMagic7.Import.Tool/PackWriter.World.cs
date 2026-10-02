@@ -301,7 +301,8 @@ internal static partial class PackWriter
         PlacePeopleSummary people,
         PlaceEncounterSummary encounters,
         PlaceCreatureSummary creatures,
-        PlaceFixtureSummary fixtures)
+        PlaceFixtureSummary fixtures,
+        TerrainTileTable? terrain)
     {
         // A place's fixtures stand where the faces raising their event are, so they are grouped by place and
         // written into that place's own placements beside its containers.
@@ -379,6 +380,29 @@ internal static partial class PackWriter
                 WriteOptionalString(writer, "environment", map.Environment);
                 if (maps.TryGetValue(map.Id, out DecodedMap? decoded))
                 {
+                    if (decoded is OutdoorMap outdoor && terrain is not null)
+                    {
+                        string[] grounds = terrain.GroundSquares(outdoor);
+                        string[] palette = [.. grounds.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
+                        Dictionary<string, byte> kinds = palette.Select((word, index) => (word, index))
+                            .ToDictionary(pair => pair.word, pair => checked((byte)pair.index), StringComparer.Ordinal);
+                        writer.WriteStartObject("ground");
+                        writer.WriteString("source", TerrainTileTable.Source.EntryName);
+                        writer.WriteString("mapFile", outdoor.FileName);
+                        writer.WriteNumber("cellSize", OutdoorMap.TerrainCellSize);
+                        writer.WriteStartArray("origin");
+                        writer.WriteNumberValue(-(OutdoorMap.TerrainCells / 2) * OutdoorMap.TerrainCellSize);
+                        writer.WriteNumberValue(-(OutdoorMap.TerrainCells / 2 - 1) * OutdoorMap.TerrainCellSize);
+                        writer.WriteEndArray();
+                        writer.WriteNumber("columns", OutdoorMap.TerrainCells - 1);
+                        writer.WriteNumber("rows", OutdoorMap.TerrainCells - 1);
+                        writer.WriteStartArray("terrains");
+                        foreach (string word in palette) writer.WriteStringValue(word);
+                        writer.WriteEndArray();
+                        writer.WritePropertyName("kinds");
+                        writer.WriteRawValue(Hex([.. grounds.Select(word => kinds[word])]), skipInputValidation: true);
+                        writer.WriteEndObject();
+                    }
                     writer.WriteStartArray("entryPoints");
                     foreach (MapEntryPoint point in decoded.EntryPoints)
                     {
@@ -658,6 +682,8 @@ internal static partial class PackWriter
                     // field name the ruleset reads; the row's own type travels beside it so a residence
                     // says what the table called it without a second document being joined in.
                     field.WriteNumber("houseId", counter.BuildingId);
+                    if (counter.OpenHour is { } open) field.WriteNumber("openHour", open);
+                    if (counter.ClosedHour is { } closed) field.WriteNumber("closedHour", closed);
                     field.WriteString("fixture", counter.Fixture);
                     field.WriteString("name", counter.Name);
                     if (counter.Proprietor.Length > 0) field.WriteString("proprietor", counter.Proprietor);

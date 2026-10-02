@@ -123,7 +123,8 @@ internal static partial class PackWriter
         IReadOnlyList<EvtProgram> programs = EvtProgram.ReadAll(install);
         PlaceGraph graph = PlaceGraph.Build(programs, tables.Maps);
         IReadOnlyDictionary<int, DecodedMap> maps = detail == MapDetail.EntryPoints ? DecodeMaps(install) : new Dictionary<int, DecodedMap>();
-        IReadOnlyList<PlaceCollision> collisions = maps.Count == 0 ? [] : EmitCollisions(tables, maps, TerrainTileTable.Read(install));
+        TerrainTileTable? terrain = maps.Count == 0 ? null : TerrainTileTable.Read(install);
+        IReadOnlyList<PlaceCollision> collisions = terrain is null ? [] : EmitCollisions(tables, maps, terrain);
 
         // The entrances are derived from the same decoded maps the collision is: a place's trigger faces
         // are map data, so an import that decoded no map has none to derive and says so per link.
@@ -186,7 +187,7 @@ internal static partial class PackWriter
             fixtures);
         List<(string, int, int)> packs =
         [
-            WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services, people, encounters, creatures, fixtures, globals),
+            WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services, people, encounters, creatures, fixtures, globals, terrain),
             world,
         ];
         WriteBundleFragment(outputRoot, provenance, packs);
@@ -279,11 +280,12 @@ internal static partial class PackWriter
         PlaceEncounterSummary encounters,
         PlaceCreatureSummary creatures,
         PlaceFixtureSummary fixtures,
-        GlobalEventSummary globals)
+        GlobalEventSummary globals,
+        TerrainTileTable? terrain)
     {
         List<(string Path, string DocumentId, string Kind, int Entries)> documents =
         [
-            ("places.json", "places", "place", WritePlaces(packDirectory, tables, maps, containers, services, people, encounters, creatures, fixtures)),
+            ("places.json", "places", "place", WritePlaces(packDirectory, tables, maps, containers, services, people, encounters, creatures, fixtures, terrain)),
             ("place-events.json", "place-events", PlaceEventDefinitionKind, WritePlaceEvents(packDirectory, fixtures)),
             ("global-events.json", "global-events", GlobalEventDefinitionKind, WriteGlobalEvents(packDirectory, globals)),
             ("discoveries.json", "discoveries", DiscoveryDefinitionKind, WriteDiscoveries(packDirectory, tables)),

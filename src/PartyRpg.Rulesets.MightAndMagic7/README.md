@@ -157,6 +157,22 @@ Owns:
   turns at three in the morning as the donor's does (`CastSpellInfo.cpp:2592`, `Engine.cpp:1036-1081`), and a
   fourth is refused before anything is spent.
 - Time, calendar, rest, fatigue, and travel policy, including service hours.
+
+  House entrances are ordinary service or residence placements reached by the one use mechanism.
+  `MightAndMagic7PeopleInteraction` judges their hours before opening a conversation or running a house's
+  event; counters use their service definition's existing window, and households carry the building's
+  hours on the placement. The event interpreter already used by conditional travel and house events
+  remains the only interpreter. Equal source hours normalize to all day; overnight windows work through
+  Kit `OpeningHours`. Closing is exclusive here, as for counters, while the donor admits the exact closing
+  instant (`OpenEnroth/src/GUI/UI/UIHouses.cpp:304-333`).
+
+  Camping reads a region's normalized `ground` grid at the canonical party pose through Kit `MapGrid`
+  (`MightAndMagic7Ground`). The content is checked once at composition. The rest rule prices grass at one
+  portion, snow/swamp at three, badlands at four, desert at five and other ground at two
+  (`OpenEnroth/src/Engine/Data/TileEnumFunctions.cpp:92-110`). A place's `terrain` supplies the fallback when
+  there is no finer grid or the pose is outside it. Ground is content, not saved gameplay state; rest still
+  uses its existing purse/larder settlement and the one clock.
+
 - The service panel reaches every operation through the existing counter: patient-specific cures and
   training, provisions, rooms, a quoted coin amount for deposits and withdrawals, and fares. The Kit
   publishes the ruleset's price and its eligibility for each choice and repeats those judgments on

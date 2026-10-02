@@ -26,15 +26,15 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// <para>
 /// <b>What the use does is speak, not trade.</b> The outcome says the party spoke with whoever is here; what
 /// that person has to say, what they offer, and what an offer hands the party to are the conversation's
-/// business, and what a counter sells is the service mechanism's. A refusal there keeps its own vocabulary
-/// — the counter is shut for the night — rather than being folded into an interaction refusal that could
-/// not say what a shop needs.
+/// business, and what a counter sells is the service mechanism's. The house's hours guard entry as a use
+/// requirement; the conversation and counter still judge their own offers on the same clock.
 /// </para>
 /// </remarks>
 internal sealed class MightAndMagic7PeopleInteraction : IInteractionRule
 {
     /// <summary>The state word a person the party has spoken with holds.</summary>
     internal const string SpokenState = "spoken";
+    internal const string HouseOpenRequirement = "house-open";
 
     /// <summary>
     /// How far from somebody the party may stand and still address them, in place units.
@@ -86,15 +86,26 @@ internal sealed class MightAndMagic7PeopleInteraction : IInteractionRule
             new InteractionTargetKind(MightAndMagic7Conversation.PersonTargetKind),
             subject.First.Name,
             InteractionVerb.Talk,
-            Reach);
+            Reach,
+            requires: _conversation.HouseHours(new ConversationTargetRequest(request.Place, request.Placement)) is { } hours
+                ? [new InteractionRequirement(InteractionRequirementKind.TimeOfDay, HouseOpenRequirement, label: $"the hours {hours}")]
+                : []);
     }
 
     /// <inheritdoc />
-    public Verdict Judge(InteractionRequirement requirement, InteractionContext context) =>
-        _inner.Judge(requirement, context);
+    public Verdict Judge(InteractionRequirement requirement, InteractionContext context)
+    {
+        if (requirement.Kind != InteractionRequirementKind.TimeOfDay || requirement.Name != HouseOpenRequirement)
+            return _inner.Judge(requirement, context);
+        if (_conversation.HouseHours(new ConversationTargetRequest(context.Place, context.Placement)) is not { } hours)
+            return Verdict.Met;
+        if (context.Clock is not { } clock) return Verdict.Unmet($"it keeps {hours} and this world keeps no clock");
+        return hours.IsOpenAt(clock.Now) ? Verdict.Met
+            : Verdict.Unmet($"It keeps {hours} and the clock stands at {clock.Now.Hour:00}:{clock.Now.Minute:00}.");
+    }
 
     /// <inheritdoc />
-    /// <remarks>Somebody the party can address guards themselves with nothing: what they have is behind them.</remarks>
+    /// <remarks>A house's hours are requirements; any trap remains the inner interaction rule's answer.</remarks>
     public InteractionTrap? Trap(InteractionTargetDefinition target, InteractionContext context) =>
         _inner.Trap(target, context);
 

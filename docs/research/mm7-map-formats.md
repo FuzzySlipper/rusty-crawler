@@ -764,3 +764,26 @@ diagonals do nothing, and a reagent mixes with the bottle and with nothing else.
 What a mixture *costs* a character, and what drinking a potion does, are the executable's rather than any
 table's **[donor `src/GUI/UI/UIPopup.cpp:1978-2270` for mixing, `src/Engine/Objects/Character.cpp:3080-3300`
 for drinking]**; those readings live in the ruleset, which cites them where each one is stated.
+
+
+## Camping ground grid
+
+Each imported outdoor `place` entry also carries `ground`, independent of the automap's height bands.
+The importer resolves the outdoor tile bytes through the existing `TerrainTileTable` reader: direct
+indices below 90, four 36-tile ranges starting at 90, and the donor's tileset-base lookup and stored
+set folding. **[donor `src/Engine/Snapshots/CompositeSnapshots.cpp:513-537`,
+`src/Engine/Snapshots/EnumSnapshots.cpp:65-97`]** The palette names ground only; it carries no prices.
+
+The normalized grid has 127 × 127 squares, cell size 512, origin `[-32768,-32256]`, and south-to-north
+rows. Cell `(column,row)` resolves source tile byte `(126-row)*128+column`. This makes a pose's reading
+agree with the donor's `gridX = floor(x/512)+64`, `gridY = 63-floor(y/512)`, including exact boundaries.
+**[donor `src/Engine/Graphics/OutdoorTerrain.h:21-41`, `OutdoorTerrain.cpp:102-111`]** The outer strip
+beyond the emitted squares uses the existing place-level terrain fallback. This grid is a camping
+classification, not collision geometry or a new navigation raster.
+
+`ground` carries `source: "dtile.bin"`, `mapFile`, `cellSize`, `origin`, `columns`, `rows`, a sorted
+`terrains` palette and `kinds` (two hexadecimal digits per row-major cell). The pack's existing source
+release/build provenance applies. Ground words are grass, snow, desert, dirt, water, badlands, swamp,
+road and default; cooled lava, tropical and most roads fold to dirt, city to desert, just as the tile
+reader already folds them. The ruleset prices the palette through its rest policy: grass 1, snow/swamp 3,
+badlands 4, desert 5, other ground 2 portions. **[donor `src/Engine/Data/TileEnumFunctions.cpp:92-110`]**

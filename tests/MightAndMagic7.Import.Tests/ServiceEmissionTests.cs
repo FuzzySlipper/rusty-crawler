@@ -69,6 +69,13 @@ public sealed class ServiceEmissionTests
             PlaceServicePlacement house = Assert.Single(services.Placements, item => item.BuildingId == 100);
             Assert.Equal(PlaceServiceEmitter.ResidencePlacementKind, house.PlacementKind);
             Assert.Equal("House R100", house.Fixture);
+            using JsonDocument emittedPlaces = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "mm7-tables", "places.json")));
+            JsonElement emittedHouse = emittedPlaces.RootElement.GetProperty("entries").EnumerateArray()
+                .SelectMany(place => place.TryGetProperty("placements", out var placed) ? placed.EnumerateArray().ToArray() : [])
+                .Single(placed => placed.GetProperty("id").GetString() == "residence-100");
+            Assert.Equal(house.OpenHour, emittedHouse.GetProperty("openHour").GetInt32());
+            Assert.Equal(house.ClosedHour, emittedHouse.GetProperty("closedHour").GetInt32());
+
 
             // Every other row of the fixture names a map that hangs no event on it, and each is refused by
             // name rather than placed somewhere plausible: nothing is silently dropped.

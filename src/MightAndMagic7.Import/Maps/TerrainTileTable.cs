@@ -5,7 +5,7 @@ using MightAndMagic7.Import.Lod;
 namespace MightAndMagic7.Import.Maps;
 
 /// <summary>
-/// The game's terrain tile table, and what it says about one outdoor map's tiles: which of them are water.
+/// The game's terrain tile table: which outdoor squares are water, and which normalized ground they carry.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -124,6 +124,34 @@ public sealed class TerrainTileTable
         }
 
         return water;
+    }
+
+    /// <summary>The normalized ground words of a region, south-to-north row order.</summary>
+    /// <remarks>
+    /// Resolves the same records as water. Stored tileset folding remains here, not in runtime policy
+    /// (OpenEnroth EnumSnapshots.cpp:65-97). Cell (0,0) starts at (-32768,-32256), with 127 squares
+    /// each way; this reverses source rows without changing OutdoorTerrain.h:21-41's boundary reading.
+    /// </remarks>
+    public string[] GroundSquares(OutdoorMap map)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        int[] bases = [.. map.TileTypes.Select(type => BaseOf(type.Tileset))];
+        int squares = OutdoorMap.TerrainCells - 1;
+        string[] grounds = new string[squares * squares];
+        for (int row = 0; row < squares; row++)
+        {
+            for (int column = 0; column < squares; column++)
+            {
+                int tile = Global(bases, map.TileMap[((squares - 1 - row) * OutdoorMap.TerrainCells) + column]);
+                int kind = tile >= 0 && tile < _tiles.Length ? Reading(_tiles[tile].Tileset) : NoTileset;
+                grounds[(row * squares) + column] = kind switch
+                {
+                    0 => "grass", 1 => "snow", 2 => "desert", 4 => "dirt", 5 => "water",
+                    6 => "badlands", 7 => "swamp", 10 => "road", _ => "default",
+                };
+            }
+        }
+        return grounds;
     }
 
     /// <summary>The record one map tile byte names, given the map's tileset bases; zero is no tile.</summary>
