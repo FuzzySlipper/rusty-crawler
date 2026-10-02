@@ -16,9 +16,9 @@ namespace PartyRpg.Kit.Party;
 /// <para>
 /// <b>A charge is held by the item and recorded as what has been spent.</b> How many charges a kind of
 /// thing holds when it is full is a reading of the game's own item table — the pack holds items, not item
-/// definitions — so what the instance records is the uses it has paid for. What is left is the row's own
-/// figure less this, which keeps an item found in a chest and one restored from a save the same arithmetic
-/// and keeps the row the one place a wand's capacity is stated.
+/// definitions — so what the instance records is the uses it has paid for. A recharge may reduce one instance's capacity;
+/// that override travels with the item. What is left is its capacity less the uses spent, so casting,
+/// combat and presentation read the same count after a save.
 /// </para>
 /// <para>
 /// Value equality is element-wise — including the charges spent and the strength — so two instances that differ
@@ -43,6 +43,9 @@ public readonly struct ItemState : IEquatable<ItemState>
     /// the mark travels with the thing taken: a counter that will not deal in stolen goods reads it from what
     /// the party offers, whoever carries it and however long ago it was taken.
     /// </param>
+    /// <param name="enchantment">The property this instance bears, or none.</param>
+    /// <param name="isHardened">Whether an earning rule has made the item resistant to breaking.</param>
+    /// <param name="chargeCapacity">An instance's reduced charge capacity, or null to use its definition.</param>
     /// <exception cref="ArgumentOutOfRangeException">The damage or the charges spent are negative, which is not a state an item can be in.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The potency is negative, which is not a strength anything can be read at.</exception>
     /// <remarks>
@@ -55,16 +58,33 @@ public readonly struct ItemState : IEquatable<ItemState>
         int damage = 0,
         int chargesSpent = 0,
         int potency = 0,
-        bool isStolen = false)
+        bool isStolen = false,
+        ItemEnchantment? enchantment = null,
+        bool isHardened = false,
+        int? chargeCapacity = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(damage);
         ArgumentOutOfRangeException.ThrowIfNegative(chargesSpent);
         ArgumentOutOfRangeException.ThrowIfNegative(potency);
+        if (enchantment is { } held)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(held.Property);
+            ArgumentOutOfRangeException.ThrowIfLessThan(held.Strength, 1);
+            if (held.DueElapsedMilliseconds is { } due) ArgumentOutOfRangeException.ThrowIfNegative(due);
+        }
+        if (chargeCapacity is { } capacity)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(capacity, 1);
+            if (chargesSpent > capacity) throw new ArgumentException("Charges spent exceed the instance's capacity.", nameof(chargesSpent));
+        }
         IsIdentified = isIdentified;
         Damage = damage;
         ChargesSpent = chargesSpent;
         Potency = potency;
         IsStolen = isStolen;
+        Enchantment = enchantment;
+        IsHardened = isHardened;
+        ChargeCapacity = chargeCapacity;
     }
 
     /// <summary>An item nobody has identified yet, sound, and carrying nothing.</summary>
@@ -110,8 +130,29 @@ public readonly struct ItemState : IEquatable<ItemState>
     /// </remarks>
     public bool IsStolen { get; }
 
+    /// <summary>The property carried by this instance, apart from its definition.</summary>
+    public ItemEnchantment? Enchantment { get; }
+    /// <summary>Whether an earning rule made this item resistant to breaking.</summary>
+    public bool IsHardened { get; }
+    /// <summary>Its own charge capacity after a rule changed it, or null to use the definition's capacity.</summary>
+    public int? ChargeCapacity { get; }
+
+    /// <summary>The same state, bearing the given property or no property.</summary>
+    /// <param name="enchantment">The replacement property, or null to remove one.</param>
+    public ItemState WithEnchantment(ItemEnchantment? enchantment) =>
+        new(IsIdentified, Damage, ChargesSpent, Potency, IsStolen, enchantment, IsHardened, ChargeCapacity);
+
+    /// <summary>The same state, made resistant to breaking.</summary>
+    public ItemState Hardened() =>
+        new(IsIdentified, Damage, ChargesSpent, Potency, IsStolen, Enchantment, true, ChargeCapacity);
+
+    /// <summary>The same state, recharged to the stated instance capacity.</summary>
+    /// <param name="capacity">Its positive new capacity, judged by the earning rule.</param>
+    public ItemState Recharged(int capacity) =>
+        new(IsIdentified, Damage, 0, Potency, IsStolen, Enchantment, IsHardened, capacity);
+
     /// <summary>The same state, marked as taken without being paid for.</summary>
-    public ItemState Stolen() => IsStolen ? this : new ItemState(IsIdentified, Damage, ChargesSpent, Potency, isStolen: true);
+    public ItemState Stolen() => IsStolen ? this : new ItemState(IsIdentified, Damage, ChargesSpent, Potency, isStolen: true, enchantment: Enchantment, isHardened: IsHardened, chargeCapacity: ChargeCapacity);
 
     /// <summary>The same state, read at the given strength.</summary>
     /// <param name="potency">The strength to record, which cannot be negative.</param>
@@ -119,11 +160,11 @@ public readonly struct ItemState : IEquatable<ItemState>
     public ItemState WithPotency(int potency)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(potency);
-        return new ItemState(IsIdentified, Damage, ChargesSpent, potency, IsStolen);
+        return new ItemState(IsIdentified, Damage, ChargesSpent, potency, IsStolen, Enchantment, IsHardened, ChargeCapacity);
     }
 
     /// <summary>The same state, identified.</summary>
-    public ItemState Identified() => IsIdentified ? this : new ItemState(true, Damage, ChargesSpent, Potency, IsStolen);
+    public ItemState Identified() => IsIdentified ? this : new ItemState(true, Damage, ChargesSpent, Potency, IsStolen, Enchantment, IsHardened, ChargeCapacity);
 
     /// <summary>The same state, carrying the given damage rather than its own.</summary>
     /// <param name="damage">The damage to record, which cannot be negative.</param>
@@ -131,12 +172,12 @@ public readonly struct ItemState : IEquatable<ItemState>
     public ItemState WithDamage(int damage)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(damage);
-        return new ItemState(IsIdentified, damage, ChargesSpent, Potency, IsStolen);
+        return new ItemState(IsIdentified, damage, ChargesSpent, Potency, IsStolen, Enchantment, IsHardened, ChargeCapacity);
     }
 
     /// <summary>The same state, with one more charge spent.</summary>
     /// <exception cref="OverflowException">The count would leave the numbers a state is described in.</exception>
-    public ItemState WithChargeSpent() => new(IsIdentified, Damage, checked(ChargesSpent + 1), Potency, IsStolen);
+    public ItemState WithChargeSpent() => new(IsIdentified, Damage, checked(ChargesSpent + 1), Potency, IsStolen, Enchantment, IsHardened, ChargeCapacity);
 
     /// <summary>
     /// The same state, with the given number of charges spent, which is how a recharge gives uses back.
@@ -146,7 +187,7 @@ public readonly struct ItemState : IEquatable<ItemState>
     public ItemState WithChargesSpent(int spent)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(spent);
-        return new ItemState(IsIdentified, Damage, spent, Potency, IsStolen);
+        return new ItemState(IsIdentified, Damage, spent, Potency, IsStolen, Enchantment, IsHardened, ChargeCapacity);
     }
 
     /// <summary>The same state, damaged further.</summary>
@@ -156,7 +197,7 @@ public readonly struct ItemState : IEquatable<ItemState>
     public ItemState Damaged(int amount)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(amount);
-        return new ItemState(IsIdentified, checked(Damage + amount), ChargesSpent, Potency, IsStolen);
+        return new ItemState(IsIdentified, checked(Damage + amount), ChargesSpent, Potency, IsStolen, Enchantment, IsHardened, ChargeCapacity);
     }
 
     /// <summary>The same state, repaired by an amount and never past sound.</summary>
@@ -165,7 +206,7 @@ public readonly struct ItemState : IEquatable<ItemState>
     public ItemState Repaired(int amount)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(amount);
-        return new ItemState(IsIdentified, Math.Max(0, Damage - amount), ChargesSpent, Potency, IsStolen);
+        return new ItemState(IsIdentified, Math.Max(0, Damage - amount), ChargesSpent, Potency, IsStolen, Enchantment, IsHardened, ChargeCapacity);
     }
 
     /// <summary>Whether two states are the same in every respect, which is what lets two stacks merge.</summary>
@@ -175,7 +216,8 @@ public readonly struct ItemState : IEquatable<ItemState>
         // A strength is part of what an instance is, so two potions of one kind at two strengths are two
         // things: merging them would leave one of the two drinks with the other's strength.
         return IsIdentified == other.IsIdentified && Damage == other.Damage && ChargesSpent == other.ChargesSpent && Potency == other.Potency
-            && IsStolen == other.IsStolen;
+            && IsStolen == other.IsStolen && Enchantment == other.Enchantment
+            && IsHardened == other.IsHardened && ChargeCapacity == other.ChargeCapacity;
     }
 
     /// <inheritdoc />
@@ -193,6 +235,9 @@ public readonly struct ItemState : IEquatable<ItemState>
         hash.Add(ChargesSpent);
         hash.Add(Potency);
         hash.Add(IsStolen);
+        hash.Add(Enchantment);
+        hash.Add(IsHardened);
+        hash.Add(ChargeCapacity);
         return hash.ToHashCode();
     }
 
@@ -208,5 +253,5 @@ public readonly struct ItemState : IEquatable<ItemState>
 
     /// <inheritdoc />
     public override string ToString() =>
-        $"{(IsIdentified ? "identified" : "unidentified")}, damage {Damage}, {ChargesSpent} charge(s) spent, potency {Potency}{(IsStolen ? ", stolen" : string.Empty)}";
+        $"{(IsIdentified ? "identified" : "unidentified")}, damage {Damage}, {ChargesSpent} charge(s) spent, potency {Potency}{(IsStolen ? ", stolen" : string.Empty)}{(Enchantment is { } held ? $", {held.Property} {held.Strength}" : string.Empty)}{(IsHardened ? ", hardened" : string.Empty)}";
 }

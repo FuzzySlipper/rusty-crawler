@@ -441,7 +441,7 @@ public sealed record MagicSnapshot(
             {
                 if (spellItems.Reading(item.Definition) is not { } reading) continue;
                 SpellDefinition carried = owner.Rule.Catalog.Read(reading.Spell);
-                int left = reading.ConsumedByUse ? 0 : Math.Max(0, reading.Charges - item.State.ChargesSpent);
+                int left = reading.ConsumedByUse ? 0 : Math.Max(0, (item.State.ChargeCapacity ?? reading.Charges) - item.State.ChargesSpent);
                 string worn = item.Custody.IsEquipped && owner.Party.TryMember(item.Custody.Member, out PartyMember? wearer) && wearer is not null
                     ? wearer.Profile.Name
                     : string.Empty;
@@ -453,7 +453,7 @@ public sealed record MagicSnapshot(
                     carried.Name,
                     SpellTargetings.WireName(carried.Targeting),
                     left,
-                    reading.Charges,
+                    item.State.ChargeCapacity ?? reading.Charges,
                     item.Custody.IsEquipped,
                     worn,
                     SideOf(carried.Targeting)));

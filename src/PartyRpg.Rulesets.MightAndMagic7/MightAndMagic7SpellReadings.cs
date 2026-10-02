@@ -464,7 +464,8 @@ internal readonly record struct SpellReading(
     CreatureReading? OnCreature = null,
     SummonReading? Summons = null,
     ReanimateReading? Reanimates = null,
-    int PerDay = 0)
+    int PerDay = 0,
+    ItemMagicShape? ItemMagic = null)
 {
     /// <summary>The reading of a spell whose category this field does not describe.</summary>
     internal static readonly SpellReading None = new(
@@ -644,6 +645,14 @@ internal static class Readings
         SpellReading.None with { Detection = scope, DetectionLasts = lasts };
 
     /// <summary>A dispelling of the effects other spells have left running.</summary>
+    /// <summary>An operation over one actual item, handed to the shared utility effect path.</summary>
+    internal static SpellReading OnItem(ItemMagicShape shape) => SpellReading.None with
+    {
+        ItemMagic = shape,
+        Expresses = "a property, hardening or recharge on the named party item through the canonical instance; item aims use the ordinary casting workflow",
+        Divergence = "enchantment properties and weapon magnitudes are approximate; common item eligibility, quest refusal, mastery strength and clock duration are explicit",
+    };
+
     internal static SpellReading Dispel() => SpellReading.None with { Dispels = true };
 
     /// <summary>What this build cannot apply for a spell, and who owns it.</summary>

@@ -1026,7 +1026,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
         if (_spells is not ISpellItemRule items) return null;
         if (member.Equipment.ItemIn(MightAndMagic7Figure.MainHand) is not { State.Damage: <= 0 } held) return null;
         if (items.Reading(held.Definition) is not { ConsumedByUse: false } reading) return null;
-        if (reading.Charges - held.State.ChargesSpent <= 0) return null;
+        if ((held.State.ChargeCapacity ?? reading.Charges) - held.State.ChargesSpent <= 0) return null;
         return (reading, held);
     }
 

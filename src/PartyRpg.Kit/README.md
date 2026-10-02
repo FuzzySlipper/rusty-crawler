@@ -42,7 +42,7 @@ Owns:
   game's own reading of its item rows (`ISpellItemRule`) and the party's own item state, so there is no
   second cast path and no second count of what is left. An item's charges are spent through the party
   (`PartyEntity.SpendItemCharge`, `ConsumeItem`): the instance records the uses it has paid for, the game's
-  row states its capacity, and an item that empties leaves through the inventory's own custody. A charged
+  row states its initial capacity; a recharge's reduced instance capacity travels with it, and an item that empties leaves through the inventory's own custody. A charged
   item in hand is the weapon a fight fires (`CombatWeapon`, `ICombatWeaponRule`), so the attack is the
   spell it carries, one charge goes with it, and the recovery it costs is the fight's own answer.
 - Alchemy (`Alchemy/`): the one mixing workflow — resolve the character and the two things out of the
@@ -186,7 +186,7 @@ matches it on both, so a retune changes the journey without content being writte
 held or saved ticket), the party's pose and derived view (`PartyPoseOwner`, `FacingRule`, `PartyView`), the party
 entity and its attached components (`PartyEntity` over the engine's own entity store, with `PartyRoster` and `PartyMember`, the one shared
 `PartyInventory` of `ItemInstance`s beside each member's `CharacterEquipment` — every instance carrying a
-durable `ItemInstanceId` and an `ItemState` of identified, damaged, enchanted, and stolen, and reporting one
+durable `ItemInstanceId` and an `ItemState` of identified, damaged, enchanted, hardened, charged, and stolen, and reporting one
 `ItemCustody` that is detached, the shared pack, or a single member's slot and nothing else, so a
 per-character pack is a state these types cannot express; `Capture` writes each instance's identity, state,
 and custody and `Restore` rebuilds them), `PartyPurse`, `PartyFood`,
@@ -505,3 +505,5 @@ settles it through that owner. A payment whose declared counts cannot fit is ref
 settles. Party and quest sections carry both the count and the completed earning instance, so restoration
 cannot pay it again. [Focused evidence](../../docs/evidence/counted-deeds.md) covers accumulation,
 unchanged ordinary marks, the actual JSON save, and repeated settlement refusal.
+
+An instance property is `ItemEnchantment`: the ruleset identity, positive strength and optional absolute elapsed-clock deadline. Canonical item mutations preserve it, and the current source-generated save carries it with hardening and reduced charge capacity. The kit interprets no property word; ruleset spell effects apply and expire it, and figure/combat policy reads its meaning. Casting, combat and the magic projection share the instance capacity.

@@ -219,4 +219,31 @@ public static class MightAndMagic7Codes
 
     /// <summary>The refusal code <c>travel-no-party</c>.</summary>
     public const string TravelNoParty = "travel-no-party";
+    /// <summary>The item magic refusal target.</summary>
+    public const string ItemMagicTarget = "item-magic-target";
+
+    /// <summary>The item magic refusal quest-item.</summary>
+    public const string ItemMagicQuest = "item-magic-quest-item";
+
+    /// <summary>The item magic refusal special-item.</summary>
+    public const string ItemMagicSpecial = "item-magic-special-item";
+
+    /// <summary>The item magic refusal broken.</summary>
+    public const string ItemMagicBroken = "item-magic-broken";
+
+    /// <summary>The item magic refusal kind.</summary>
+    public const string ItemMagicKind = "item-magic-kind";
+
+    /// <summary>The item magic refusal already-charged.</summary>
+    public const string ItemMagicCharged = "item-magic-already-charged";
+
+    /// <summary>The item magic refusal already-enchanted.</summary>
+    public const string ItemMagicAlready = "item-magic-already-enchanted";
+
+    /// <summary>The item magic refusal rolls-unavailable.</summary>
+    public const string ItemMagicRolls = "item-magic-rolls-unavailable";
+
+    /// <summary>The item magic refusal clock-unavailable.</summary>
+    public const string ItemMagicClock = "item-magic-clock-unavailable";
+
 }

@@ -434,12 +434,13 @@ public sealed class PartyEntity : IDisposable
 
         if (JudgeItemRemoval(id) is { } retained) return ItemChargeSpend.Refused(retained);
 
+        capacity = item.State.ChargeCapacity ?? capacity;
         int left = capacity - item.State.ChargesSpent;
         if (left <= 0)
         {
             return ItemChargeSpend.Refused(new Refusal(
                 PartyCodes.ItemNoCharges,
-                $"Item {id} holds none of the {capacity} charge(s) its kind states, so nothing was spent and it stays where it lies."));
+                $"Item {id} holds none of the {capacity} charge(s) it can hold, so nothing was spent and it stays where it lies."));
         }
 
         item.SpendCharge();

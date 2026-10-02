@@ -68,6 +68,29 @@ public sealed class ItemInstance
     /// <summary>Whether a party holds this instance at all.</summary>
     public bool IsHeld => !Custody.IsDetached;
 
+    /// <summary>Records the property this instance bears, or removes its expired property.</summary>
+    /// <param name="enchantment">The rule's replacement property, or none.</param>
+    public void SetEnchantment(ItemEnchantment? enchantment)
+    {
+        State = State.WithEnchantment(enchantment);
+        Stamp = ChangeStamp.Next();
+    }
+
+    /// <summary>Records that the earning rule has made this instance resistant to breaking.</summary>
+    public void Harden()
+    {
+        State = State.Hardened();
+        Stamp = ChangeStamp.Next();
+    }
+
+    /// <summary>Refills this instance to the capacity the earning rule judged.</summary>
+    /// <param name="capacity">Its positive capacity after recharging.</param>
+    public void Recharge(int capacity)
+    {
+        State = State.Recharged(capacity);
+        Stamp = ChangeStamp.Next();
+    }
+
     /// <summary>Records that the party knows what this item is.</summary>
     public void Identify()
     {

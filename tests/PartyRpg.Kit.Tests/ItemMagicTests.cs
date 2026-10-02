@@ -259,6 +259,31 @@ public sealed class ItemMagicTests
     }
 
     [Fact]
+    public void A_recharged_instance_uses_its_own_capacity_in_casting_and_the_panel()
+    {
+        using PartyEntity party = Party();
+        Effects effects = new(party, TestClock.Create(), member => !LaidOut(member));
+        Spellcasting casting = Casting(party, effects);
+        ItemInstance wand = Take(party, WandOfBolt);
+        Assert.True(party.Equip(party.Members[0].Id, Hand, wand.Id).Admitted);
+        wand.Recharge(1);
+        SpellItemSnapshot offered = Assert.Single(MagicSnapshot.From(casting).Items);
+        Assert.Equal(1, offered.Charges);
+        Assert.Equal(1, offered.ChargesMax);
+        Assert.True(casting.Cast(new SpellCastRequest(0, Bolt, "beast", wand.Id)).IsCast);
+        Assert.Null(party.FindItem(wand.Id));
+        Assert.False(party.Members[0].Equipment.Has(Hand));
+        Assert.Equal("spell-item-not-held", casting.Cast(new SpellCastRequest(0, Bolt, "beast", wand.Id)).Code);
+
+        ItemInstance empty = new(party.Identity.MintItemId(), WandOfBolt, state: new ItemState(chargesSpent: 1, chargeCapacity: 1));
+        Assert.True(party.AcquireItem(empty).Admitted);
+        Assert.True(party.Equip(party.Members[0].Id, Hand, empty.Id).Admitted);
+        Assert.Equal("spell-item-no-charges", casting.Cast(new SpellCastRequest(0, Bolt, "beast", empty.Id)).Code);
+        Assert.False(party.SpendItemCharge(empty.Id, WandCharges).Spent);
+        Assert.Equal(0, Assert.Single(MagicSnapshot.From(casting).Items).Charges);
+    }
+
+    [Fact]
     public void A_charged_item_spends_one_charge_a_use_is_refused_at_zero_and_the_item_vanishes_through_the_inventory()
     {
         using PartyEntity party = Party();

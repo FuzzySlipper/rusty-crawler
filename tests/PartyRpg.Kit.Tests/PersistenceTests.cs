@@ -53,6 +53,40 @@ public sealed class PersistenceTests
     private static readonly SessionComposition Composition = new(new RulesetId("test.ruleset"), "Test");
 
     [Fact]
+    public void Item_properties_capacity_and_hardening_survive_current_saved_bytes_and_other_mutations()
+    {
+        using Played played = new();
+        played.Session.Start();
+        ItemInstance item = new(played.Party.Identity.MintItemId(), new ItemDefinitionId("test-weapon"), state: new ItemState(potency: 4));
+        Assert.True(played.Party.AcquireItem(item).Admitted);
+        ItemEnchantment property = new("test-property", 7, 3_600_000);
+        item.SetEnchantment(property);
+        item.Harden();
+        item.Recharge(5);
+        Assert.True(played.Party.SpendItemCharge(item.Id, 10).Spent);
+        item.Identify();
+        item.TakeDamage(3);
+        item.Repair(2);
+        SessionSave written = played.Session.Save();
+        byte[] bytes = Encode(written);
+        SessionSave read = Decode(bytes);
+        Assert.Equal(bytes, Encode(read));
+        using PartyEntity restored = new PartyEntityFactory().Restore(read.Party);
+        ItemInstance held = Assert.Single(restored.Items);
+        Assert.Equal(item.Id, held.Id);
+        Assert.Equal(item.Definition, held.Definition);
+        Assert.Equal(property, held.State.Enchantment);
+        Assert.True(held.State.IsHardened);
+        Assert.Equal(5, held.State.ChargeCapacity);
+        Assert.Equal(1, held.State.ChargesSpent);
+        Assert.Equal(1, held.State.Damage);
+        Assert.Equal(4, held.State.Potency);
+        Assert.True(held.State.IsIdentified);
+        item.SetEnchantment(null);
+        Assert.Equal(property, read.Party.Items.Single().State.Enchantment);
+    }
+
+    [Fact]
     public void A_played_session_round_trips_every_durable_fact_through_the_saved_bytes()
     {
         using Played played = new();

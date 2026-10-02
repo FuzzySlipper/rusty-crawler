@@ -44,6 +44,7 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     private readonly Func<MightAndMagic7Combat?> _combat;
     private readonly MightAndMagic7Summons _summons;
     private RunningSpellEffects? _running;
+    private readonly MightAndMagic7ItemMagic? _items;
 
     /// <summary>Creates this game's effect path over its own spell table.</summary>
     /// <param name="spells">This game's magic, which states what each spell does and rolls.</param>
@@ -70,8 +71,10 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         GameClock? clock = null,
         Func<SessionWorld?>? world = null,
         Func<MightAndMagic7Combat?>? combat = null,
-        CorpseGround? corpses = null)
+        CorpseGround? corpses = null,
+        MightAndMagic7ItemMagic? items = null)
     {
+        _items = items;
         _spells = spells ?? throw new ArgumentNullException(nameof(spells));
         _clock = clock;
         _world = world ?? (() => null);
@@ -126,6 +129,8 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         // would act on and who owns the way to name one. A spell that was paid for and then changed nothing
         // would be the worst of both: the points are gone and the player was told nothing.
         SpellReading reading = _spells.ReadingOf(application.Spell);
+        if (reading.ItemMagic is { } itemShape)
+            return _items is { } items ? items.Judge(application, itemShape) : new Refusal(MightAndMagic7Codes.ItemMagicTarget, "This composition supplies no item-table effect owner.");
         if (reading.Unaimable)
         {
             return SpellRefusals.TargetUnavailable(application.Spell.Name, reading.Missing, reading.Receiver);
@@ -227,6 +232,7 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     public IReadOnlyList<SpellAim> AimsOf(SpellDefinition spell)
     {
         SpellReading reading = _spells.ReadingOf(spell);
+        if (reading.ItemMagic is not null) return _items?.Aims() ?? [];
         if (reading.Travel == TravelShape.None || _world() is not { } world) return [];
 
         if (reading.Travel == TravelShape.Beacon)
@@ -359,6 +365,7 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         DrainFlight(advance);
         DrainWaterWalk(advance);
         _running?.Observe(advance);
+        _items?.Observe();
     }
 
     /// <summary>
@@ -1195,6 +1202,7 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
     private SpellApplicationOutcome Utility(SpellApplication application)
     {
         SpellReading reading = _spells.ReadingOf(application.Spell);
+        if (reading.ItemMagic is { } itemShape) return _items!.Apply(application, itemShape);
         if (reading.Dispels)
         {
             if (Ledger is not { } ledger) return Unexpressed(application, "nothing is running to dispel");

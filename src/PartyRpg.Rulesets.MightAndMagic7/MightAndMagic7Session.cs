@@ -111,7 +111,8 @@ internal sealed class MightAndMagic7Session : IGameSession
         // composed here because the ruleset is the one point both halves are composed over, and before the
         // effect path because a body a spell stands back up is taken off the same ground.
         CorpseGround corpses = new();
-        MightAndMagic7SpellEffects? spellEffects = spells is null ? null : new MightAndMagic7SpellEffects(spells, clock, () => owners.World, () => composed, corpses);
+        MightAndMagic7ItemMagic? itemMagic = spells is null ? null : new(Declared(context.Content), spells, clock, context.Engine?.Random, () => owners.Party);
+        MightAndMagic7SpellEffects? spellEffects = spells is null ? null : new MightAndMagic7SpellEffects(spells, clock, () => owners.World, () => composed, corpses, itemMagic);
         // This game's automap is read beside them: how far a walking party sees, what each place's own map
         // squares and features are drawn as, the zoom ladder, and what a detection reveals over it. Both halves
         // are read from the content the product loaded — the maps themselves come from the placed-map document

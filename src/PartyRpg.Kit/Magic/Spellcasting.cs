@@ -456,9 +456,10 @@ public sealed class Spellcasting
         if (!reading.ConsumedByUse)
         {
             if (!instance.Custody.IsEquipped) return (null, Refuse(SpellRefusals.ItemNotWielded(called)));
-            if (reading.Charges - instance.State.ChargesSpent <= 0)
+            int capacity = instance.State.ChargeCapacity ?? reading.Charges;
+            if (capacity - instance.State.ChargesSpent <= 0)
             {
-                return (null, Refuse(SpellRefusals.ItemSpent(called, reading.Charges)));
+                return (null, Refuse(SpellRefusals.ItemSpent(called, capacity)));
             }
         }
 

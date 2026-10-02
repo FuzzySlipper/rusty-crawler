@@ -135,7 +135,7 @@ internal static class MightAndMagic7Potions
 
         // Recharge Item: an item's charges given back, which needs an owner that can aim at an item.
         // Character.cpp:3214-3220.
-        new(233, SpellEffects.Utility, SpellTargeting.None, Readings.Unaimable("an item whose charges are given back", "an item-aim owner: the pack holds the party's items and nothing aims a potion at one")),   // Recharge Item
+        new(233, SpellEffects.Utility, SpellTargeting.None, Readings.OnItem(ItemMagicShape.Recharge)),   // Recharge Item
 
         // Stoneskin: the stone skin buff at power five. Character.cpp:3151-3155. The donor's buff is armour,
         // which is what this build's stone skin ward already carries.
@@ -148,7 +148,7 @@ internal static class MightAndMagic7Potions
 
         // Harden Item: an item made harder to break, which needs an owner that can aim at an item and a
         // break rule to aim it at. Character.cpp:3222-3245.
-        new(236, SpellEffects.Utility, SpellTargeting.None, Readings.Unaimable("an item made harder to break", "an item-aim owner: the pack holds the party's items and nothing aims a potion at one")),   // Harden Item
+        new(236, SpellEffects.Utility, SpellTargeting.None, Readings.OnItem(ItemMagicShape.Harden)),   // Harden Item
 
         // Remove Fear. Character.cpp:3162-3164.
         new(237, SpellEffects.Condition, SpellTargeting.Caster, Readings.Cure(MightAndMagic7Conditions.Fear)),   // Remove Fear
@@ -173,11 +173,11 @@ internal static class MightAndMagic7Potions
         // The weapon potions: a property added to a weapon for a while. Character.cpp:3247-3290, where each is
         // a temporary enchantment on the item in hand — the owner that would apply them is the item-aim owner
         // the two item potions above already name.
-        new(246, SpellEffects.Utility, SpellTargeting.None, Readings.Unaimable("a weapon given the property of flame", "an item-aim owner: the pack holds the party's items and nothing aims a potion at one")),   // Flaming Potion
-        new(247, SpellEffects.Utility, SpellTargeting.None, Readings.Unaimable("a weapon given the property of frost", "an item-aim owner: the pack holds the party's items and nothing aims a potion at one")),   // Freezing Potion
-        new(248, SpellEffects.Utility, SpellTargeting.None, Readings.Unaimable("a weapon given the property of poison", "an item-aim owner: the pack holds the party's items and nothing aims a potion at one")),   // Noxious Potion
-        new(249, SpellEffects.Utility, SpellTargeting.None, Readings.Unaimable("a weapon given the property of sparks", "an item-aim owner: the pack holds the party's items and nothing aims a potion at one")),   // Shocking Potion
-        new(250, SpellEffects.Utility, SpellTargeting.None, Readings.Unaimable("a weapon given the property of swiftness", "an item-aim owner: the pack holds the party's items and nothing aims a potion at one")),   // Swift Potion
+        new(246, SpellEffects.Utility, SpellTargeting.None, Readings.OnItem(ItemMagicShape.Fire)),   // Flaming Potion
+        new(247, SpellEffects.Utility, SpellTargeting.None, Readings.OnItem(ItemMagicShape.Frost)),   // Freezing Potion
+        new(248, SpellEffects.Utility, SpellTargeting.None, Readings.OnItem(ItemMagicShape.Poison)),   // Noxious Potion
+        new(249, SpellEffects.Utility, SpellTargeting.None, Readings.OnItem(ItemMagicShape.Sparks)),   // Shocking Potion
+        new(250, SpellEffects.Utility, SpellTargeting.None, Readings.OnItem(ItemMagicShape.Swift)),   // Swift Potion
 
         // Cure Paralysis. Character.cpp:3292-3294.
         new(251, SpellEffects.Condition, SpellTargeting.Caster, Readings.Cure(MightAndMagic7Conditions.Paralyzed)),   // Cure Paralysis
@@ -231,7 +231,7 @@ internal static class MightAndMagic7Potions
 
         // Slaying Potion: 'of dragon slaying' on a weapon, for good rather than for a while.
         // Character.cpp:3378-3382.
-        new(263, SpellEffects.Utility, SpellTargeting.None, Readings.Unaimable("a weapon made deadly to dragons", "an item-aim owner: the pack holds the party's items and nothing aims a potion at one")),   // Slaying Potion
+        new(263, SpellEffects.Utility, SpellTargeting.None, Readings.OnItem(ItemMagicShape.Dragon)),   // Slaying Potion
 
         // The seven pure potions: fifty to a score, for good, once each. Character.cpp:3282-3295, where the
         // donor records that the character has already had that one. A permanent score change is

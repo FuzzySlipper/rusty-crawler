@@ -76,8 +76,22 @@ internal static class MightAndMagic7Tuning
     /// </summary>
     internal static readonly TuningHandle TheftBanHours = new("theft.ban-hours", 24, 1, 24 * 336, "how many game hours a counter that caught a thief stays shut against the party");
 
+    /// <summary>Enchant success percent per school rank; donor ten, CastSpellInfo.cpp:1390.</summary>
+    internal static readonly TuningHandle EnchantChancePerRank = new("item.enchant-chance-per-rank", 10, 0, 100, "enchant success percent per school rank");
+    /// <summary>Minimum value for a weapon enchant; donor threshold, CastSpellInfo.cpp:1420.</summary>
+    internal static readonly TuningHandle EnchantWeaponValue = new("item.enchant-weapon-value", 250, 0, 1_000_000, "minimum weapon value for enchantment");
+    /// <summary>Minimum value for passive gear; donor threshold, same branch.</summary>
+    internal static readonly TuningHandle EnchantEquipmentValue = new("item.enchant-equipment-value", 450, 0, 1_000_000, "minimum passive equipment value for enchantment");
+    /// <summary>Master's minimum strength; ours, informed by the donor's explicitly guessed range.</summary>
+    internal static readonly TuningHandle EnchantMasterLow = new("item.enchant-master-low", 3, 1, 1_000, "minimum strength at master, with a five-point range");
+    /// <summary>Grand master's minimum strength; ours, informed by the same guessed range.</summary>
+    internal static readonly TuningHandle EnchantGrandMasterLow = new("item.enchant-grandmaster-low", 6, 1, 1_000, "minimum strength at grand master, with a six-point range");
+    /// <summary>Permanent ordinary-property trade premium per strength; donor standard bonus arithmetic, Item.cpp:159.</summary>
+    internal static readonly TuningHandle EnchantValuePerStrength = new("item.enchant-value-per-strength", 100, 0, 100_000, "trade premium per permanent item property strength");
+
     internal static readonly IReadOnlyList<TuningHandle> Handles =
     [
+        EnchantChancePerRank, EnchantWeaponValue, EnchantEquipmentValue, EnchantMasterLow, EnchantGrandMasterLow, EnchantValuePerStrength,
         FixtureBonusHours, TheftBanHours,
         ErrandExperience, ErrandCoins, BountyPerLevel, LessonBasePrice, ShopStockLines, CoachFare, BoatFare, CoachDays, BoatDays, SleepHours, RoofedRestRations,
     ];
