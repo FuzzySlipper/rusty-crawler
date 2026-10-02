@@ -99,6 +99,11 @@ public sealed class PeopleEmissionTests
             Assert.False(standing.Hidden);
             Assert.Equal(0, people.HiddenPlacementCount);
 
+            // The item the record says the person starts out carrying travels on the placement, on every one of the
+            // thirteen standings the shared delta gives them.
+            Assert.Equal(635, standing.CarriedItem);
+            Assert.Equal(13, people.CarryingPlacementCount);
+
             // Two of them are placed in buildings by the table's own column, and the import knows which of
             // those buildings it managed to place a door for: the other one is a remainder with a reason.
             Assert.Equal(2, people.ResidentCount);

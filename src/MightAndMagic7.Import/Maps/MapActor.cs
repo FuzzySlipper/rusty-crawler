@@ -52,6 +52,14 @@ namespace MightAndMagic7.Import.Maps;
 /// monster row belongs to, 9999 means the party's own, and anything else is that kind's matrix index
 /// (<c>src/Engine/Snapshots/EntitySnapshots.cpp:1494-1499</c>).
 /// </param>
+/// <param name="CarriedItem">
+/// The item row the record says the actor carries — the snapshot's <c>carriedItemId</c> at offset 0xB4, after the AI
+/// state and the action animation (OpenEnroth <c>src/Engine/Snapshots/EntitySnapshots.h:791</c>,
+/// <c>src/Engine/Objects/Actor.h:246-247</c>, "special items the npc carries (ie lute from bard)") — or zero when it
+/// carries none. A thief lifts it first (<c>src/Engine/Objects/Character.cpp:1254-1260</c>), the body gives it up
+/// (<c>src/Engine/Objects/Actor.cpp:3519-3529</c>), and an <c>npc-set-item</c> step fills or empties it
+/// (<c>src/Engine/Objects/Actor.cpp:147-158</c>).
+/// </param>
 public sealed record MapActor(
     int Index,
     string Name,
@@ -65,7 +73,8 @@ public sealed record MapActor(
     int Group,
     int UniqueNameIndex,
     int AiState = 0,
-    int HostilityGroup = 0)
+    int HostilityGroup = 0,
+    int CarriedItem = 0)
 {
     /// <summary>Whether the actor is somebody in the game's NPC table rather than a monster.</summary>
     public bool IsPerson => NpcId != 0;

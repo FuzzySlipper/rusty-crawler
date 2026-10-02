@@ -475,6 +475,7 @@ internal static class Program
         standingInTheOpen = people.PlacementCount,
         distinctPeopleInTheOpen = people.PlacedPersonCount,
         peopleHeldHidden = people.HiddenPlacementCount,
+        peopleCarryingAnItem = people.CarryingPlacementCount,
         inBuildings = people.ResidentCount,
         buildingsWithPeople = people.HouseholdCount,
         reachedBuildings = people.ReachableHouseholdCount,

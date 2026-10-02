@@ -37,10 +37,12 @@ party), the plate events another emitter answers for (none) or the program lacks
 notes (186), the history lines (28), and how many steps of each kind the fixtures' and floor triggers' events hold, which is the split the ruleset's
 interpretation is measured against. The `globalEvents` block states the global program carried (446 events), the ones a
 person's topic raises (365, 68 of them checking whether their topic is offered), its moves (3), and the step kinds of the
-raised ones; the `people` block states the people a map's own record holds hidden (`peopleHeldHidden`, 1), and its topics are now a person's slots (416 over 300 people), each answered by its event, and
+raised ones; the `people` block states the people a map's own record holds hidden (`peopleHeldHidden`, 1) and those it starts
+carrying an item (`peopleCarryingAnItem`, 8), and its topics are now a person's slots (416 over 300 people), each answered by its event, and
 the topic table carries 446 rows; the `fixtures` block's `houseEvents` (47) are the houses' own events a house's use
 runs, and the greeting table carries 205 rows. `verify` checks these counts. Packs written before the global program was carried
 offer only the topics the table gives text to and run none of them, and packs written before the houses' own events and
 the greeting table were carried open every house without running its event, so they must be rewritten; packs
 written before a `class` step named its class (`which`) cannot have a promoter's topic raise a rank, and packs written
-before an `npc-set-item` step carried its person and item refuse it, so they must be rewritten too.
+before an `npc-set-item` step carried its person and item refuse it, and packs written before a person placement carried
+its `carriedItem` start nobody with an item, so they must be rewritten too.

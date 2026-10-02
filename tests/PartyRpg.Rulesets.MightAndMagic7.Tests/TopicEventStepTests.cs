@@ -112,16 +112,55 @@ public sealed class TopicEventStepTests
             Assert.Null(MightAndMagic7Theft.Handed(party, hatter));
 
             Assert.Equal(string.Empty, PromoterTopicTests.Answer(rule, party, "topic-1").Residue);
-            Assert.Equal([631], MightAndMagic7PersonState.Carried(party.Records, "npc-7"));
+            Assert.Equal([631], MightAndMagic7PersonState.Carried(party.Records, "npc-7", []));
             Assert.Equal(("npc-7", 631), MightAndMagic7Theft.Handed(party, hatter));
 
             Assert.Equal(string.Empty, PromoterTopicTests.Answer(rule, party, "topic-2").Residue);
-            Assert.Empty(MightAndMagic7PersonState.Carried(party.Records, "npc-7"));
+            Assert.Empty(MightAndMagic7PersonState.Carried(party.Records, "npc-7", []));
 
             // A person the people table does not hold is refused by name, before the coin the run would find is found.
             InteractionOutcome unknown = PromoterTopicTests.Answer(rule, party, "topic-3");
             Assert.Contains("person 99", unknown.Residue, StringComparison.Ordinal);
             Assert.Equal(100, party.Purse.Coins);
+        }
+    }
+
+    [Fact]
+    public void An_item_step_takes_the_item_a_persons_own_record_starts_them_with_and_gives_it_back()
+    {
+        (MightAndMagic7Interaction rule, PartyEntity party, MightAndMagic7Fixtures fixtures) = ComposeWithFixtures(
+            person => person == "npc-7" ? [43] : [],
+            """
+            { "id": "1", "event": 1, "topic": true, "steps": [
+              { "step": 0, "op": "npc-set-item", "person": 7, "item": 43, "on": false } ] }
+            """,
+            """
+            { "id": "2", "event": 2, "topic": true, "steps": [
+              { "step": 0, "op": "npc-set-item", "person": 7, "item": 43, "on": true } ] }
+            """);
+        using (party)
+        {
+            // The placement the map's own record stands carries the item it starts the person with, and a thief's hand
+            // reaches it before any record says anything.
+            PlacementDefinition carrier = Carrying("npc-7", 43);
+            Assert.Equal([43], MightAndMagic7PersonState.Starting(carrier));
+            Assert.Equal(("npc-7", 43), MightAndMagic7Theft.Handed(party, carrier));
+
+            // A take the donor runs over every creature standing for the person empties the starting item, which the
+            // party's records keep as taken (OpenEnroth src/Engine/Objects/Actor.cpp:157-158).
+            Assert.Equal(string.Empty, PromoterTopicTests.Answer(rule, party, "topic-1").Residue);
+            Assert.Null(MightAndMagic7Theft.Handed(party, carrier));
+            Assert.True(party.Records.Has($"{MightAndMagic7PersonState.TakenPrefix}npc-7:43"));
+            Assert.Null(fixtures.JudgeRecord($"{MightAndMagic7PersonState.TakenPrefix}npc-7:43", 1));
+
+            // Giving it back takes the record of the take off rather than giving a second one.
+            Assert.Equal(string.Empty, PromoterTopicTests.Answer(rule, party, "topic-2").Residue);
+            Assert.Equal([43], MightAndMagic7PersonState.Carried(party.Records, "npc-7", MightAndMagic7PersonState.Starting(carrier)));
+            Assert.False(party.Records.Has($"{MightAndMagic7PersonState.TakenPrefix}npc-7:43"));
+            Assert.False(party.Records.Has($"{MightAndMagic7PersonState.ItemPrefix}npc-7:43"));
+
+            // A save that says an item the person never started with was taken from them is one no writer could leave.
+            Assert.Contains("no map record starts 'npc-7' with item 44", fixtures.JudgeRecord($"{MightAndMagic7PersonState.TakenPrefix}npc-7:44", 1), StringComparison.Ordinal);
         }
     }
 
@@ -210,6 +249,23 @@ public sealed class TopicEventStepTests
     /// <summary>A rule running the given global events, with one person the people table holds, and a party.</summary>
     private static (MightAndMagic7Interaction Rule, PartyEntity Party) Compose(params string[] globalEvents)
     {
+        (MightAndMagic7Interaction rule, PartyEntity party, _) = ComposeWithFixtures(_ => [], globalEvents);
+        return (rule, party);
+    }
+
+    /// <summary>A person placement whose own record starts the person with an item, as the importer writes it.</summary>
+    internal static PlacementDefinition Carrying(string person, int item)
+    {
+        string json = string.Create(
+            CultureInfo.InvariantCulture,
+            $$"""{ "id": "person-0", "kind": "person", "sourceField": "actors", "sourceIndex": 0, "x": 0, "y": 0, "z": 0, "carriedItem": {{item}}, "people": [ {{JsonSerializer.Serialize(person)}} ] }""");
+        return new PlacementDefinition(new PlacementContentId("person", "person-0"), "actors", 0, PlacePose.Origin, new ContentEntry("person-0", JsonDocument.Parse(json).RootElement.Clone()));
+    }
+
+    private static (MightAndMagic7Interaction Rule, PartyEntity Party, MightAndMagic7Fixtures Fixtures) ComposeWithFixtures(
+        Func<string, IReadOnlyList<int>> starting,
+        params string[] globalEvents)
+    {
         ContentCatalog catalog = PromoterTopicTests.Catalog(globalEvents);
         PartyEntity party = PromoterTopicTests.Party(("Lasse", "Thief", 1));
         PartyProgression progression = new(MightAndMagic7Progression.Instance, party);
@@ -217,8 +273,9 @@ public sealed class TopicEventStepTests
             MightAndMagic7MapEvents.Read(catalog),
             progression: () => progression,
             people: id => id == "npc-7" ? new ConversationPerson("npc-7", "The Hatter") : null,
-            topics: topic => new SpokenTopic(topic, "Topic", string.Empty, int.Parse(topic["topic-".Length..], CultureInfo.InvariantCulture)));
-        return (new MightAndMagic7Interaction(fixtures: fixtures), party);
+            topics: topic => new SpokenTopic(topic, "Topic", string.Empty, int.Parse(topic["topic-".Length..], CultureInfo.InvariantCulture)),
+            starting: starting);
+        return (new MightAndMagic7Interaction(fixtures: fixtures), party, fixtures);
     }
 
     private static JsonElement Record(int group, bool hidden) =>

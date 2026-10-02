@@ -74,8 +74,8 @@ internal sealed class MightAndMagic7Corpses : ICreatureDeathObserver, ICorpseSou
     /// <remarks>
     /// A death is reported once, so what it left is rolled once, here, under a key that names that death. Without
     /// a random service nothing can be drawn, and the body holds nothing it would have drawn: that is a product that
-    /// cannot generate loot rather than a body whose loot is a promise to roll later. What an event gave a fallen person
-    /// to carry is no draw, so it is on the body either way.
+    /// cannot generate loot rather than a body whose loot is a promise to roll later. What a fallen person carries
+    /// is no draw, so it is on the body either way.
     /// </remarks>
     public void Died(CreatureDeath death)
     {
@@ -84,17 +84,19 @@ internal sealed class MightAndMagic7Corpses : ICreatureDeathObserver, ICorpseSou
         KeyedRolls? rolls = _loot.RollsFor(Key(body));
         LootYield left = rolls is null ? LootYield.Nothing : _loot.Death(body.Body, rolls);
 
-        // A person who fell gives up what events gave them to carry beside what their row leaves (OpenEnroth
-        // src/Engine/Objects/Actor.cpp:3519-3529), and carries it no longer.
+        // A person who fell gives up what they carry — the item their own map record starts them with and what events
+        // gave them — beside what their row leaves (OpenEnroth src/Engine/Objects/Actor.cpp:3519-3529), and carries it no
+        // longer.
         if (_party() is { } party)
         {
             List<LootItem> carried = [];
             foreach (string person in MightAndMagic7Conversation.PeopleOf(body.Body))
             {
-                foreach (int item in MightAndMagic7PersonState.Carried(party.Records, person))
+                IReadOnlyList<int> starting = MightAndMagic7PersonState.Starting(body.Body);
+                foreach (int item in MightAndMagic7PersonState.Carried(party.Records, person, starting))
                 {
                     carried.Add(new LootItem(new ItemDefinitionId(item.ToString(CultureInfo.InvariantCulture))));
-                    MightAndMagic7PersonState.Take(party.Records, person, item);
+                    MightAndMagic7PersonState.Take(party.Records, person, item, starting);
                 }
             }
 

@@ -1,5 +1,6 @@
 using System.Globalization;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.World;
 
 namespace PartyRpg.Rulesets.MightAndMagic7;
 
@@ -19,13 +20,18 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// donor saves its people table per game, so the reading is the same for a one-party game.
 /// </para>
 /// <para>
-/// <b>What a person carries.</b> A <c>npc-set-item</c> step gives an item to every creature standing for a person, or
-/// takes it from them (OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:538-539</c>, <c>src/Engine/Objects/Actor.cpp:139-165</c>),
-/// and what a person carries is what a thief lifts first (<c>src/Engine/Objects/Character.cpp:1254-1260</c>) and what
-/// their body gives up (<c>src/Engine/Objects/Actor.cpp:3519-3529</c>): <see cref="MightAndMagic7Theft"/> and
-/// <see cref="MightAndMagic7Corpses"/> read it here. <b>Ours</b>: the donor's person holds three such items at most and
-/// starts with the one their map record names; the packs carry no record's item, so a person carries only what an event
-/// gave them, a take of anything else changes nothing, and the three are not counted.
+/// <b>What a person carries.</b> The donor's person starts with the item their map actor record names (its
+/// <c>carriedItemId</c>, OpenEnroth <c>src/Engine/Snapshots/EntitySnapshots.h:791</c>, <c>src/Engine/Objects/Actor.h:246-247</c>),
+/// which the importer writes on the person placement as <see cref="CarriedItemField"/>. A <c>npc-set-item</c> step gives
+/// an item to every creature standing for a person, or takes it from them (<c>src/Engine/Evt/EvtInterpreter.cpp:538-539</c>,
+/// <c>src/Engine/Objects/Actor.cpp:139-165</c>), and what a person carries is what a thief lifts first
+/// (<c>src/Engine/Objects/Character.cpp:1254-1260</c>) and what their body gives up (<c>src/Engine/Objects/Actor.cpp:3519-3529</c>):
+/// <see cref="MightAndMagic7Theft"/> and <see cref="MightAndMagic7Corpses"/> read it here. The starting item is content,
+/// the same for every party, so the party's records keep only what changed: an item given (<see cref="ItemPrefix"/>) and
+/// a starting item taken (<see cref="TakenPrefix"/>), which giving it back takes off the record. <b>Ours</b>: the donor's
+/// person holds three such items at most, which are not counted here; and what was given or taken is the person's rather
+/// than each standing's, so a person a map stands in two places shares one record of it — no shipped person who starts
+/// with an item stands twice.
 /// </para>
 /// <para>
 /// <b>Of a house and a greeting, only the latest change stands.</b> The writer takes every earlier change of the same kind for the person off the
@@ -43,6 +49,20 @@ internal static class MightAndMagic7PersonState
 
     /// <summary>The prefix the record of an item an event gave a person carries.</summary>
     internal const string ItemPrefix = "person-item:";
+
+    /// <summary>The prefix the record of an item a person started with and no longer carries carries.</summary>
+    internal const string TakenPrefix = "person-item-taken:";
+
+    /// <summary>The field a person placement names the item its map record starts the person with under.</summary>
+    internal const string CarriedItemField = "carriedItem";
+
+    /// <summary>The item a placement's own record starts the people it stands for with, none when it names none.</summary>
+    /// <param name="placement">The person's placement.</param>
+    internal static IReadOnlyList<int> Starting(PlacementDefinition placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        return placement.Source.GetInt32(CarriedItemField) is { } item and > 0 ? [item] : [];
+    }
 
     /// <summary>The name of the record that says a person lives in a house.</summary>
     /// <param name="person">The person's identity in content.</param>
@@ -77,13 +97,23 @@ internal static class MightAndMagic7PersonState
         }
     }
 
-    /// <summary>The items events gave a person to carry and nothing has taken since, in the order they were given.</summary>
+    /// <summary>
+    /// What a person carries now: the items they started with that nothing has taken, then the items events gave them and
+    /// nothing has taken since, in the order they were given.
+    /// </summary>
     /// <param name="records">The party's records.</param>
     /// <param name="person">The person's identity in content.</param>
-    internal static IReadOnlyList<int> Carried(PartyRecords records, string person)
+    /// <param name="starting">The items the person's own map record starts them with, as the reader knows them.</param>
+    internal static IReadOnlyList<int> Carried(PartyRecords records, string person, IReadOnlyList<int> starting)
     {
         ArgumentNullException.ThrowIfNull(records);
+        ArgumentNullException.ThrowIfNull(starting);
         List<int> items = [];
+        foreach (int item in starting)
+        {
+            if (item > 0 && !items.Contains(item) && !records.Has(ItemRecord(TakenPrefix, person, item))) items.Add(item);
+        }
+
         foreach (PartyRecord record in records.All)
         {
             if (Parse(record.Name, ItemPrefix) is { } held && string.Equals(held.Person, person, StringComparison.Ordinal)) items.Add(held.Number);
@@ -92,24 +122,37 @@ internal static class MightAndMagic7PersonState
         return items;
     }
 
-    /// <summary>Gives a person an item to carry, once.</summary>
+    /// <summary>
+    /// Gives a person an item to carry: a starting item that was taken is theirs again, and anything else is given once.
+    /// </summary>
     /// <param name="records">The party's records.</param>
     /// <param name="person">The person's identity in content.</param>
     /// <param name="item">The item's row.</param>
-    internal static void Give(PartyRecords records, string person, int item)
+    /// <param name="starting">The items the person's own map records start them with.</param>
+    internal static void Give(PartyRecords records, string person, int item, IReadOnlyList<int> starting)
     {
         ArgumentNullException.ThrowIfNull(records);
-        records.Mark(string.Create(CultureInfo.InvariantCulture, $"{ItemPrefix}{person}:{item}"));
+        ArgumentNullException.ThrowIfNull(starting);
+        if (starting.Contains(item) && records.Remove(ItemRecord(TakenPrefix, person, item))) return;
+        records.Mark(ItemRecord(ItemPrefix, person, item));
     }
 
-    /// <summary>Takes an item from a person, when an event gave it to them; answers whether they carried it.</summary>
+    /// <summary>
+    /// Takes an item from a person — one an event gave them first, then the one they started with — and answers whether
+    /// they carried it.
+    /// </summary>
     /// <param name="records">The party's records.</param>
     /// <param name="person">The person's identity in content.</param>
     /// <param name="item">The item's row.</param>
-    internal static bool Take(PartyRecords records, string person, int item)
+    /// <param name="starting">The items the person's own map records start them with, as the reader knows them.</param>
+    internal static bool Take(PartyRecords records, string person, int item, IReadOnlyList<int> starting)
     {
         ArgumentNullException.ThrowIfNull(records);
-        return records.Remove(string.Create(CultureInfo.InvariantCulture, $"{ItemPrefix}{person}:{item}"));
+        ArgumentNullException.ThrowIfNull(starting);
+        if (records.Remove(ItemRecord(ItemPrefix, person, item))) return true;
+        if (!starting.Contains(item) || records.Has(ItemRecord(TakenPrefix, person, item))) return false;
+        records.Mark(ItemRecord(TakenPrefix, person, item));
+        return true;
     }
 
     /// <summary>Moves a person to a house, taking every earlier move of theirs off the record.</summary>
@@ -139,19 +182,27 @@ internal static class MightAndMagic7PersonState
     /// <param name="count">How many times it is on record.</param>
     /// <param name="person">Whether the content carries a person of an identity.</param>
     /// <param name="greeting">Whether the content's greeting table carries a row.</param>
-    internal static string? Judge(string name, int count, Func<string, bool> person, Func<int, bool> greeting)
+    /// <param name="starting">The items a person's own map records start them with.</param>
+    internal static string? Judge(string name, int count, Func<string, bool> person, Func<int, bool> greeting, Func<string, IReadOnlyList<int>> starting)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(person);
         ArgumentNullException.ThrowIfNull(greeting);
+        ArgumentNullException.ThrowIfNull(starting);
         string? prefix = name.StartsWith(HousePrefix, StringComparison.Ordinal) ? HousePrefix
             : name.StartsWith(GreetingPrefix, StringComparison.Ordinal) ? GreetingPrefix
             : name.StartsWith(ItemPrefix, StringComparison.Ordinal) ? ItemPrefix
+            : name.StartsWith(TakenPrefix, StringComparison.Ordinal) ? TakenPrefix
             : null;
         if (prefix is null) return null;
         if (Parse(name, prefix) is not { } changed) return $"a changed person is named '{prefix}<person>:<number>'";
         if (!person(changed.Person)) return $"the content carries no person '{changed.Person}'";
-        if (prefix == ItemPrefix && changed.Number == 0) return "an item a person carries is a row of the item table, which zero is not";
+        if ((prefix == ItemPrefix || prefix == TakenPrefix) && changed.Number == 0) return "an item a person carries is a row of the item table, which zero is not";
+        if (prefix == TakenPrefix && !starting(changed.Person).Contains(changed.Number))
+        {
+            return string.Create(CultureInfo.InvariantCulture, $"no map record starts '{changed.Person}' with item {changed.Number}, so it cannot have been taken from them");
+        }
+
         if (prefix == GreetingPrefix && changed.Number != 0 && !greeting(changed.Number))
         {
             return string.Create(CultureInfo.InvariantCulture, $"the content's greeting table has no row {changed.Number}");
@@ -159,6 +210,9 @@ internal static class MightAndMagic7PersonState
 
         return count == 1 ? null : "a person's change is held once, so the record is held once";
     }
+
+    private static string ItemRecord(string prefix, string person, int item) =>
+        string.Create(CultureInfo.InvariantCulture, $"{prefix}{person}:{item}");
 
     private static int? Read(PartyRecords records, string prefix, string person)
     {

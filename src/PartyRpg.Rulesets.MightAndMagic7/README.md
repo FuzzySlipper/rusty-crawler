@@ -645,11 +645,14 @@ hidden stands once its group is shown; a group hidden while the party is there l
 again stands the next time the place is populated (ours: a creature put on the field mid-visit is a summoning, which a
 save refuses, #8658). No shipped creature or person carries the two groups the one shipped step names (33 and 34), and
 no shipped hidden record has a group, so in play the step changes nothing a party sees. Any other bit is refused by
-name. `npc-set-item` (`EvtInterpreter.cpp:538-539`, `Actor.cpp:139-165`) gives a person an item to carry or takes it
-back, as the party record `person-item:<person>:<item>` (`MightAndMagic7PersonState`, judged on load): a thief's hand
-finds it first (`Character.cpp:1254-1260`, `MightAndMagic7Theft`) and a fallen person's body gives it up
-(`Actor.cpp:3519-3529`, `MightAndMagic7Corpses`); ours: the packs carry no item a person's own map record names, so a
-take of one changes nothing, and the donor's three slots are not counted. A person a map's own record holds hidden
+name. A person starts with the item their own map record carries (the placement's `carriedItem`, the donor's
+`carriedItemId`, `EntitySnapshots.h:791`; eight shipped people, read by the conversation over every place they stand in);
+`npc-set-item` (`EvtInterpreter.cpp:538-539`, `Actor.cpp:139-165`) gives a person an item to carry or takes it
+back, as the party records `person-item:<person>:<item>` (given) and `person-item-taken:<person>:<item>` (a starting item
+taken, which giving it back removes) (`MightAndMagic7PersonState`, judged on load, a taken item the person never started
+with refused): a thief's hand finds what they carry first, the starting item before a given one (`Character.cpp:1254-1260`,
+`MightAndMagic7Theft`), and a fallen person's body gives all of it up (`Actor.cpp:3519-3529`, `MightAndMagic7Corpses`);
+ours: what was given or taken is the person's rather than each standing's, and the donor's three slots are not counted. A person a map's own record holds hidden
 (`"hidden": true`, the one shipped one Castle Harmondale's NPC row 56, which the donor keeps `Disabled` in an
 interior, `Indoor.cpp:979-998`) is read by the same `Stands`: they are not created and the conversation answers
 nobody at their placement, until an event shows their group — which, with no group, nothing does. `compare` of `invisible` holds while the party

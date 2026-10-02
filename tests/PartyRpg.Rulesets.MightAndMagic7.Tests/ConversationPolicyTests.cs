@@ -53,6 +53,11 @@ public sealed class ConversationPolicyTests
         Assert.Equal("707", speaker.Portrait);
         Assert.Equal("'A fine day for it.'", Greeting(fixture, subject, speaker.Id).Text);
 
+        // The item the person's own map record starts them with is read with the placement, and it is the person's: what
+        // an item step takes from everybody standing for them. A building's resident starts with nothing.
+        Assert.Equal([43], fixture.Conversation.StartingOf("np-2"));
+        Assert.Empty(fixture.Conversation.StartingOf("np-1"));
+
         // A person the party has met is greeted the other way, which is party-carried state rather than
         // anything the conversation remembers: the flag is the same one the greeting records.
         fixture.Party.Records.Set("met:np-2", 1);
@@ -382,7 +387,7 @@ public sealed class ConversationPolicyTests
               { "id": "1", "kind": "interior", "name": "Somewhere", "respawnDays": 7,
                 "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ],
                 "placements": [
-                  { "id": "person-0", "kind": "person", "x": 0, "y": 100, "z": 0, "people": [ "np-2" ] },
+                  { "id": "person-0", "kind": "person", "x": 0, "y": 100, "z": 0, "carriedItem": 43, "people": [ "np-2" ] },
                   { "id": "service-7", "kind": "service", "houseId": 7, "x": 100, "y": 0, "z": 0, "people": [ "np-1" ] },
                   { "id": "residence-9", "kind": "residence", "houseId": 9, "name": "House of Ash", "proprietor": "Mira",
                     "fixture": "House R9", "x": -100, "y": 0, "z": 0 } ] } ] }

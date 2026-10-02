@@ -255,6 +255,36 @@ public sealed class TheftPolicyTests
 
     [Fact]
     [Trait(Pins.Trait, Pins.Tuning)]
+    public void A_hand_in_a_person_s_purse_lifts_the_item_their_own_record_starts_them_with_first()
+    {
+        TestRandomService random = new();
+        using Town town = Town.Build(random, personLevel: 4);
+        PlacementDefinition peasant = new(
+            new PlacementContentId("person", "person-7"),
+            "actors",
+            7,
+            PlacePose.Origin,
+            new ContentEntry("person-7", JsonDocument.Parse("""{ "id": "person-7", "kind": "person", "carriedItem": 635, "people": [ "npc-5" ] }""").RootElement));
+
+        // Unseen, a find between the donor's forty and seventy reaches for an item, and what the person's own map record
+        // starts them with is what the hand finds first (OpenEnroth src/Engine/Objects/Character.cpp:1254-1260).
+        random.Answer = Draws(luck: 4, seen: 50, find: 50);
+        ServiceResult lifted = town.Services.StealFrom(new PlaceId("1"), peasant, 1);
+        Assert.True(lifted.IsApplied, lifted.Message);
+        Assert.False(town.Services.LastTheft!.Caught);
+        Assert.Equal("635", Assert.Single(town.Services.LastTheft!.Items).Value);
+        Assert.Contains(town.Party.Inventory.Items, item => item.Definition.Value == "635");
+
+        // It is theirs no longer, which the party's records keep, so the next hand finds nothing to lift.
+        Assert.True(town.Party.Records.Has($"{MightAndMagic7PersonState.TakenPrefix}npc-5:635"));
+        Assert.Null(MightAndMagic7Theft.Handed(town.Party, peasant));
+        ServiceResult again = town.Services.StealFrom(new PlaceId("1"), peasant, 1);
+        Assert.True(again.IsApplied, again.Message);
+        Assert.Empty(town.Services.LastTheft!.Items);
+    }
+
+    [Fact]
+    [Trait(Pins.Trait, Pins.Tuning)]
     public void A_person_who_catches_a_hand_in_their_purse_stops_talking_and_turns_on_the_party()
     {
         (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(StreetContent());

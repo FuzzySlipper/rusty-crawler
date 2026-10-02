@@ -637,6 +637,10 @@ internal static partial class PackWriter
                     // A person the level holds hidden is written as a creature's record is, and the ruleset decides
                     // that they do not stand.
                     if (person.Hidden) field.WriteBoolean("hidden", true);
+
+                    // The item row the record says the person starts out carrying, which a thief lifts first and the
+                    // body gives up; the ruleset reads it beside what the party's records say was given or taken since.
+                    if (person.CarriedItem != 0) field.WriteNumber("carriedItem", person.CarriedItem);
                     WritePeople(field, [person.PersonId]);
                 }));
         }

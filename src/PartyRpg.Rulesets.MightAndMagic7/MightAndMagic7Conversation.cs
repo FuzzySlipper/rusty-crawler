@@ -152,6 +152,9 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     private Func<PlaceId, PlacementDefinition, bool> Stands { get; init; } = (_, _) => true;
     private IReadOnlyDictionary<string, TopicFacts> Table { get; init; } = new Dictionary<string, TopicFacts>(StringComparer.Ordinal);
 
+    /// <summary>The items the people's own map records start them with, by person, over every place they stand in.</summary>
+    private IReadOnlyDictionary<string, IReadOnlyList<int>> StartingItems { get; init; } = new Dictionary<string, IReadOnlyList<int>>(StringComparer.Ordinal);
+
     /// <summary>The greeting table, by row: what is said on a first meeting and on a later one.</summary>
     private IReadOnlyDictionary<int, (string First, string Again)> Greetings { get; init; } = new Dictionary<int, (string, string)>();
 
@@ -398,7 +401,8 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
             };
         }
 
-        Dictionary<(string, string), IReadOnlyList<string>> present = ReadPlacements(catalog, people, issues);
+        Dictionary<string, List<int>> starting = [];
+        Dictionary<(string, string), IReadOnlyList<string>> present = ReadPlacements(catalog, people, issues, starting);
 
         // The greeting table itself, by row, is what a person's greeting a map event changed is read from.
         Dictionary<int, (string First, string Again)> greetings = [];
@@ -449,6 +453,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
         {
             Table = table,
             Greetings = greetings,
+            StartingItems = starting.ToDictionary(entry => entry.Key, entry => (IReadOnlyList<int>)entry.Value, StringComparer.Ordinal),
             Stands = stands ?? ((_, _) => true),
         };
     }
@@ -1118,6 +1123,13 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
     /// <param name="row">The row.</param>
     internal bool HasGreeting(int row) => Greetings.ContainsKey(row);
 
+    /// <summary>
+    /// The items a person's own map records start them with, over every place a map stands them in: what an
+    /// <c>npc-set-item</c> step can take from every creature standing for them (<see cref="MightAndMagic7PersonState"/>).
+    /// </summary>
+    /// <param name="person">The person's id, as the table writes it.</param>
+    internal IReadOnlyList<int> StartingOf(string person) => StartingItems.GetValueOrDefault(person) ?? [];
+
     /// <summary>Who one of the people the table holds is, or null when it holds nobody of that id.</summary>
     /// <param name="person">The person's id, as the table writes it.</param>
     internal ConversationPerson? PersonOf(string person) => Facts(person)?.Who;
@@ -1158,11 +1170,12 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
 
     private static string TopicId(int row) => string.Create(CultureInfo.InvariantCulture, $"{TopicIdPrefix}{row}");
 
-    /// <summary>Reads every placement that names the people standing there.</summary>
+    /// <summary>Reads every placement that names the people standing there, and the item each person placement starts them with.</summary>
     private static Dictionary<(string, string), IReadOnlyList<string>> ReadPlacements(
         ContentCatalog catalog,
         Dictionary<string, PersonFacts> people,
-        List<ContentValidationIssue> issues)
+        List<ContentValidationIssue> issues,
+        Dictionary<string, List<int>> starting)
     {
         Dictionary<(string, string), IReadOnlyList<string>> present = [];
         foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries(PlaceGraphLoader.PlaceDefinitionKind))
@@ -1205,6 +1218,13 @@ internal sealed class MightAndMagic7Conversation : IConversationRule
                 }
 
                 if (ids.Count > 0) present[(entry.Id, id)] = ids;
+                int carried = ReadInt(placement, MightAndMagic7PersonState.CarriedItemField);
+                if (carried <= 0 || !string.Equals(kind, PersonPlacementKind, StringComparison.Ordinal)) continue;
+                foreach (string named in ids)
+                {
+                    if (!starting.TryGetValue(named, out List<int>? items)) starting[named] = items = [];
+                    if (!items.Contains(carried)) items.Add(carried);
+                }
             }
         }
 

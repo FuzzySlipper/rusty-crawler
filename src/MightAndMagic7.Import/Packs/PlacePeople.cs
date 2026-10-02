@@ -109,6 +109,10 @@ public sealed record PlacePerson(
 /// own state (OpenEnroth <c>src/Engine/Graphics/Indoor.cpp:979-998</c>) and a region's turns the bit into it
 /// (<c>src/Engine/Graphics/Outdoor.cpp:617-618</c>).
 /// </param>
+/// <param name="CarriedItem">
+/// The item row the actor record says the person starts out carrying (<see cref="MapActor.CarriedItem"/>), zero when
+/// it names none: what a thief lifts first, what the body gives up, and what an <c>npc-set-item</c> step can take.
+/// </param>
 public sealed record PlacePersonPlacement(
     int PlaceId,
     string PlacementId,
@@ -123,7 +127,8 @@ public sealed record PlacePersonPlacement(
     int Group = 0,
     int Attributes = 0,
     int HostilityGroup = 0,
-    bool Hidden = false);
+    bool Hidden = false,
+    int CarriedItem = 0);
 
 /// <summary>Everybody a building holds, by the NPC table's own placement column.</summary>
 /// <param name="BuildingId">The building's id, which is the row the table places people in.</param>
@@ -168,6 +173,9 @@ public sealed record PlacePeopleSummary(
 
     /// <summary>How many of the people standing at a position of their own the level holds hidden.</summary>
     public int HiddenPlacementCount => Placements.Count(placement => placement.Hidden);
+
+    /// <summary>How many of the people standing at a position of their own the record says carry an item.</summary>
+    public int CarryingPlacementCount => Placements.Count(placement => placement.CarriedItem != 0);
 
     /// <summary>How many distinct people stand at a position of their own.</summary>
     public int PlacedPersonCount => Placements.Select(placement => placement.PersonId).Distinct().Count();
@@ -356,7 +364,8 @@ public static class PlacePeopleEmitter
                     actor.Group,
                     actor.Attributes,
                     actor.HostilityGroup,
-                    actor.AiState == PlaceCreatures.HiddenAiState || (actor.Attributes & PlaceCreatures.HiddenAttribute) != 0));
+                    actor.AiState == PlaceCreatures.HiddenAiState || (actor.Attributes & PlaceCreatures.HiddenAttribute) != 0,
+                    actor.CarriedItem));
             }
         }
 

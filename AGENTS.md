@@ -135,8 +135,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 
 **Open residue and its receivers** (Den task ids; Den owns their status):
 
-- Stone 3, world: creatures cannot path around a wall because places carry no navigation cells (#8665); the
-  item a person's own map record carries is not imported (#9087).
+- Stone 3, world: creatures cannot path around a wall because places carry no navigation cells (#8665).
 - Stone 5, interaction and services: opened doors and emptied containers are not saved (#8593), and a
   searched chest can be looted twice (#8696); a door's collision, and a face group an event makes passable,
   do not move (#8594); a container above or below the floor cannot be used (#8697); deadlines (fatigue, wards, light, haste) block

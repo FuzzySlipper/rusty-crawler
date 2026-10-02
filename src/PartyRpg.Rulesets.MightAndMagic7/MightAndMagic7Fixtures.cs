@@ -242,6 +242,7 @@ internal sealed class MightAndMagic7Fixtures
     private readonly Func<string, SpokenTopic?> _topics;
     private readonly Func<int, bool> _greetings;
     private readonly Func<PlaceId, PlacePopulation?> _population;
+    private readonly Func<string, IReadOnlyList<int>> _starting;
     private long _summoned;
 
     /// <summary>Creates this game's fixtures over the map events content carries.</summary>
@@ -271,6 +272,10 @@ internal sealed class MightAndMagic7Fixtures
     /// The live population of a place, which a summoning puts its creatures into; null for a place the party does not
     /// stand in now, and absent in a session that keeps none.
     /// </param>
+    /// <param name="starting">
+    /// The items a person's own map records start them with (<see cref="MightAndMagic7Conversation.StartingOf"/>), which an
+    /// item step can take from them; absent in a session that speaks with nobody.
+    /// </param>
     internal MightAndMagic7Fixtures(
         MightAndMagic7MapEvents events,
         Func<PartyKnowledge?>? knowledge = null,
@@ -285,8 +290,10 @@ internal sealed class MightAndMagic7Fixtures
         Func<PartyJournal?>? journal = null,
         Func<string, SpokenTopic?>? topics = null,
         Func<int, bool>? greetings = null,
-        Func<PlaceId, PlacePopulation?>? population = null)
+        Func<PlaceId, PlacePopulation?>? population = null,
+        Func<string, IReadOnlyList<int>>? starting = null)
     {
+        _starting = starting ?? (_ => []);
         _topics = topics ?? (_ => null);
         _greetings = greetings ?? (_ => false);
         _population = population ?? (_ => null);
@@ -830,7 +837,7 @@ internal sealed class MightAndMagic7Fixtures
     /// <param name="count">How many times it is on record.</param>
     internal string? JudgeRecord(string name, int count) =>
         MightAndMagic7TopicSlots.Judge(name, count, person => _people(person) is not null) ??
-        MightAndMagic7PersonState.Judge(name, count, person => _people(person) is not null, _greetings);
+        MightAndMagic7PersonState.Judge(name, count, person => _people(person) is not null, _greetings, _starting);
 
     /// <summary>
     /// Every creature and person a place's population holds and whether each is down, as the population and the
@@ -1268,8 +1275,8 @@ internal sealed class MightAndMagic7Fixtures
             bool give = step.On;
             _effects.Add(() =>
             {
-                if (give) MightAndMagic7PersonState.Give(party.Records, id, item);
-                else MightAndMagic7PersonState.Take(party.Records, id, item);
+                if (give) MightAndMagic7PersonState.Give(party.Records, id, item, _rules._starting(id));
+                else MightAndMagic7PersonState.Take(party.Records, id, item, _rules._starting(id));
             });
             return null;
         }

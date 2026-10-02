@@ -256,6 +256,46 @@ public sealed class LootPolicyTests
     }
 
     [Fact]
+    public void A_person_who_falls_leaves_what_they_carry_on_the_body_and_carries_it_no_longer()
+    {
+        // A person carries the item their own map record starts them with and what an event gave them; the body gives up
+        // both beside what the row leaves (OpenEnroth src/Engine/Objects/Actor.cpp:3519-3529). The row here states nothing,
+        // so what lies on the body is what the person carried, the starting item first.
+        MightAndMagic7Loot loot = Loot(Treasure(chance: 0, rolls: 0, sides: 0, level: 0));
+        using PartyEntity party = Party();
+        MightAndMagic7PersonState.Give(party.Records, "npc-5", 631, []);
+        CorpseGround ground = new();
+        MightAndMagic7Corpses corpses = new(ground, loot, party: () => party);
+        PlacementDefinition person = Placement(
+            "person",
+            "person-7",
+            """{ "id": "person-7", "kind": "person", "monster": 4, "x": 100, "y": 0, "z": 0, "carriedItem": 635, "people": [ "npc-5" ] }""");
+
+        corpses.Died(new CreatureDeath(new PlaceId("1"), person, "A peasant"));
+        Corpse body = Assert.Single(ground.In(new PlaceId("1")));
+        LootYield held = Assert.IsType<LootYield>(ground.Held(body));
+        Assert.Equal(["635", "631"], held.Items.Select(item => item.Definition.Value));
+
+        // The person carries neither any longer: the starting item is on record as taken and the given one is off it.
+        Assert.Empty(MightAndMagic7PersonState.Carried(party.Records, "npc-5", MightAndMagic7PersonState.Starting(person)));
+        Assert.True(party.Records.Has($"{MightAndMagic7PersonState.TakenPrefix}npc-5:635"));
+        Assert.False(party.Records.Has($"{MightAndMagic7PersonState.ItemPrefix}npc-5:631"));
+
+        // Searching the body hands them to the party through the container mechanism's own outcome.
+        InteractionTargetDefinition described = Assert.IsType<InteractionTargetDefinition>(
+            corpses.Describe(new InteractionTargetRequest(new PlaceId("1"), body.Body, string.Empty)));
+        InteractionOutcome searched = corpses.Search(described, new InteractionContext(new PlaceId("1"), body.Body, described, party, null));
+        Assert.True(searched.IsApplied);
+        Assert.Equal(["635", "631"], searched.Items.Select(item => item.Definition.Value));
+
+        // The same person standing again and falling again leaves nothing they carried: it was given up once.
+        corpses.Repopulated(new PlaceId("1"));
+        corpses.Died(new CreatureDeath(new PlaceId("1"), person, "A peasant"));
+        Corpse again = Assert.Single(ground.In(new PlaceId("1")));
+        Assert.True(ground.Held(again)?.IsEmpty ?? true);
+    }
+
+    [Fact]
     public void A_body_whose_row_states_a_zero_leaves_a_body_that_holds_nothing()
     {
         // The thirty-seven rows that state nothing still leave a body: what the party killed is lying there,
