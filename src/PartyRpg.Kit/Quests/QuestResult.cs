@@ -31,7 +31,7 @@ public enum QuestAction
 /// <param name="Experience">What the award entry did, or null when the quest paid no experience.</param>
 /// <param name="Coins">How much coin the ledger credited.</param>
 /// <param name="Items">What the acquisition path took, one entry per reward line.</param>
-/// <param name="Records">What was applied to the party's effects, in the order it was applied.</param>
+/// <param name="Records">What was applied to the party's durable records, in the order it was applied.</param>
 /// <param name="Delivered">What the party handed over, one entry per item a delivery objective asked for.</param>
 public sealed record QuestPayment(
     ProgressionAwardResult? Experience,

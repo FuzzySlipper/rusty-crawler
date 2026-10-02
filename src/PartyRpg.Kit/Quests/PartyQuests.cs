@@ -23,7 +23,7 @@ namespace PartyRpg.Kit.Quests;
 /// death counts for, and what a stated condition means are <see cref="IQuestRule"/>'s answers. Which owner
 /// each reward reaches is not policy at all: experience arrives at the progression owner's one award entry,
 /// coin through the party's one ledger, items through the party's own acquisition path, and records on the
-/// party's effects — the same four owners every other source of those things already reaches.
+/// party's durable records — the same four owners every other source of those things already reaches.
 /// </para>
 /// <para>
 /// <b>A turn-in is judged whole before anything moves.</b> The giver, the objectives, the completion
@@ -233,7 +233,7 @@ public sealed class PartyQuests : IItemRetentionRule
     /// </para>
     /// <para>
     /// What the turn-in then does is one pass over the owners: experience to the award entry, records onto
-    /// the party's effects, coin through the ledger, the items a delivery objective asked for handed over,
+    /// the party's durable records, coin through the ledger, the items a delivery objective asked for handed over,
     /// and the quest's own record left last — the mark that it is finished, written after everything it
     /// promised arrived, so no reader can see the mark without the payment.
     /// </para>

@@ -27,7 +27,7 @@ public sealed class ChangeStampTests
         [typeof(PartyPurse)] = (["Credit", "TryDebit"], ["CanAfford"]),
         [typeof(PartyFood)] = (["Credit", "TrySpend", "TryDebit"], ["CanCover", "RequireMeasured"]),
         [typeof(PartyReputation)] = (["ChangeReputation", "ChangeFame"], []),
-        [typeof(PartyRecords)] = (["Mark", "Set", "Remove"], ["Has", "CountOf"]),
+        [typeof(PartyRecords)] = (["Mark", "Set", "Increment", "Remove"], ["Has", "CountOf"]),
         [typeof(PartyHoldings)] = (["Hold"], ["BalanceOf"]),
         [typeof(PartyPassages)] = (["Hold", "Spend"], ["Holds", "RouteTo", "IndexOf"]),
         [typeof(PartyMemberships)] = (["Grant"], ["Holds"]),
@@ -51,7 +51,7 @@ public sealed class ChangeStampTests
     public static TheoryData<string> Changes() =>
     [
         "purse credit", "purse debit", "food credit", "food spend", "food debit", "reputation", "fame",
-        "record mark", "record set", "record remove", "holding", "passage hold", "passage spend", "membership",
+        "record mark", "record set", "record increment", "record remove", "holding", "passage hold", "passage spend", "membership",
         "debt owed", "debt paid", "ban laid", "ban lapsed", "mark stolen",
         "acquire", "release", "consume", "acquire part of a stack", "identify", "damage item", "repair item", "spend a charge",
         "party effect start", "party effect end", "member effect start",
@@ -112,6 +112,7 @@ public sealed class ChangeStampTests
             "fame" => () => party.Reputation.ChangeFame(1),
             "record mark" => () => party.Records.Mark("met"),
             "record set" => () => party.Records.Set("seen", 2),
+            "record increment" => () => Assert.Equal(2, party.Records.Increment("seen")),
             "record remove" => () => Assert.True(party.Records.Remove("seen")),
             "holding" => () => party.Holdings.Hold("bank", 50),
             "passage hold" => () => party.Passages.Hold(new PlaceId("island"), "boat"),
