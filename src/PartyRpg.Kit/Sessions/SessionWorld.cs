@@ -776,6 +776,8 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// </remarks>
     bool IInteractionWorld.InSight(Vector3 from, Vector3 to) => Mover?.InSight(from, to) ?? true;
 
+    bool IInteractionWorld.InSight(Vector3 from, Vector3 to, PlacementContentId target) => Mover?.InSight(from, to, target) ?? true;
+
     /// <summary>
     /// The place a stop happens in, which is where the ground and the night are read from.
     /// </summary>

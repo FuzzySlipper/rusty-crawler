@@ -745,6 +745,12 @@ navigation again for the same controller. Explicit mesh IDs belong to that compl
 share a scene with guessed artifact IDs. The catalog retains authored provenance; a changed scene does not
 claim the original immutable Engine artifact identity.
 
+The static base and individual addressable faces receive separate product-owned mesh identities.
+Door corner membership identifies a door's surfaces; a face's raised event identifies its fixture
+surfaces, separately from its cog group used for passability. The interaction query can recognize the
+nearest hit on its own target without looking through an intervening wall. Imported anchors stay at
+their authored positions; ordinary sight still treats doors as obstructions while closed.
+
 The stored door state 0 is open at its rest offsets; state 2 is closed at full travel, as the
 sampled imported doorways confirm. Other stored states settle closed without animation. Events retain
 these same open/close meanings. The importer normalizes source 16.16 directions; each door moves only

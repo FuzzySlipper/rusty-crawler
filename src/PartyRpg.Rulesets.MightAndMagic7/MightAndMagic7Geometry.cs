@@ -42,8 +42,14 @@ internal sealed class MightAndMagic7Geometry : IPlaceGeometrySource
                 Corner[] corners = [.. face.GetProperty("corners").EnumerateArray().Select(corner => new Corner(
                     Vector(corner.GetProperty("rest")), corner.TryGetProperty("door", out var door) ? door.GetString() : null,
                     Vector(corner.GetProperty("travel"))))];
-                return new Face(face.GetProperty("group").GetInt32(), face.GetProperty("passable").GetBoolean(), corners,
-                    Triangles(face.GetProperty("triangles"), corners.Length));
+                int group = face.GetProperty("group").GetInt32();
+                int raisedEvent = face.TryGetProperty("event", out var eventValue) ? eventValue.GetInt32() : 0;
+                PlacementContentId[] targets = [.. placements.PlacementsOf(place).Where(placement =>
+                    (placement.Content.Kind == MightAndMagic7Interaction.DoorPlacementKind && corners.Any(corner => corner.Door == placement.Content.Id)) ||
+                    (raisedEvent != 0 && placement.Content.Kind == "fixture" && ContentEntry.ReadDouble(placement.Source.Payload, "eventId") == raisedEvent))
+                    .Select(placement => placement.Content)];
+                return new Face(group, face.GetProperty("passable").GetBoolean(), corners,
+                    Triangles(face.GetProperty("triangles"), corners.Length), targets);
             })];
             HashSet<string> known = [.. doors.Select(door => door.Content.Id)];
             foreach (Corner corner in faces.SelectMany(face => face.Corners))
@@ -68,18 +74,24 @@ internal sealed class MightAndMagic7Geometry : IPlaceGeometrySource
         if (authored.Projected is { } cached && key == authored.Key) return cached;
         List<Vector3> positions = [.. authored.Positions];
         List<Triangle> triangles = [.. authored.Triangles];
+        List<PlaceCollisionPart> parts = [];
+        if (triangles.Count > 0)
+            parts.Add(new(0, checked((uint)positions.Count), 0, checked((uint)triangles.Count), []));
         for (int index = 0; index < authored.Faces.Length; index++)
         {
             Face face = authored.Faces[index];
             if (passable[index]) continue;
             uint start = checked((uint)positions.Count);
+            uint firstTriangle = checked((uint)triangles.Count);
             foreach (Corner corner in face.Corners)
                 positions.Add(corner.Rest + (corner.Door is { } door && !open[door] ? corner.Travel : Vector3.Zero));
             foreach (Triangle triangle in face.Triangles)
                 triangles.Add(new Triangle(start + triangle.A, start + triangle.B, start + triangle.C));
+            if (face.Triangles.Length > 0)
+                parts.Add(new(start, checked((uint)face.Corners.Length), firstTriangle, checked((uint)face.Triangles.Length), face.Targets));
         }
         authored.Key = key;
-        authored.Projected = authored.Geometry with { Collision = new PlaceCollisionGeometry(positions.ToArray(), triangles.ToArray()) };
+        authored.Projected = authored.Geometry with { Collision = new PlaceCollisionGeometry(positions.ToArray(), triangles.ToArray()) { Parts = parts } };
         return authored.Projected;
     }
 
@@ -102,7 +114,7 @@ internal sealed class MightAndMagic7Geometry : IPlaceGeometrySource
         return new Triangle(indices[0], indices[1], indices[2]);
     })];
     private sealed record Corner(Vector3 Rest, string? Door, Vector3 Travel);
-    private sealed record Face(int Group, bool Passable, Corner[] Corners, Triangle[] Triangles);
+    private sealed record Face(int Group, bool Passable, Corner[] Corners, Triangle[] Triangles, PlacementContentId[] Targets);
     private sealed record Authored(PlaceGeometry Geometry, Vector3[] Positions, Triangle[] Triangles, Face[] Faces, PlacementDefinition[] Doors)
     {
         internal string? Key;

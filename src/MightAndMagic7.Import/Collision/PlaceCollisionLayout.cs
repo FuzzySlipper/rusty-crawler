@@ -44,7 +44,7 @@ public sealed record PlaceCollisionLayout(CollisionMesh Static, IReadOnlyList<Co
             // Portals are never collision, even when an event addresses their group.
             if (face.BackSectorId > 0 || (face.Attributes & 1) != 0) continue;
             bool moves = map is IndoorMap && face.VertexIds.Any(moved.ContainsKey);
-            if (!moves && face.CogNumber == 0)
+            if (!moves && face.CogNumber == 0 && face.EventId == 0)
             {
                 if (PlaceCollisionEmitter.IsSolid(face)) ground.AddPolygon(face.Vertices);
                 continue;
@@ -60,14 +60,14 @@ public sealed record PlaceCollisionLayout(CollisionMesh Static, IReadOnlyList<Co
             List<int[]> triangles = [];
             for (int index = 2; index < corners.Count; index++) triangles.Add([0, index - 1, index]);
             if (triangles.Count > 0)
-                faces.Add(new CollisionFace(face.CogNumber, (face.Attributes & 0x20000000) != 0, corners, triangles));
+                faces.Add(new CollisionFace(face.CogNumber, (face.Attributes & 0x20000000) != 0, corners, triangles, face.EventId));
         }
         return new PlaceCollisionLayout(ground, faces);
     }
 }
 
 /// <summary>One face's immutable fan and the corners whose positions its doors control.</summary>
-public sealed record CollisionFace(int Group, bool Passable, IReadOnlyList<CollisionCorner> Corners, IReadOnlyList<int[]> Triangles);
+public sealed record CollisionFace(int Group, bool Passable, IReadOnlyList<CollisionCorner> Corners, IReadOnlyList<int[]> Triangles, int Event = 0);
 
 /// <summary>An authored corner, with its door's full travel in Engine axes when a door owns it.</summary>
 public sealed record CollisionCorner(double[] Rest, int? Door, double[] Travel);

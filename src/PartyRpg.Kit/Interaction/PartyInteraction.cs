@@ -353,7 +353,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
                 definition.Name,
                 point,
                 (float)definition.Reach,
-                _world.InSight(eye, point) ? InteractionVisibility.Visible : InteractionVisibility.Occluded,
+                _world.InSight(eye, point, placement.Content) ? InteractionVisibility.Visible : InteractionVisibility.Occluded,
                 // Availability is left available whatever the requirements are: a lock is a requirement this
                 // game states, and the answer to it is a sentence naming what the door needs. Handing the
                 // engine its own Locked gate instead would replace that sentence with a word.

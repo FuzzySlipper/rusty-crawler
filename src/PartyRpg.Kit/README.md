@@ -457,3 +457,9 @@ identities and does not retain an immutable artifact identity. `InteractionLedge
 world to refresh the current place; an unchanged geometry projection skips replacement. The explicitly
 composed ledger can be shared with the geometry source before the first entry, including a resumed entry,
 and the world releases its subscription when disposed. No Kit owner interprets door state or face bits.
+
+Authored collision may identify mesh parts and the placements whose surfaces they represent. The mover
+assigns explicit identities during the complete replacement and rebases each part's triangle indices for
+the Engine asset contract. Interaction visibility asks the Engine for the nearest segment hit: the
+target's own surface is visible; intervening collision remains an obstruction. This ephemeral mapping
+belongs to the admitted geometry, not party state. Ordinary sight and automap queries use the full scene.

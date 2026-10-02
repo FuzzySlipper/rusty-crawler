@@ -83,3 +83,21 @@ open door at its rest offsets and moves it into the blocking position when close
 The supported Engine calls remain whole `ReplaceCollision` and `ReplaceCollisionNavigation` in the
 party's existing session; no artifact-ID mixing, runtime polygon triangulation or second collision
 owner is introduced. Imported live doorway traversal and final source/review gates remain pending.
+
+## Target surface follow-up
+
+Admitting solid door collision exposed a real caller gap: the imported door and fixture anchors can
+lie behind their own surface. The complete replacement now carries explicit mesh parts. The Engine's
+nearest segment hit supplies the instance identity; interaction policy recognizes the target's own
+surface while another instance still obstructs it. Ordinary sight retains full-scene occlusion.
+No instance is ignored. Triangle indices are rebased per asset, as the safe Engine contract requires.
+
+Raised events and passability cog groups are distinct imported fields. Clickable faces are therefore
+also partitioned, and retain their own raised event for fixture ownership. Two fresh operator writes
+were identical: 76 geometries, 786 doors and 55,851 addressable faces, including 47,668 faces with a
+raised event. These counts extend the earlier 16,502 door/group-only partition.
+
+A safe native planning probe at the actual Manor fixture confirmed that its closed surface is now
+targetable. The ordinary sight line remains blocked, and a different target cannot claim that surface.
+The actual body stops at the closed doorway and can pass when the imported leaves are open. This is
+native regression evidence; the normal-control live opening and traversal remain pending.

@@ -61,7 +61,15 @@ public sealed record PlaceGeometry
 }
 
 /// <summary>Complete authored vertices and triangles, submitted through the Engine collision service.</summary>
-public sealed record PlaceCollisionGeometry(ReadOnlyMemory<Vector3> Positions, ReadOnlyMemory<Triangle> Triangles);
+public sealed record PlaceCollisionGeometry(ReadOnlyMemory<Vector3> Positions, ReadOnlyMemory<Triangle> Triangles)
+{
+    /// <summary>Explicit mesh parts and their interaction targets; empty keeps one complete mesh.</summary>
+    public IReadOnlyList<PlaceCollisionPart> Parts { get; init; } = [];
+}
+
+/// <summary>A mesh range within complete authored geometry, with the targets whose surface it represents.</summary>
+public sealed record PlaceCollisionPart(uint VertexStart, uint VertexCount, uint TriangleStart,
+    uint TriangleCount, IReadOnlyList<PlacementContentId> Targets);
 
 /// <summary>Where navigation is derived from a place's collision, in the Engine's axes.</summary>
 /// <param name="Minimum">The collision's least coordinates.</param>

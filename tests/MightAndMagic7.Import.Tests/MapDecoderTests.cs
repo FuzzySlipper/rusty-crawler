@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using MightAndMagic7.Import.Collision;
 using MightAndMagic7.Import.Lod;
 using MightAndMagic7.Import.Maps;
 using MightAndMagic7.Import.Tables;
@@ -200,6 +201,9 @@ public sealed class MapDecoderTests
         Assert.Equal(9, extra.CogNumber);
         Assert.Equal(9, Assert.Single(map.Faces).CogNumber);
         Assert.Equal(11, extra.EventId);
+        CollisionFace collision = Assert.Single(PlaceCollisionLayout.From(map).Faces);
+        Assert.Equal(9, collision.Group);
+        Assert.Equal(11, collision.Event);
     }
 
     [Fact]

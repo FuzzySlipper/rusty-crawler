@@ -205,6 +205,7 @@ internal static partial class PackWriter
         {
             writer.WriteStartObject();
             writer.WriteNumber("group", face.Group);
+            writer.WriteNumber("event", face.Event);
             writer.WriteBoolean("passable", face.Passable);
             writer.WriteStartArray("corners");
             foreach (CollisionCorner corner in face.Corners)

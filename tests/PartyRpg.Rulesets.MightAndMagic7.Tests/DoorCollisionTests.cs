@@ -13,6 +13,33 @@ namespace PartyRpg.Rulesets.MightAndMagic7.Tests;
 public sealed class DoorCollisionTests
 {
     [ImportedFact("classes.json")]
+    public void An_imported_closed_door_fixture_owns_its_visible_surface_while_ordinary_sight_stays_blocked()
+    {
+        ContentCatalog catalog = ImportedContent.Load().RequireValid();
+        PlaceGraph graph = MightAndMagic7World.Graph(catalog);
+        PlaceId place = new("17");
+        InteractionLedger ledger = new();
+        MightAndMagic7Geometry source = new(catalog, graph, ledger);
+        PlacementDefinition fixture = PlacePopulationContent.Read(graph).PlacementsOf(place).Single(p => p.Content.Id == "fixture-3");
+        using EngineTestHost host = EngineTestHost.Create();
+        host.Call(engine =>
+        {
+            PlacePose start = new(-832, -128, 2, 0, 0);
+            PartyPoseOwner pose = new(new PartyPose(place, start), MightAndMagic7Movement.Facing);
+            PartyMovement movement = new(engine.Spatial, pose, MightAndMagic7Movement.Space,
+                MightAndMagic7Movement.Session, MightAndMagic7Movement.Tuning(engine.Spatial));
+            using EnginePartyMover mover = new(engine.Spatial, movement, engine.Content, MightAndMagic7Movement.Navigation, source);
+            mover.Enter(place);
+            Vector3 from = MightAndMagic7Movement.Space.Position(start), to = MightAndMagic7Movement.Space.Position(fixture.Pose);
+            Assert.False(mover.InSight(from, to));
+            Assert.True(mover.InSight(from, to, fixture.Content));
+            Assert.False(mover.InSight(from, to, new("fixture", "fixture-501")));
+            for (int index = 0; index < 120; index++) mover.Step(new MovementIntent(1, 0), 1d / 60);
+            Assert.InRange(pose.PlacePose.X, -700, -690);
+        });
+    }
+
+    [ImportedFact("classes.json")]
     public void Every_imported_partition_admits_at_its_initial_state_and_with_all_doors_open()
     {
         ContentCatalog catalog = ImportedContent.Load().RequireValid();
@@ -68,6 +95,11 @@ public sealed class DoorCollisionTests
                 new MightAndMagic7TravelCostRule(null), mover: mover, interactionState: ledger);
             Vector3 left = new(256, 96, 256), right = new(1280, 96, 256);
             Assert.False(mover.InSight(left, right));
+            Assert.True(mover.InSight(left, new Vector3(768, 96, 256), door));
+            Assert.True(mover.InSight(left, new Vector3(768, 96, 256), new("fixture", "lever")));
+            Assert.False(mover.InSight(left, right, new("container", "behind-gate")));
+            // The base floor is not the door's surface, even if the requested target owns another mesh.
+            Assert.False(mover.InSight(new(256, 96, 256), new(256, -96, 256), door));
             for (int index = 0; index < 180; index++) mover.Step(new MovementIntent(1, 0), 1d / 60);
             Assert.InRange(pose.PlacePose.X, 256, 768);
             ledger.Record(place, door, "open");
@@ -121,7 +153,8 @@ public sealed class DoorCollisionTests
             """)
         .Add("packs/world/places.json", """
             {"documentId":"places","definitionKind":"place","entries":[{"id":"1","kind":"interior","name":"Hall",
-             "entryPoints":[],"placements":[{"id":"gate","kind":"door","doorId":1,"state":2,"x":768,"y":-256,"z":0}]}]}
+             "entryPoints":[],"placements":[{"id":"gate","kind":"door","doorId":1,"state":2,"x":768,"y":-256,"z":0},
+             {"id":"lever","kind":"fixture","eventId":7,"x":768,"y":-256,"z":96}]}]}
             """)
         .Add("packs/world/geometry.json", Geometry(partial)), new ContentLayout("packs", "imports", "bundles")).RequireValid();
 
@@ -129,7 +162,7 @@ public sealed class DoorCollisionTests
             {"documentId":"geometry","definitionKind":"place-geometry","entries":[{"id":"1",
              "artifact":{},"navigationRegion":{"minimum":[0,0,0],"maximum":[1536,1024,1536],"cellSize":128},
              "collisionLayout":{"positions":[[0,0,0],[0,0,1536],[1536,0,1536],[1536,0,0]],"triangles":[[0,1,2],[0,2,3]],
-               "faces":[{"group":7,"passable":false,"corners":[
+               "faces":[{"group":7,"event":7,"passable":false,"corners":[
                  {"rest":[768,512,0],"door":"gate","travel":[0,-512,0]},
                  {"rest":[768,1024,0],"door":"gate","travel":[0,-512,0]},
                  {"rest":[768,1024,1536],"door":"gate","travel":[0,-512,0]},

@@ -130,8 +130,11 @@ the plates a party treads on to travel and every travel link's disposition inclu
 extractors in the operator's ignored local tree are research tools, not this project.
 
 Collision emission also writes a complete authored partition beside the immutable Engine artifact.
-Static solid triangles are separate from door-controlled and event-addressable face fans. Each mutable
-corner keeps its rest coordinates, full normalized travel and door slot; the pack writer turns that
+Static solid triangles are separate from door-controlled and event-addressable face fans. Each face
+retains both its raised event and its independent cog group: the former identifies an interaction
+surface, while the latter identifies the faces a passability operation addresses. Clickable faces are
+partitioned even when no door controls them, so an interaction can recognize its own solid surface.
+Each corner keeps its rest coordinates, full normalized travel and door slot; the pack writer turns that
 slot into the door placement identity. Fixed source directions are normalized from 16.16 here. Face cog
 numbers come from indoor extras and the outdoor face field at 0x122; event passability can therefore
 address both families, including faces initially marked ethereal. Portals remain excluded. Navigation

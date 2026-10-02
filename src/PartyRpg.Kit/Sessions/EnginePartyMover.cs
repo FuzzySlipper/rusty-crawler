@@ -78,6 +78,9 @@ public interface IPartyMover : IDisposable
     /// <param name="to">What the party is looking at.</param>
     /// <returns>Whether the target is in sight.</returns>
     bool InSight(Vector3 from, Vector3 to);
+
+    /// <summary>Whether a target's own surface is visible without seeing through other collision.</summary>
+    bool InSight(Vector3 from, Vector3 to, PlacementContentId target) => InSight(from, to);
 }
 
 /// <summary>
@@ -106,6 +109,7 @@ public sealed class EnginePartyMover : IPartyMover
     private readonly PlaceNavigationPolicy _navigation;
     private bool _filled;
     private PlaceGeometry? _currentGeometry;
+    private readonly Dictionary<PlacementContentId, HashSet<ulong>> _targetSurfaces = [];
     private bool _disposed;
 
     /// <summary>Creates the mover over a party's movement owner.</summary>
@@ -182,12 +186,29 @@ public sealed class EnginePartyMover : IPartyMover
         if (geometry.Collision is { } collision)
         {
             // A whole replacement owns all identities. Never mix guessed IDs with an artifact's private IDs.
-            StaticMeshAsset[] assets = collision.Triangles.Length == 0 ? [] :
-                [new(1, 0, checked((uint)collision.Positions.Length), 0, checked((uint)collision.Triangles.Length))];
-            StaticMeshInstance[] instances = assets.Length == 0 ? [] :
-                [new(1, 1, new Transform(Vector3.Zero, Quaternion.Identity, Vector3.One))];
-            _spatial.ReplaceCollision(new CollisionReplaceRequest(_movement.Session, assets,
-                collision.Positions, collision.Triangles, instances));
+            IReadOnlyList<PlaceCollisionPart> parts = collision.Parts.Count > 0 ? collision.Parts :
+                collision.Triangles.Length == 0 ? [] : [new(0, checked((uint)collision.Positions.Length), 0, checked((uint)collision.Triangles.Length), [])];
+            List<StaticMeshAsset> assets = [];
+            List<StaticMeshInstance> instances = [];
+            Triangle[] localTriangles = collision.Triangles.ToArray();
+            foreach (PlaceCollisionPart part in parts)
+            {
+                ulong id = checked((ulong)assets.Count + 1);
+                assets.Add(new(id, part.VertexStart, part.VertexCount, part.TriangleStart, part.TriangleCount));
+                instances.Add(new(id, id, new Transform(Vector3.Zero, Quaternion.Identity, Vector3.One)));
+                for (uint index = part.TriangleStart; index < part.TriangleStart + part.TriangleCount; index++)
+                {
+                    Triangle triangle = localTriangles[index];
+                    localTriangles[index] = new(triangle.A - part.VertexStart, triangle.B - part.VertexStart, triangle.C - part.VertexStart);
+                }
+                foreach (PlacementContentId target in part.Targets)
+                {
+                    if (!_targetSurfaces.TryGetValue(target, out var surfaces)) _targetSurfaces.Add(target, surfaces = []);
+                    surfaces.Add(id);
+                }
+            }
+            _spatial.ReplaceCollision(new CollisionReplaceRequest(_movement.Session, assets.ToArray(),
+                collision.Positions, localTriangles, instances.ToArray()));
             // The successful call admitted this complete authored mesh; it carries no immutable artifact identity.
             vertices = (ulong)collision.Positions.Length;
             triangles = (ulong)collision.Triangles.Length;
@@ -302,6 +323,18 @@ public sealed class EnginePartyMover : IPartyMover
             ReadOnlyMemory<ulong>.Empty) == InteractionVisibility.Visible;
     }
 
+    /// <inheritdoc />
+    public bool InSight(Vector3 from, Vector3 to, PlacementContentId target)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!_targetSurfaces.TryGetValue(target, out var surfaces)) return InSight(from, to);
+        if (from == to) return true;
+        SpatialHit hit = _spatial.CastSegment(new SpatialSegmentCastRequest(_movement.Session, from, to,
+            new SpatialQueryFilter(0, 0), ReadOnlyMemory<SpatialEntityCollider>.Empty,
+            ReadOnlyMemory<ulong>.Empty, ReadOnlyMemory<SpatialEntityCollider>.Empty));
+        return !hit.Present || (hit.Kind == SpatialHitKind.StaticMesh && surfaces.Contains(hit.Instance));
+    }
+
     /// <summary>Releases the engine's spatial session, which destroys its collision scene with it.</summary>
     public void Dispose()
     {
@@ -322,5 +355,6 @@ public sealed class EnginePartyMover : IPartyMover
         _filled = false;
         Current = null;
         _currentGeometry = null;
+        _targetSurfaces.Clear();
     }
 }

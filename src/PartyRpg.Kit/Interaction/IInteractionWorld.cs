@@ -69,4 +69,7 @@ public interface IInteractionWorld
     /// <param name="to">What the party is looking at, in the engine's world axes.</param>
     /// <returns>Whether the target is in sight.</returns>
     bool InSight(Vector3 from, Vector3 to);
+
+    /// <summary>Whether the target's own surface is visible, respecting intervening collision.</summary>
+    bool InSight(Vector3 from, Vector3 to, PlacementContentId target) => InSight(from, to);
 }
