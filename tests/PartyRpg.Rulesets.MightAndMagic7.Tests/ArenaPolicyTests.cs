@@ -153,6 +153,9 @@ public sealed class ArenaPolicyTests
         Assert.Equal(10, bout.Objectives.Count);
         Assert.All(bout.Objectives, objective => Assert.Equal("76", objective.Place));
         Assert.Equal(200, bout.Rewards.Coins);
+        Assert.All(content.Entries("monster").Where(x => x.Entry.GetString("aiType") == "Wimp" ||
+            x.Entry.GetString("internalName").StartsWith("z", StringComparison.OrdinalIgnoreCase)),
+            x => Assert.Equal(false, x.Entry.GetBoolean("arenaEligible")));
     }
 
     private sealed class Mission : IDisposable

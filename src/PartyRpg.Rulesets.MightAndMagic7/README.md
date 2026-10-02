@@ -896,12 +896,12 @@ and adds one `award:arena-wins`; its canonical turned-in stage refuses a second 
 `arena-wins-knight` event comparisons read that same earned count.
 
 The compiled Knight policy adapts OpenEnroth `src/GUI/UI/NPCTopics.cpp:227-337` and
-OpenEnroth `src/Engine/ArenaEnumFunctions.cpp`: ten opponents by default, deterministic ordinal selection from
-monster rows between half and twice the highest party level (clamped to 2–100), and 200 gold per highest
+OpenEnroth `src/Engine/ArenaEnumFunctions.h`: ten opponents by default, deterministic ordinal selection from
+eligible monster rows between half and twice the highest party level (clamped to 2–100), and 200 gold per highest
 level. Count and reward use typed tuning. Imported places state `arenaChallengerFeet`; runtime code holds
 no arena coordinates. An optional `arena-bout` definition names its place, official, gold per level and
 exact challengers (`monster`, `x`, `y`, `z`) instead of the default selection. These are approximate:
-there is no random ten-to-nineteen draw, no other arena tier, and no donor visit lock after victory.
+there is no random ten-to-twenty draw, no other arena tier, and no donor visit lock after victory.
 A settled bout permits the next one. Leaving retains actual defeated objectives; returning through the
 same conversation re-creates only unfinished absent opponents, with fresh health for survivors of the
 previous visit. Allies must still be defeated to finish a bound kill objective.

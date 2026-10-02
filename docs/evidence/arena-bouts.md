@@ -14,7 +14,9 @@ re-creates only the unfinished opponent. Five earned bouts reach the existing Ch
 are refused at the current load boundary.
 
 The policy is approximate, referencing OpenEnroth `src/GUI/UI/NPCTopics.cpp:227-337` and
-`src/Engine/ArenaEnumFunctions.cpp`: ten deterministic opponents instead of a random ten-to-nineteen;
+`src/Engine/ArenaEnumFunctions.h`: ten deterministic opponents instead of a random ten-to-twenty;
+the donor's `random(11) + 10` draws ten through twenty, although its nearby comment says ten through
+nineteen (`OpenEnroth/src/Library/Random/RandomEngine.h:23-27` states an exclusive upper bound);
 highest party level times 200 gold; only Knight tier; immediate new bout after settlement; unfinished
 survivors reset on a later visit. The importer emits an approximate ring of feet positions in the
 normalized arena place. Optional authored `arena-bout` content can state its own exact challengers and
