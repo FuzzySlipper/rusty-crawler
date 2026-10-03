@@ -41,7 +41,7 @@ public sealed class WorldViewTests
         => WithView((view, rule, graphics, cameras, party) =>
         {
             rule.Closed = true;
-            view.Present(party);
+            view.Present(party, 0);
 
             // Two parts, two meshes; the door part's corners stand at rest plus their travel.
             IReadOnlyList<object?[]> meshes = graphics.Calls.CallsTo(nameof(IGraphicsService.CreateMeshResource));
@@ -60,7 +60,7 @@ public sealed class WorldViewTests
             Assert.Equal(new Vector3(100, 160, -200), camera.Pose.Position);
 
             // Nothing changed, so nothing is rebuilt or republished; the camera follows the party every update.
-            view.Present(party);
+            view.Present(party, 0);
             Assert.Equal(2, graphics.Calls.CallsTo(nameof(IGraphicsService.CreateMeshResource)).Count);
             Assert.Single(graphics.Snapshots);
             Assert.Single(cameras.CallsTo(nameof(ICameraViewService.UpdateCamera)));
@@ -71,9 +71,9 @@ public sealed class WorldViewTests
         => WithView((view, rule, graphics, _, party) =>
         {
             rule.Closed = true;
-            view.Present(party);
+            view.Present(party, 0);
             rule.Closed = false;
-            view.Present(party);
+            view.Present(party, 0);
 
             IReadOnlyList<object?[]> meshes = graphics.Calls.CallsTo(nameof(IGraphicsService.CreateMeshResource));
             Assert.Equal(3, meshes.Count);
@@ -86,14 +86,14 @@ public sealed class WorldViewTests
     public void A_place_content_draws_nothing_for_is_said_once_and_an_image_the_engine_refuses_is_drawn_flat()
         => WithView((view, _, graphics, _, party) =>
         {
-            view.Present(party);
+            view.Present(party, 0);
             Assert.Single(view.Notes, note => note.Contains("stone.png", StringComparison.Ordinal));
             MaterialRequest flat = (MaterialRequest)graphics.Calls.CallsTo(nameof(IGraphicsService.CreateMaterial))[0][0]!;
             Assert.Equal(default, flat.Texture);
 
             party.Enter(new PlaceId("2"), new PlacePose(0, 0, 0, 0, 0));
-            view.Present(party);
-            view.Present(party);
+            view.Present(party, 0);
+            view.Present(party, 0);
 
             Assert.Null(view.Report);
             Assert.Single(view.Notes, note => note.Contains("'2'", StringComparison.Ordinal));
@@ -158,6 +158,8 @@ public sealed class WorldViewTests
             ? new PlaceScene(place, "place.mesh", [new SceneMaterial("stone.png", SceneAlpha.Opaque), new SceneMaterial(null, SceneAlpha.Cutout)],
                 new Dictionary<int, string> { [4] = "door-4" }, null)
             : null;
+
+        public SceneSprite? Sprite(string sprite) => null;
     }
 
     private sealed class Rule : ISceneRule
@@ -172,5 +174,7 @@ public sealed class WorldViewTests
             new(Vector3.One, 0.5f, null, Vector3.One, 0f, Vector3.Zero);
 
         public bool IsClosed(PlaceId place, string door) => Closed && door == "door-4";
+
+        public IReadOnlyList<SceneObject> Objects(PlaceId place, double seconds) => [];
     }
 }

@@ -65,6 +65,9 @@ public sealed class WorldView : IWorldPresenter
     private Loaded? _retired;
     private PlaceId? _shown;
     private bool _disposed;
+    private readonly Dictionary<string, Sheet?> _sheets = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Drawn> _drawn = new(StringComparer.Ordinal);
+    private readonly List<Appearance> _retiredSprites = [];
 
     /// <summary>Creates the view. Nothing is drawn until the first <see cref="Present"/>.</summary>
     /// <param name="engine">
@@ -99,7 +102,8 @@ public sealed class WorldView : IWorldPresenter
 
     /// <summary>Draws the party's place from the party's eye, as the world stands after this update.</summary>
     /// <param name="party">The party's pose.</param>
-    public void Present(PartyPoseOwner party)
+    /// <param name="seconds">The session's admitted time, which the world's animations are read against.</param>
+    public void Present(PartyPoseOwner party, double seconds)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(party);
@@ -116,6 +120,8 @@ public sealed class WorldView : IWorldPresenter
             Light(loaded);
         }
 
+        changed |= Objects(party, seconds);
+
         Aim(party.PlacePose);
         if (changed) Publish();
     }
@@ -131,6 +137,10 @@ public sealed class WorldView : IWorldPresenter
         try { Cameras.ClearActiveCamera(new ClearActiveCameraRequest(0)); } catch (EngineCallException) { }
         _retired?.Dispose();
         _loaded?.Dispose();
+        foreach (Drawn drawn in _drawn.Values) drawn.Appearance.Dispose();
+        foreach (Appearance retired in _retiredSprites) retired.Dispose();
+        foreach (Sheet? sheet in _sheets.Values) sheet?.Dispose();
+        _drawn.Clear();
         _camera?.Dispose();
         _ambient?.Dispose();
         _sun?.Dispose();
@@ -256,15 +266,15 @@ public sealed class WorldView : IWorldPresenter
         return RenderMesh.Read(bytes, path);
     }
 
-    private RenderResource? Texture(string path, TextureWrap wrap)
+    private RenderResource? Texture(string path, TextureWrap wrap, TextureFilter filter = TextureFilter.Linear)
     {
-        string key = $"{path}|{wrap}";
+        string key = $"{path}|{wrap}|{filter}";
         if (_textures.TryGetValue(key, out RenderResource? cached)) return cached;
         RenderResource? texture = null;
         try
         {
             using ContentReference reference = ContentService.OpenReference(new ContentOpenRequest(path));
-            texture = Graphics.OpenResourceFromContent(new RenderResourceContentRequest(reference, TextureFilter.Linear, wrap)).Handle;
+            texture = Graphics.OpenResourceFromContent(new RenderResourceContentRequest(reference, filter, wrap)).Handle;
         }
         catch (EngineCallException refused)
         {
@@ -324,7 +334,15 @@ public sealed class WorldView : IWorldPresenter
             }
         }
 
+        foreach (Drawn drawn in _drawn.Values)
+        {
+            facts.Add(new AppearanceFact(drawn.ObjectId, false, 0, new Transform(drawn.Position, Quaternion.Identity, Vector3.One),
+                drawn.Appearance, Visible: true, RenderLayer.Scene));
+        }
+
         Graphics.PublishSnapshot(CollectionsMarshal.AsSpan(facts));
+        foreach (Appearance retired in _retiredSprites) retired.Dispose();
+        _retiredSprites.Clear();
         _retired?.Dispose();
         _retired = null;
         if (_loaded is { } current)
@@ -408,6 +426,144 @@ public sealed class WorldView : IWorldPresenter
     private void Note(string note)
     {
         if (!_notes.Contains(note, StringComparer.Ordinal)) _notes.Add(note);
+    }
+
+    /// <summary>
+    /// Draws what stands in the place: one sprite per object, showing its group's frame for its time and the view its
+    /// facing turns to the eye, standing at its feet. Returns whether the published scene must change.
+    /// </summary>
+    /// <remarks>
+    /// A frame or a view that changes is set on the object's own sprite; only an object that moved, appeared, left or
+    /// changed its group republishes. An object whose group content does not carry is left out and noted once.
+    /// </remarks>
+    private bool Objects(PartyPoseOwner party, double seconds)
+    {
+        bool changed = false;
+        HashSet<string> seen = new(StringComparer.Ordinal);
+        PlacePose eye = party.PlacePose;
+        foreach (SceneObject entity in _loaded is null ? [] : _rule.Objects(party.Place, seconds))
+        {
+            if (SheetOf(entity.Sprite) is not { } sheet || !seen.Add(entity.Id)) continue;
+            int frame = sheet.Sprite.FrameAt(entity.Seconds, entity.Loop);
+            int view = sheet.Sprite.Views == 1 ? 0 : View(entity.Feet, eye);
+            uint cell = (uint)((frame * sheet.Sprite.Views) + view);
+            Vector3 position = _space.GroundPosition(entity.Feet);
+            if (_drawn.TryGetValue(entity.Id, out Drawn? drawn) && drawn.Sprite == entity.Sprite)
+            {
+                if (drawn.Cell != cell)
+                {
+                    Graphics.SetSpriteFrame(new SpriteFrameUpdateRequest(drawn.Appearance, cell));
+                    drawn.Cell = cell;
+                }
+
+                if (drawn.Position != position)
+                {
+                    drawn.Position = position;
+                    changed = true;
+                }
+
+                continue;
+            }
+
+            Appearance appearance = Graphics.CreateSpriteFromAtlas(Request(sheet, cell));
+            if (drawn is not null) _retiredSprites.Add(drawn.Appearance);
+            _drawn[entity.Id] = new Drawn(entity.Sprite, ObjectIdOf(entity.Id), appearance) { Cell = cell, Position = position };
+            changed = true;
+        }
+
+        foreach (string gone in _drawn.Keys.Where(id => !seen.Contains(id)).ToList())
+        {
+            _retiredSprites.Add(_drawn[gone].Appearance);
+            _drawn.Remove(gone);
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    /// <summary>
+    /// Which of eight views an object shows the eye: its facing, less the bearing from the eye to it, in eighths of a
+    /// turn offset by half a turn and a sixteenth, so view 0 faces the eye and the views run around the object's own
+    /// turn; stated in radians in the place's own frame.
+    /// </summary>
+    private int View(PlacePose feet, PlacePose eye)
+    {
+        double facing = feet.Yaw * _space.RadiansPerFacingUnit;
+        double bearing = Math.Atan2(feet.Y - eye.Y, feet.X - eye.X);
+        double turn = Math.PI + (Math.PI / 8) + facing - bearing;
+        int view = (int)Math.Floor(turn / (Math.PI / 4)) % 8;
+        return view < 0 ? view + 8 : view;
+    }
+
+    private static SpriteFromAtlasRequest Request(Sheet sheet, uint cell) => new(
+        sheet.Atlas,
+        cell,
+        new Vector2(0.5f, sheet.Sprite.Centred ? 0.5f : 0f),
+        new Vector2((float)(sheet.Sprite.CellWidth * sheet.Sprite.Scale), (float)(sheet.Sprite.CellHeight * sheet.Sprite.Scale)),
+        BillboardMode.Cylindrical,
+        SpriteSizeMode.World,
+        0,
+        SpriteDepthPolicy.Default,
+        new Color(1f, 1f, 1f, 1f),
+        new SpriteMaterialDescriptor(sheet.Sprite.SelfLit ? SpriteLightingMode.Unlit : SpriteLightingMode.Synthetic,
+            default, default, 1f, 0f, SpriteAlphaMode.Mask, 0.5f, SpriteShadowPolicy.None));
+
+    /// <summary>A sprite group's atlas, opened once for the session; null when content or the Engine refuses it.</summary>
+    private Sheet? SheetOf(string id)
+    {
+        if (_sheets.TryGetValue(id, out Sheet? cached)) return cached;
+        Sheet? sheet = null;
+        if (_scenes.Sprite(id) is not { } sprite)
+        {
+            Note($"Sprite '{id}' is not in the loaded content, so what shows it is not drawn.");
+        }
+        // A sprite is sampled texel by texel, as the original's are drawn, so a cell never blends with its neighbour's.
+        else if (Texture(sprite.Texture, TextureWrap.Clamp, TextureFilter.Nearest) is { } texture)
+        {
+            int cells = sprite.Seconds.Count * sprite.Views;
+            SpriteAtlasFrame[] frames = new SpriteAtlasFrame[cells];
+            for (int cell = 0; cell < cells; cell++)
+            {
+                float left = (float)(cell % sprite.Columns) * sprite.CellWidth / sprite.Width;
+                float top = (float)(cell / sprite.Columns) * sprite.CellHeight / sprite.Height;
+                frames[cell] = new SpriteAtlasFrame((uint)cell, new Vector2(left, top),
+                    new Vector2(left + ((float)sprite.CellWidth / sprite.Width), top + ((float)sprite.CellHeight / sprite.Height)), false, default);
+            }
+
+            try
+            {
+                sheet = new Sheet(sprite, Graphics.CreateSpriteAtlas(new SpriteAtlasCreateRequest(texture, frames)));
+            }
+            catch (EngineCallException refused)
+            {
+                Note($"Sprite '{id}' could not be cut from its atlas, so what shows it is not drawn: {refused.Message}");
+            }
+        }
+
+        _sheets[id] = sheet;
+        return sheet;
+    }
+
+    /// <summary>The Engine object id an object's canonical identity is drawn under: a stable hash in a range of its own.</summary>
+    private static ulong ObjectIdOf(string id)
+    {
+        ulong hash = 14695981039346656037UL;
+        foreach (char c in id) hash = (hash ^ c) * 1099511628211UL;
+        return (1UL << 44) | (hash & ((1UL << 44) - 1));
+    }
+
+    /// <summary>A sprite group's atlas in the Engine.</summary>
+    private sealed record Sheet(SceneSprite Sprite, SpriteAtlas Atlas) : IDisposable
+    {
+        public void Dispose() => Atlas.Dispose();
+    }
+
+    /// <summary>One drawn object: its group, its Engine object id, its sprite, the cell it shows, where it stands.</summary>
+    private sealed record Drawn(string Sprite, ulong ObjectId, Appearance Appearance)
+    {
+        public uint Cell { get; set; }
+
+        public Vector3 Position { get; set; }
     }
 
     /// <summary>A place's Engine resources.</summary>

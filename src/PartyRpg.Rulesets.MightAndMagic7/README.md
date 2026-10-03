@@ -946,3 +946,12 @@ a dim blue night under a clear dark sky with the party's light, and a dim interi
 (no inverse-square falloff at this unit scale). The [world rendering reading](../../docs/evidence/world-rendering.md)
 records the ordinary new game drawn outdoors and an interior entered and left.
 
+What stands in a place is drawn from the same scene reading (`MightAndMagic7Scene.Objects`): each decoration by its
+`decoration-<row>` look (a look the list marks don't-draw or marker, or a decoration the level marks invisible, is not
+drawn), each pile of items by its `object-<row>` look until it is searched, each creature and person of the population at
+its live feet and facing by its monster row's look — walking while it moves, standing otherwise — and each body of the
+corpse ground where the creature fell, falling once (the look's dying group) and then lying still (its dead group); a body
+already lying when the party arrives lies still. A view is chosen around the object's facing by the donor's octant rule
+(OpenEnroth `src/Engine/Graphics/Renderer/BaseRenderer.cpp:105-106`), which the kit's view applies in radians. Objects
+are drawn under the content identity the reticle and the save use.
+

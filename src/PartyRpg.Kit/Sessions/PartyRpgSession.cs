@@ -294,7 +294,7 @@ public sealed class PartyRpgSession : IGameSession
         if (heard || before != SessionMode.Paused || _mode != SessionMode.Paused) Publish();
 
         // The world is drawn as this update left it, from where the party now stands.
-        if (LiveWorld is { } world) _view?.Present(world.Party);
+        if (LiveWorld is { } world) _view?.Present(world.Party, _simulationSeconds);
         return ProductUpdateResult.None;
     }
 

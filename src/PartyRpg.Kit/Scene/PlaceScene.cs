@@ -39,6 +39,10 @@ public interface IPlaceSceneSource
     /// <summary>The place's scene, or null when content carries none for it.</summary>
     /// <param name="place">The place the party is in.</param>
     PlaceScene? For(PlaceId place);
+
+    /// <summary>A sprite group, or null when content carries none of that identity.</summary>
+    /// <param name="sprite">The group's identity, as a <see cref="SceneObject"/> names it.</param>
+    SceneSprite? Sprite(string sprite);
 }
 
 /// <summary>The light a place is seen under at one moment.</summary>
@@ -78,6 +82,11 @@ public interface ISceneRule
     /// <param name="place">The place.</param>
     /// <param name="door">The door's identity in the scene.</param>
     bool IsClosed(PlaceId place, string door);
+
+    /// <summary>What stands in the place now and is drawn as a sprite, as the place's owners hold it.</summary>
+    /// <param name="place">The place.</param>
+    /// <param name="seconds">The session's admitted time, which an animation is read against.</param>
+    IReadOnlyList<SceneObject> Objects(PlaceId place, double seconds);
 }
 
 /// <summary>
@@ -87,8 +96,63 @@ public interface IWorldPresenter : IDisposable
 {
     /// <summary>Draws the world as it stands after this update, from the party's own eye.</summary>
     /// <param name="party">The party's pose owner.</param>
-    void Present(PartyPoseOwner party);
+    /// <param name="seconds">The session's admitted time, which the world's animations are read against.</param>
+    void Present(PartyPoseOwner party, double seconds);
 
     /// <summary>What it drew for the current place, or null before it drew one.</summary>
     WorldViewReport? Report { get; }
 }
+
+/// <summary>
+/// One sprite group as content packs it: an atlas image of equal cells, each cell one view of one frame, standing on its
+/// cell's bottom edge (or centred in it).
+/// </summary>
+/// <param name="Texture">The content path of the atlas image.</param>
+/// <param name="Width">The atlas's width in texels.</param>
+/// <param name="Height">The atlas's height in texels.</param>
+/// <param name="Columns">How many cells a row holds.</param>
+/// <param name="CellWidth">One cell's width in texels.</param>
+/// <param name="CellHeight">One cell's height in texels.</param>
+/// <param name="Views">How many views a frame has around its facing: one, or eight.</param>
+/// <param name="Scale">How many place units one texel is.</param>
+/// <param name="Centred">Whether the group is centred on its point rather than standing on it.</param>
+/// <param name="SelfLit">Whether it lights itself rather than taking the scene's light.</param>
+/// <param name="Seconds">How long each frame shows; their count is the group's frame count.</param>
+public sealed record SceneSprite(
+    string Texture,
+    int Width,
+    int Height,
+    int Columns,
+    int CellWidth,
+    int CellHeight,
+    int Views,
+    double Scale,
+    bool Centred,
+    bool SelfLit,
+    IReadOnlyList<double> Seconds)
+{
+    /// <summary>The frame shown a given time into the group's animation: looping, or held at the last frame.</summary>
+    /// <param name="seconds">How far into the animation it is.</param>
+    /// <param name="loop">Whether the animation repeats.</param>
+    public int FrameAt(double seconds, bool loop)
+    {
+        double total = Seconds.Sum();
+        if (Seconds.Count <= 1 || total <= 0) return 0;
+        double t = loop ? ((seconds % total) + total) % total : Math.Min(Math.Max(seconds, 0), total);
+        for (int frame = 0; frame < Seconds.Count; frame++)
+        {
+            if (t < Seconds[frame]) return frame;
+            t -= Seconds[frame];
+        }
+
+        return Seconds.Count - 1;
+    }
+}
+
+/// <summary>Something that stands in a place and is drawn as a sprite: a creature, a person, a decoration, a body.</summary>
+/// <param name="Id">Its canonical identity — the placement or entity it is — which keeps its drawing across updates.</param>
+/// <param name="Sprite">The sprite group it shows now.</param>
+/// <param name="Feet">Where it stands and faces, in the place's own coordinates and facing units.</param>
+/// <param name="Seconds">How far into the group's animation it is.</param>
+/// <param name="Loop">Whether that animation repeats; one that does not holds its last frame.</param>
+public sealed record SceneObject(string Id, string Sprite, PlacePose Feet, double Seconds, bool Loop = true);

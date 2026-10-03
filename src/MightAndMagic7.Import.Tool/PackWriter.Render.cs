@@ -16,6 +16,15 @@ namespace MightAndMagic7.Import.Tool;
 /// <param name="MissingIcons">The interface images the tables name that the installation does not hold.</param>
 internal sealed record RenderSummary(IReadOnlyList<PlaceRender> Places, int Textures, int Skies, int Icons = 0, IReadOnlyList<string>? MissingIcons = null)
 {
+    /// <summary>How many sprite groups the media pack carries as atlases.</summary>
+    internal int Sprites { get; init; }
+
+    /// <summary>How many looks it carries: monster rows, placed decorations and loose object kinds.</summary>
+    internal int Looks { get; init; }
+
+    /// <summary>The sprite entries a view names that the archive lacks.</summary>
+    internal IReadOnlyList<string> MissingSprites { get; init; } = [];
+
     internal static RenderSummary Empty { get; } = new([], 0, 0);
 
     /// <summary>Every bitmap some place names that the installation does not hold.</summary>
@@ -33,6 +42,122 @@ internal static partial class PackWriter
 
     /// <summary>The definition kind an interface image — an item's picture, a portrait — is written under.</summary>
     internal const string IconDefinitionKind = "icon";
+
+    /// <summary>The definition kind a sprite group's atlas is written under.</summary>
+    internal const string SpriteDefinitionKind = "sprite";
+
+    /// <summary>The definition kind a creature's, decoration's or loose object's look is written under.</summary>
+    internal const string LookDefinitionKind = "look";
+
+    /// <summary>
+    /// Whether the installation carries the frame table and the three look lists; one that does not (a test's synthetic
+    /// archive) writes no looks rather than refusing the media pack.
+    /// </summary>
+    private static bool HasLookTables(LodInstall install) =>
+        install.ArchiveNames().Contains("Events.lod", StringComparer.OrdinalIgnoreCase)
+        && new[] { "dsft.bin", "dmonlist.bin", "ddeclist.bin", "dobjlist.bin" }.All(name => install.Archive("Events.lod").Find(name) is not null);
+
+    /// <summary>The identity a sprite group has in the media pack: its first frame's index in the frame table.</summary>
+    internal static string SpriteId(int frame) => "frame-" + frame.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// Writes every sprite group a look draws, as an atlas, and every look: each monster row's eight animations, each
+    /// decoration the maps place, and each loose object kind.
+    /// </summary>
+    private static (int Sprites, int Looks, IReadOnlyList<string> MissingSprites) WriteLooks(
+        string packDirectory, SpriteFrameTable table, LookLists lists, SpriteAtlasBuilder atlases, IReadOnlyDictionary<int, DecodedMap> maps)
+    {
+        Directory.CreateDirectory(Path.Combine(packDirectory, "sprites"));
+        SortedDictionary<int, SpriteAtlasImage?> groups = [];
+        SpriteAtlasImage? Group(int frame)
+        {
+            if (frame <= 0 || frame >= table.Frames.Count) return null;
+            if (!groups.TryGetValue(frame, out SpriteAtlasImage? atlas)) groups[frame] = atlas = atlases.Build(table.Group(frame));
+            return atlas;
+        }
+
+        string Sprite(int? frame) => frame is { } first && Group(first) is not null ? SpriteId(first) : string.Empty;
+        HashSet<int> placed = [.. maps.Values.SelectMany(map => map.Decorations).Select(decoration => decoration.DescriptionId)];
+        List<(string, Action<Utf8JsonWriter>)> looks = [];
+        foreach (MonsterLook monster in lists.Monsters)
+        {
+            string[] actions = [.. monster.Groups.Select(group => Sprite(table.Find(group)))];
+            looks.Add(($"monster-{monster.Monster.ToString(CultureInfo.InvariantCulture)}", writer =>
+            {
+                writer.WriteNumber("height", monster.Height);
+                writer.WriteNumber("radius", monster.Radius);
+                writer.WriteStartArray("actions");
+                foreach (string action in actions) writer.WriteStringValue(action);
+                writer.WriteEndArray();
+            }));
+        }
+
+        foreach (DecorationLook decoration in lists.Decorations.Where(decoration => placed.Contains(decoration.Index)))
+        {
+            bool hidden = (decoration.Flags & (DecorationLook.DontDraw | DecorationLook.Marker)) != 0;
+            string sprite = hidden ? string.Empty : Sprite(decoration.Frame);
+            looks.Add(($"decoration-{decoration.Index.ToString(CultureInfo.InvariantCulture)}", writer =>
+            {
+                writer.WriteString("name", decoration.Name);
+                writer.WriteString("sprite", sprite);
+                writer.WriteNumber("height", decoration.Height);
+                writer.WriteNumber("radius", decoration.Radius);
+                writer.WriteBoolean("hidden", hidden);
+            }));
+        }
+
+        foreach (ObjectLook loose in lists.Objects)
+        {
+            bool hidden = (loose.Flags & 0x1) != 0;
+            string sprite = hidden ? string.Empty : Sprite(loose.Frame);
+            looks.Add(($"object-{loose.Index.ToString(CultureInfo.InvariantCulture)}", writer =>
+            {
+                writer.WriteString("sprite", sprite);
+                writer.WriteBoolean("hidden", hidden);
+            }));
+        }
+
+        int lookCount = WriteDocument(packDirectory, "looks.json", "looks", LookDefinitionKind, looks);
+        List<(string, Action<Utf8JsonWriter>)> sprites = [];
+        List<string> missing = [];
+        foreach ((int frame, SpriteAtlasImage? atlas) in groups)
+        {
+            if (atlas is null) continue;
+            missing.AddRange(atlas.Missing);
+            string id = SpriteId(frame);
+            string path = $"sprites/{id}.png";
+            using (FileStream stream = File.Create(Path.Combine(packDirectory, path))) ImageWriter.WriteRgba(atlas.Rgba, atlas.Width, atlas.Height, stream);
+            sprites.Add((id, writer =>
+            {
+                writer.WriteString("path", path);
+                writer.WriteString("group", atlas.Frames[0].GroupName);
+                writer.WriteNumber("width", atlas.Width);
+                writer.WriteNumber("height", atlas.Height);
+                writer.WriteNumber("columns", atlas.Columns);
+                writer.WriteNumber("cellWidth", atlas.CellWidth);
+                writer.WriteNumber("cellHeight", atlas.CellHeight);
+                writer.WriteNumber("octants", atlas.Octants);
+                writer.WriteNumber("scale", atlas.Frames[0].Scale);
+                writer.WriteBoolean("centred", atlas.Frames.All(f => (f.Flags & SpriteFrame.Center) != 0));
+                writer.WriteBoolean("lit", (atlas.Frames[0].Flags & SpriteFrame.Lit) != 0);
+                writer.WriteStartArray("seconds");
+                foreach (SpriteFrame f in atlas.Frames) writer.WriteNumberValue(f.Seconds);
+                writer.WriteEndArray();
+                writer.WriteStartArray("missing");
+                foreach (string entry in atlas.Missing) writer.WriteStringValue(entry);
+                writer.WriteEndArray();
+                writer.WriteStartObject("source");
+                writer.WriteString("archive", "SPRITES.LOD");
+                writer.WriteString("table", "Events.lod:dsft.bin");
+                writer.WriteNumber("firstFrame", frame);
+                writer.WriteString("transform", "each frame's views by the donor's naming, coloured by the frame's palette, mirrored views flipped, packed one cell each");
+                writer.WriteEndObject();
+            }));
+        }
+
+        int spriteCount = WriteDocument(packDirectory, "sprites.json", "sprites", SpriteDefinitionKind, sprites);
+        return (spriteCount, lookCount, [.. missing.Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal)]);
+    }
 
     /// <summary>
     /// The face sets a party member can wear, in the donor's order (OpenEnroth <c>src/Engine/mm7_data.cpp:50-55</c>,
@@ -140,14 +265,17 @@ internal static partial class PackWriter
     /// Writes the media pack: every world bitmap a place binds, as a PNG with its source entry, and every region's sky
     /// as a panorama built from its sky bitmap.
     /// </summary>
-    private static ((string PackId, int Documents, int Entries) Pack, int Textures, int Skies, int Icons, IReadOnlyList<string> MissingIcons) WriteMedia(
+    private static ((string PackId, int Documents, int Entries) Pack, int Textures, int Skies, int Icons, IReadOnlyList<string> MissingIcons,
+        int Sprites, int Looks, IReadOnlyList<string> MissingSprites) WriteMedia(
         InstallProvenance provenance,
         string packDirectory,
         IReadOnlyList<PlaceRender> renders,
         BitmapLibrary? bitmaps,
         TerrainTileTable? tiles,
         Mm7Tables tables,
-        BitmapLibrary? icons)
+        BitmapLibrary? icons,
+        LodInstall? install,
+        IReadOnlyDictionary<int, DecodedMap> maps)
     {
         SortedDictionary<string, string> textures = new(StringComparer.Ordinal);
         HashSet<string> ground = new(StringComparer.Ordinal);
@@ -223,12 +351,19 @@ internal static partial class PackWriter
         }
 
         int iconCount = WriteDocument(packDirectory, "icons.json", "icons", IconDefinitionKind, iconEntries);
+
+        // The looks of what stands in a place, and the sprite groups they draw.
+        (int sprites, int looks, IReadOnlyList<string> missingSprites) = install is null || !HasLookTables(install)
+            ? (WriteDocument(packDirectory, "sprites.json", "sprites", SpriteDefinitionKind, []), WriteDocument(packDirectory, "looks.json", "looks", LookDefinitionKind, []), [])
+            : WriteLooks(packDirectory, SpriteFrameTable.Read(install), LookLists.Read(install), new SpriteAtlasBuilder(install), maps);
         WriteManifest(packDirectory, "mm7-media", "definitions", provenance,
             [
                 ("textures.json", "textures", TextureDefinitionKind, []),
                 ("icons.json", "icons", IconDefinitionKind, []),
+                ("sprites.json", "sprites", SpriteDefinitionKind, []),
+                ("looks.json", "looks", LookDefinitionKind, []),
             ]);
-        return (("mm7-media", 2, written + iconCount), textures.Count, skies.Count, iconCount, missingIcons);
+        return (("mm7-media", 4, written + iconCount + sprites + looks), textures.Count, skies.Count, iconCount, missingIcons, sprites, looks, missingSprites);
 
         static void WriteImage(Utf8JsonWriter writer, string path, int width, int height, string use, string entry, bool transparent)
         {

@@ -336,7 +336,7 @@ public static class MediaExtractor
     /// <c>pal%03d</c>, and the shipped archive mixes <c>PAL001</c> with <c>pal005</c>, so the lookup
     /// ignores case the way the container reader does.
     /// </summary>
-    private static Func<ushort, IndexedPalette?> BuildNamedPaletteLookup(LodInstall install)
+    internal static Func<ushort, IndexedPalette?> BuildNamedPaletteLookup(LodInstall install)
     {
         Dictionary<string, IndexedPalette> byName = new(StringComparer.OrdinalIgnoreCase);
         foreach (string archiveName in install.ArchiveNames())

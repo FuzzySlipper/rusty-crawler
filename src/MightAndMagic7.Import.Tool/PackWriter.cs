@@ -196,7 +196,9 @@ internal static partial class PackWriter
             fixtures,
             renders,
             bitmaps);
-        ((string, int, int) media, int textures, int skies, int icons, IReadOnlyList<string> missingIcons) = WriteMedia(provenance, Path.Combine(outputRoot, "mm7-media"), renders, bitmaps, terrain, tables, terrain is null ? null : BitmapLibrary.Open(install, BitmapLibrary.IconArchiveName));
+        ((string, int, int) media, int textures, int skies, int icons, IReadOnlyList<string> missingIcons, int sprites, int looks, IReadOnlyList<string> missingSprites) =
+            WriteMedia(provenance, Path.Combine(outputRoot, "mm7-media"), renders, bitmaps, terrain, tables,
+                terrain is null ? null : BitmapLibrary.Open(install, BitmapLibrary.IconArchiveName), terrain is null ? null : install, maps);
         List<(string, int, int)> packs =
         [
             WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services, people, encounters, creatures, fixtures, globals, terrain),
@@ -206,7 +208,7 @@ internal static partial class PackWriter
         WriteBundleFragment(outputRoot, provenance, packs);
         return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions), entrances, containers, services, people, encounters, creatures, mapped, fixtures, globals)
         {
-            Render = new RenderSummary(renders, textures, skies, icons, missingIcons),
+            Render = new RenderSummary(renders, textures, skies, icons, missingIcons) { Sprites = sprites, Looks = looks, MissingSprites = missingSprites },
         };
     }
 
