@@ -846,8 +846,8 @@ ordinary buy/sell/identify/repair operations. Artifacts keep fixed definition id
 one-copy registry. The complete original special-item power repertoire is not claimed.
 
 The [item-effect record](../../docs/evidence/item-enchanting.md) records focused checks and live limits.
-World-targeted Telekinesis (#9145) and additional original special-item powers and Genie Lamp use (#9148)
-are concrete receivers.
+World-targeted Telekinesis remains receiver #9145. The selected fixed powers and ordinary Genie Lamp use
+are implemented below; the complete original special-item repertoire is not claimed.
 
 ## Preservation
 

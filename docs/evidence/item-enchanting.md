@@ -38,7 +38,7 @@ Common eligibility, quest refusal, value floors, rank chance, mastery strength a
 durations follow the stated policy. Permanent property selection is uniform over this game's compact
 weapon/passive repertoire rather than original weighted tables; elemental and dragon damage magnitudes
 and trade premiums are ours. All original special-item powers and original enchantment numerical
-equivalence are not claimed. Further powers and Genie Lamp use have receiver #9148. World-targeted
+equivalence are not claimed. Selected fixed powers and ordinary Genie Lamp use are recorded in [special item powers](special-item-powers.md). World-targeted
 Telekinesis is receiver #9145; character Preservation is receiver #9146, correcting the old gear-protection
 reading against `Character.cpp:1310-1321`.
 

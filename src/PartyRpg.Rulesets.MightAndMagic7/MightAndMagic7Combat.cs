@@ -35,7 +35,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// shot and resistances are sums of terms read off the equipped figure and the character's own body, and each
 /// is stated below as such a sum, term by term in the donor's order and through this game's figure
 /// (<see cref="MightAndMagic7Figure"/>): what each sum reads faithfully, what it approximates, and which term
-/// waits for another owner (further special-item powers, #9148) is said beside it.
+/// is outside the selected special-item repertoire is said beside it.
 /// </para>
 /// </remarks>
 internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolutionRule, ICombatAbilityResolutionRule, ICombatWeaponRule, ICombatReflectionRule, ICombatProvocationRule
@@ -1222,9 +1222,8 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// (<c>OpenEnroth/src/Engine/Objects/Character.cpp:5987-6009</c>, <c>CHARACTER_BUFF_SHIELD</c> or
     /// <c>PARTY_BUFF_SHIELD</c>, <c>dmgToReceive &gt;&gt;= 1</c>), and a monster's projectile is what its row's missile
     /// column makes it throw rather than the spells it casts (<c>SpriteEnumFunctions.h:20-36</c>,
-    /// <c>isMonsterProjectileSprite</c>). Here that is a creature's ranged attack. Faithful; the items and artifacts
-    /// that shield their wearer the same way wait for #9148, and a grand master's shield for
-    /// the shield skill's own owner.
+    /// <c>isMonsterProjectileSprite</c>). Here that is a creature's ranged attack. The selected working Elfbane also halves this same hostile missile, once even when a spell shield runs;
+    /// other item shields are outside the selected repertoire.
     /// </para>
     /// </remarks>
     private int DivisorOf(CombatSubject attacker, CombatSubject target, AttackKind kind)
@@ -1466,8 +1465,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// the leather term, faithfully — a grand master of leather wearing working leather armour adds the leather
     /// level to fire, air, water, and earth — the ward a spell leaves running, and the base
     /// (<see cref="MightAndMagic7BaseResistance"/>): the race's bonus and a Lich's own floor, faithfully, with a
-    /// Lich's whole resistance capped at two hundred (<c>:1988-1990</c>). Followers are not in this build (#8514)
-    /// and further special-item resistance powers remain #9148, so those terms are nothing here rather than a number invented.
+    /// Lich's whole resistance capped at two hundred (<c>:1988-1990</c>). Follower profession terms remain #9151; selected working fixed special-item powers enter this same sum.
     /// </para>
     /// <para>
     /// Each term is its own line, so a later term — a buff another owner reads, an enchantment — is one more
@@ -1677,7 +1675,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// and unarmed at (1, 1, 2, 2) per rung, and otherwise the first melee weapon on the figure: its skill level
     /// plus armsmaster, a blaster at (1, 2, 3, 5), and a grand master's staff with the unarmed bonus beside it;
     /// and the items bonus (<c>:2217-2232</c>) — the modifier of the weapon in each hand. The blessing a spell
-    /// adds is read where the chance is priced. Faithful for these terms; further special-item powers remain #9148.
+    /// adds is read where the chance is priced. Faithful for these terms; other special-item powers are outside the selected repertoire.
     /// </remarks>
     private int AttackBonus(PartyMember member)
     {
@@ -1980,8 +1978,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// (<c>src/Engine/mm7_data.cpp:355-378</c>).
     /// </para>
     /// <para>
-    /// A swift weapon takes the donor's twenty ticks (<c>:1727-1733</c>); further special-item powers are
-    /// receiver #9148. A piece worn without its skill — which this game's use rule refuses, but which
+    /// A swift weapon takes the donor's twenty ticks (<c>:1727-1733</c>); other special-item recovery powers are outside the selected repertoire. A piece worn without its skill — which this game's use rule refuses, but which
     /// content declaring no skill table can stage — is read at novice, where the donor never meets one.
     /// </para>
     /// </remarks>
