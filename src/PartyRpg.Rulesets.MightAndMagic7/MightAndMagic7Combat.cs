@@ -1472,7 +1472,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// line in the same sum rather than a second place resistance is decided.
     /// </para>
     /// </remarks>
-    private Resistance CharacterResistance(PartyMember member, DamageKindId kind)
+    internal Resistance CharacterResistance(PartyMember member, DamageKindId kind)
     {
         ArgumentNullException.ThrowIfNull(member);
         int points = 0;
@@ -1739,7 +1739,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// Each term is its own line, so a later term — a buff another owner reads — is one more line in this sum.
     /// </para>
     /// </remarks>
-    private int CharacterArmorClass(PartyMember member)
+    internal int CharacterArmorClass(PartyMember member)
     {
         int armor = Bonus(member, SpeedAttribute);
         armor += WornBy(member).Sum(worn => worn.ArmourClass);

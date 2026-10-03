@@ -119,6 +119,7 @@ export const STYLES = `
 .crawler-screen-body { flex: 1; overflow-y: auto; padding: 0.5rem 0.8rem; columns: 2 22rem; column-gap: 1.2rem; }
 .crawler-screen-body > section { break-inside: avoid-column; margin-bottom: 0.6rem; }
 .crawler-screen[data-screen='map'] .crawler-screen-body, .crawler-screen[data-screen='creation'] .crawler-screen-body,
+.crawler-screen[data-screen='character'] .crawler-screen-body,
 .crawler-screen[data-screen='conversation'] .crawler-screen-body, .crawler-screen[data-screen='service'] .crawler-screen-body { columns: auto; }
 .crawler-screen[data-screen='map'] .crawler-map-drawing { display: block; height: calc(100vh - 17rem); width: auto; margin: 0 auto; aspect-ratio: 1; background: #0c0a08; }
 
@@ -392,4 +393,57 @@ export const STYLES = `
 .crawler-rest-result[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
 .crawler-problems { margin: 0.4rem 0 0; padding: 0.25rem 0.4rem 0.25rem 1.2rem; border-left: 2px solid rgba(226, 120, 96, 0.9); color: #e8c8b0; font-size: 0.7rem; }
 .crawler-problems[hidden] { display: none; }
+/* The character book: one member, four pages. */
+.crawler-character-faces { display: flex; gap: 0.4rem; margin-bottom: 0.4rem; }
+.crawler-session .crawler-character-face { width: 3rem; height: 3.5rem; padding: 0; border: 2px solid #4b4030; background: #222; color: #8d8a7a; overflow: hidden; }
+.crawler-session .crawler-character-face[data-selected='yes'] { border-color: #e2b060; box-shadow: 0 0 6px rgba(226, 176, 96, 0.6); }
+.crawler-character-face img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+.crawler-character-title { margin: 0 0 0.4rem; color: #f0e4c4; font-size: 1rem; font-weight: 600; }
+.crawler-character-tabs { display: flex; gap: 0.3rem; margin-bottom: 0.5rem; border-bottom: 1px solid #5a4b31; }
+.crawler-session .crawler-character-tab { width: auto; padding: 0.3rem 0.9rem; border-radius: 0.2rem 0.2rem 0 0; }
+.crawler-session .crawler-character-tab[data-open='yes'] { border-color: #e2b060; background: rgba(96, 78, 50, 0.9); }
+.crawler-sheet { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.6rem; margin-bottom: 0.6rem; }
+.crawler-sheet-box { padding: 0.4rem 0.6rem; border: 1px solid #5a4b31; border-radius: 0.2rem; background: rgba(0, 0, 0, 0.25); margin-bottom: 0.5rem; }
+.crawler-sheet-title { margin: 0 0 0.3rem; color: #e0d3ae; font-weight: 600; }
+.crawler-sheet-rows { display: grid; grid-template-columns: auto auto; gap: 0.15rem 0.8rem; margin: 0; font-size: 0.85rem; }
+.crawler-sheet-rows dt { color: #b9ad8c; }
+.crawler-sheet-rows dd { margin: 0; text-align: right; color: #f0e4c4; font-variant-numeric: tabular-nums; }
+.crawler-sheet-rows dd[data-detail] { color: #8fc27a; }
+.crawler-growth-hint, .crawler-inspect-hint { color: #b9ad8c; font-size: 0.8rem; }
+.crawler-session .crawler-character-train { width: auto; }
+.crawler-rank { margin: 0.15rem 0; font-size: 0.82rem; }
+.crawler-skill-list { display: grid; gap: 0.15rem; }
+.crawler-character-skill { display: grid; grid-template-columns: 9rem 8rem 9rem minmax(0, 1fr); align-items: center; font-size: 0.85rem; }
+.crawler-skill-name { color: #f0e4c4; }
+.crawler-skill-ceiling { color: #b9ad8c; }
+.crawler-character-skill-refusal { color: #e8c8b0; font-size: 0.8rem; }
+.crawler-session .crawler-character-raise { width: auto; justify-self: start; padding: 0.1rem 0.5rem; }
+/* The inventory page: the member's figure, the shared pack, and the inspector. */
+.crawler-inventory { display: grid; grid-template-columns: minmax(15rem, 1fr) minmax(0, 1.4fr) minmax(14rem, 1fr); gap: 0.8rem; align-items: start; }
+.crawler-inventory > .crawler-inventory-outcome, .crawler-inventory > .crawler-inventory-use-outcome, .crawler-inventory > .crawler-inventory-cast-result { grid-column: 1 / -1; }
+.crawler-inventory-slots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.3rem; }
+.crawler-inventory-slot { display: grid; grid-template-columns: 5rem minmax(0, 1fr); align-items: center; gap: 0.3rem; min-height: 2.6rem; padding: 0.15rem 0.3rem; border: 1px solid #3a3226; background: rgba(0, 0, 0, 0.3); }
+.crawler-slot-label { color: #b9ad8c; font-size: 0.72rem; text-transform: capitalize; }
+.crawler-slot-empty { color: #5a5240; }
+.crawler-inventory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(4rem, 1fr)); gap: 0.3rem; max-height: calc(100vh - 22rem); overflow-y: auto; }
+.crawler-session .crawler-item-tile { display: grid; place-items: center; width: auto; height: 5.5rem; padding: 0.2rem; border: 1px solid #4b4030; background: rgba(0, 0, 0, 0.45); overflow: hidden; }
+.crawler-inventory-slot .crawler-item-tile { height: 3rem; }
+.crawler-session .crawler-item-tile[data-picked='true'] { border-color: #e2b060; box-shadow: 0 0 5px rgba(226, 176, 96, 0.7); }
+.crawler-session .crawler-item-tile[data-retained='yes'] { border-color: #8a6ab0; }
+.crawler-item-picture { width: 100%; height: 100%; min-height: 0; object-fit: contain; image-rendering: pixelated; }
+.crawler-item-words { font-size: 0.62rem; line-height: 1.1; color: #d8cba6; text-align: center; }
+.crawler-inventory-inspect { padding: 0.5rem; border: 1px solid #5a4b31; background: rgba(0, 0, 0, 0.3); }
+.crawler-inspect-head { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); gap: 0.5rem; align-items: center; }
+.crawler-session .crawler-inspect-picture { width: 4.5rem; height: 4.5rem; padding: 0.2rem; border: 1px solid #4b4030; background: rgba(0, 0, 0, 0.45); }
+.crawler-inspect-name { margin: 0; color: #f0e4c4; font-weight: 600; }
+.crawler-inspect-kind { margin: 0; color: #b9ad8c; font-size: 0.8rem; }
+.crawler-inspect-facts { margin: 0.4rem 0; padding-left: 1.1rem; font-size: 0.85rem; }
+.crawler-inspect-retained { color: #c9b0e8; font-size: 0.8rem; }
+.crawler-inspect-actions { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.crawler-inspect-actions button { width: auto; }
+.crawler-inventory-outcome, .crawler-inventory-use-outcome, .crawler-inventory-cast-result, .crawler-character-skill-outcome, .crawler-character-train-outcome {
+  margin: 0 0 0.4rem; padding: 0.3rem 0.5rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.85rem;
+}
+:is(.crawler-inventory-outcome, .crawler-inventory-use-outcome, .crawler-inventory-cast-result, .crawler-character-skill-outcome, .crawler-character-train-outcome)[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.9); color: #e8c8b0; }
+@media (max-width: 900px) { .crawler-inventory { grid-template-columns: minmax(0, 1fr); } }
 `;

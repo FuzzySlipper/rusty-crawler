@@ -187,7 +187,7 @@ public sealed record PartySnapshot(
     /// <returns>The party's accounts and standing, or the not-known value.</returns>
     /// <param name="portraits">The images portraits are drawn with, or null for a session that grants none.</param>
     public static PartySnapshot From(PartyEntity? party, IStandingRule? standing = null, IFollowerConversationRule? followers = null,
-        PortraitImages? portraits = null)
+        ContentImages? portraits = null)
     {
         if (party is null) return None;
         int hitPoints = 0;

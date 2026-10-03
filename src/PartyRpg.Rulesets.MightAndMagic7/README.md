@@ -946,8 +946,19 @@ checks from live acceptance.
 face set of its race and sex, in the donor's face order (OpenEnroth `src/Engine/mm7_data.cpp:50-55`, races by face at
 OpenEnroth `src/Engine/Objects/Character.cpp:2779-2791`, men before women by the voice table at `:2808-2834`), and a
 person's portrait with the interface image of its own name; which face of a group is ours. The session grants the
-members' faces through `PortraitImages` for the adventure frame; people's portraits are read the same way but drawn by
-no screen yet (the conversation screen, #9224).
+members' faces through `ContentImages` for the adventure frame; people's portraits are read the same way but drawn by
+no screen yet (the conversation screen, #9224). Items are drawn with the icon their table row names as `picture`,
+from the same installed icons.
+
+`MightAndMagic7ItemReadings` reads an item for the inventory page: the table's type as a word (a weapon by its skill
+group, armour by its kind), the damage or armour the figure reads from the same row the fight does, its charges (a
+wand's spell reading until a recharge states its own) and power, its worth as the counters price it, and a broken or
+stolen state (approximate; identification hides nothing yet, so no unidentified
+line is stated). `MightAndMagic7CharacterSheet` is the character page: the seven scores as the fight's
+`ActualAttribute` reads them (with the carried score beside a changed one), hit and spell points, armour class from
+the fight's own sum, condition, age, level, experience and skill points, and Fire, Air, Water, Earth, Mind and Body
+from the fight's resistance sum (OpenEnroth `src/GUI/UI/UICharacter.cpp`, `CharacterUI_StatsTab_Draw`; attack,
+shoot and the quick spell are not on the page yet).
 
 `MightAndMagic7Scene` is this game's scene meaning: a place is drawn from its imported `place-render` entry (the mesh
 beside the world pack, one material per entry naming a `texture` of the media pack, `terrain`/`water` opaque and

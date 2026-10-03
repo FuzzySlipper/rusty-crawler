@@ -56,6 +56,9 @@ internal sealed class MightAndMagic7Portraits
         return portraits;
     }
 
+    /// <summary>The content path of one installed icon by its own name, or null when the install lacks it.</summary>
+    internal string? IconPath(string icon) => _icons.GetValueOrDefault(icon);
+
     /// <summary>The content path a portrait is drawn with, or null when content carries no image for it.</summary>
     internal string? PathOf(string portrait) =>
         _icons.GetValueOrDefault(Faces.GetValueOrDefault(portrait) ?? portrait);

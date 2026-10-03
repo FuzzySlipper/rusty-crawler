@@ -346,6 +346,8 @@ internal sealed class MightAndMagic7Session : IGameSession
             (place, group) => owners.World is IInteractionWorld world && MightAndMagic7Fixtures.IsGroupHostile(world.States.ValuesOf(place), group),
             itemMagic: () => itemMagic);
         MightAndMagic7Combat combat = composed;
+        MightAndMagic7ItemReadings? itemReadings = MightAndMagic7ItemReadings.Read(Declared(context.Content), figure, services is null ? null : services.ValueOf, spells);
+        MightAndMagic7Portraits icons = MightAndMagic7Portraits.Read(Declared(context.Content));
 
         long Worth(PlacementDefinition placement) =>
             composed is { } fight
@@ -393,11 +395,17 @@ internal sealed class MightAndMagic7Session : IGameSession
             Map = automap is null || mapSource is null ? null : new MapRules(automap, mapSource),
             Equipment = figure,
             ItemUses = itemMagic,
+            ItemReadings = itemReadings,
+            CharacterSheet = new MightAndMagic7CharacterSheet(() => combat, clock),
+            // An item is drawn with the picture its row names, from the same installed icons the faces come from.
+            ItemPictures = context.Engine is { } pictureEngine && itemReadings is not null
+                ? new ContentImages(pictureEngine, icons.IconPath, "item pictures")
+                : null,
 
             // The portraits the panel draws members with are the installed faces, granted to the panel through the
             // Engine once each.
             Portraits = context.Engine is { } portraitEngine
-                ? new PortraitImages(portraitEngine, MightAndMagic7Portraits.Read(Declared(context.Content)).PathOf)
+                ? new ContentImages(portraitEngine, icons.PathOf, "portraits")
                 : null,
             // The world is drawn from the content this game reads it from, by the same door state the collision and
             // the interactions read, under this game's light at the clock's hour. Nothing is drawn for a session over

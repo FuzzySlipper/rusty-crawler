@@ -273,10 +273,16 @@ commands `CreationInput` reads), in which the one admitted update does nothing b
 the world, movement, and the clock are untouched, and published to the screen as `CreationSnapshot`:
 where the flow stands, every choice it offers with the face image each portrait is drawn with, and the rule the
 last illegal choice broke), the
-structured UI value builder, the Engine-backed projection channel, `PortraitImages` (a game's portrait content images
-granted to the panel once each through the Engine's `Ui.OpenImage`, their same-origin URLs published in the party
-block's `roster` beside each member's pools, the percentage a bar is drawn at, conditions and selection, and revoked
-with the session; the roster's reading is keyed on the selected member too, which no change stamp moves),
+structured UI value builder, the Engine-backed projection channel, `ContentImages` (a game's content images — its
+portraits, its items' pictures — granted to the panel once each through the Engine's `Ui.OpenImage`, their
+same-origin URLs published in the party block's `roster` beside each member's pools, the percentage a bar is drawn
+at, conditions and selection, in the creation block, and on every worn piece and pack row, and revoked with the
+session; the roster's reading is keyed on the selected member too, which no change stamp moves), the inventory page's
+readings (`IItemReadingRule`, the game's kind word, facts and picture key for an item instance, published on the
+equipment block's worn rows and on its `pack` — every item the party carries, with its slots, its ordinary use and
+the retention owner's reason it may not leave), the character page (`ICharacterSheetRule`, the game's titled
+sections of label–value rows for one member, published as the `character` block and kept on the party's stamp and
+the clock's minute),
 and the session projection (each block is a sealed
 `*Snapshot` record read from its owner that writes its own keys, so a block's wire shape is spelled once; `SessionSnapshot`
 requires every block, a session without a mechanism passing that block's `None`, so no unread block reaches

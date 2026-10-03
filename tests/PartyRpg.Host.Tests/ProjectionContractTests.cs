@@ -547,7 +547,11 @@ public sealed class ProjectionContractTests
             true,
             ["off hand", "main hand", "bow", "armour"],
             [
-                new EquipmentMemberSnapshot(0, "1", "Roderick", [new EquipmentWornSnapshot("main hand", "21", "1", "Crude Longsword")]),
+                new EquipmentMemberSnapshot(0, "1", "Roderick", [new EquipmentWornSnapshot("main hand", "21", "1", "Crude Longsword")
+                {
+                    Image = "/__rusty/product/runtime/ui-images/4",
+                    Reading = new ItemReading("Sword", ["Damage 3d3", "Uses the Sword skill", "Worth 50 gold"]),
+                }]),
                 new EquipmentMemberSnapshot(1, "2", "Aelina", [], "permanent Fire resistance 2"),
             ],
             [
@@ -568,7 +572,32 @@ public sealed class ProjectionContractTests
         {
             Uses = [new EquipmentUseSnapshot("24", "Genie Lamp — permanent resistance gift", "Use")],
             UseOutcome = new ItemUseResult(true, "item-use-applied", "Aelina uses the Genie Lamp: permanent Fire resistance +2; the lamp is consumed."),
-        });
+            Pack =
+            [
+                new EquipmentPackSnapshot("22", "66", "Leather Armor", "/__rusty/product/runtime/ui-images/5",
+                    new ItemReading("Leather armour", ["Armour +4", "Uses the Leather skill", "Worth 150 gold"]), ["armour"], string.Empty, string.Empty),
+                new EquipmentPackSnapshot("23", "15", "Dagger", string.Empty,
+                    new ItemReading("Dagger", ["Damage 2d2", "Broken — a smith or a repair service mends it"]), ["main hand", "off hand"], string.Empty, string.Empty),
+                new EquipmentPackSnapshot("24", "lamp", "Genie Lamp — permanent resistance gift", string.Empty,
+                    new ItemReading("Item", ["Worth 0 gold"]), [], "Use", string.Empty),
+                new EquipmentPackSnapshot("8", "300", "A scroll of light", "/__rusty/product/runtime/ui-images/6",
+                    new ItemReading("Spell scroll", ["Worth 10 gold"]), [], string.Empty, string.Empty),
+                new EquipmentPackSnapshot("639", "639", "Golem part", string.Empty,
+                    new ItemReading("Item", []), [], string.Empty, "The errand Collect the six golem pieces needs it; the party cannot part with it."),
+            ],
+        })
+        {
+            Character = new CharacterSnapshot(true,
+            [
+                new CharacterMemberSnapshot(0, "1", "Roderick",
+                [
+                    new CharacterSheetSection("Scores", [new CharacterSheetRow("Might", "16", "carried 14"), new CharacterSheetRow("Speed", "13")]),
+                    new CharacterSheetSection("Vitals", [new CharacterSheetRow("Hit points", "40 / 40"), new CharacterSheetRow("Armour class", "7")]),
+                    new CharacterSheetSection("Resistances", [new CharacterSheetRow("Fire", "0"), new CharacterSheetRow("Body", "5")]),
+                ]),
+                new CharacterMemberSnapshot(1, "2", "Aelina", [new CharacterSheetSection("Vitals", [new CharacterSheetRow("Condition", "Unconscious")])]),
+            ]),
+        };
 
     /// <summary>The same session a moment later, paced turn-based with a round under way and the party's turn out.</summary>
     private static SessionSnapshot TurnBased()

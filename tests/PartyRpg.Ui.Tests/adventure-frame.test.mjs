@@ -96,8 +96,8 @@ test('a book opens by its button or key over the world, Escape returns to the wo
     assert.equal(h.context.ui.interactionMode(), 'gameplay');
     assert.ok(h.focused > before, 'opening a book hands the keyboard back to the game view');
     assert.equal(panel.querySelector('.crawler-hud-book[data-screen="character"]').dataset.open, 'yes');
-    // The equipment the product published is drawn inside the book.
-    assert.ok(character.querySelector('.crawler-equipment'));
+    // The selected member's character page is drawn inside the book.
+    assert.ok(character.querySelector('.crawler-character .crawler-sheet'));
 
     // Another book replaces it; the same book again closes it; Escape closes whatever is open.
     panel.querySelector('.crawler-hud-book[data-screen="map"]').click();

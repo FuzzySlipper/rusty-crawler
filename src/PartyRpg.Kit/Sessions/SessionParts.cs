@@ -99,7 +99,19 @@ public sealed record SessionRules
     /// The images the game's portraits are drawn with in the panel, or null for a session that grants none. The session
     /// releases it with itself.
     /// </summary>
-    public Presentation.PortraitImages? Portraits { get; init; }
+    public Presentation.ContentImages? Portraits { get; init; }
+
+    /// <summary>
+    /// The images the game's items are drawn with in the panel, or null for a session that grants none. The session
+    /// releases it with itself.
+    /// </summary>
+    public Presentation.ContentImages? ItemPictures { get; init; }
+
+    /// <summary>The game's reading of a carried item as a player inspects it, or null for a game that states none.</summary>
+    public IItemReadingRule? ItemReadings { get; init; }
+
+    /// <summary>The game's character sheet, or null for a game that states none.</summary>
+    public ICharacterSheetRule? CharacterSheet { get; init; }
 }
 
 /// <summary>A game's answers about growth, and the ladder of ranks it states.</summary>

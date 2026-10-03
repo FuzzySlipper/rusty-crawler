@@ -9,6 +9,12 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="Name">What a person reads for it.</param>
 public sealed record EquipmentWornSnapshot(string Slot, string Item, string Definition, string Name)
 {
+    /// <summary>The URL the Engine serves the item's picture at, empty when it has none to show.</summary>
+    public string Image { get; init; } = string.Empty;
+
+    /// <summary>What a player is told about the item, in the game's words, or nothing for a game that reads none.</summary>
+    public ItemReading? Reading { get; init; }
+
     /// <summary>Writes one occupied slot.</summary>
     /// <param name="builder">The projection being built.</param>
     /// <returns>The row's node.</returns>
@@ -17,7 +23,42 @@ public sealed record EquipmentWornSnapshot(string Slot, string Item, string Defi
             ("slot", builder.String(Slot)),
             ("item", builder.String(Item)),
             ("definition", builder.String(Definition)),
-            ("name", builder.String(Name)));
+            ("name", builder.String(Name)),
+            ("image", builder.String(Image)),
+            ("kind", builder.String(Reading?.Kind ?? string.Empty)),
+            ("facts", builder.Array([.. (Reading?.Facts ?? []).Select(builder.String)])));
+}
+
+/// <summary>One thing in the party's shared pack, as the inventory page shows and inspects it.</summary>
+/// <param name="Item">The instance's durable identity, which every action on it echoes back.</param>
+/// <param name="Definition">The content definition the instance is a copy of.</param>
+/// <param name="Name">What a person reads for it.</param>
+/// <param name="Image">The URL the Engine serves its picture at, empty when it has none to show.</param>
+/// <param name="Reading">What a player is told about it, or null for a game that reads none.</param>
+/// <param name="Slots">The slots the figure has for it, most likely first; empty when nobody can wear it.</param>
+/// <param name="Use">The ordinary action the game offers for it, such as drinking or reading, or empty.</param>
+/// <param name="Retained">Why the party may not part with it — the quest that needs it — or empty.</param>
+public sealed record EquipmentPackSnapshot(
+    string Item,
+    string Definition,
+    string Name,
+    string Image,
+    ItemReading? Reading,
+    IReadOnlyList<string> Slots,
+    string Use,
+    string Retained)
+{
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("item", builder.String(Item)),
+            ("definition", builder.String(Definition)),
+            ("name", builder.String(Name)),
+            ("image", builder.String(Image)),
+            ("kind", builder.String(Reading?.Kind ?? string.Empty)),
+            ("facts", builder.Array([.. (Reading?.Facts ?? []).Select(builder.String)])),
+            ("slots", builder.Array([.. Slots.Select(builder.String)])),
+            ("use", builder.String(Use)),
+            ("retained", builder.String(Retained)));
 }
 
 /// <summary>One member's figure, as the screen draws it: who, and what each occupied slot holds.</summary>
@@ -82,6 +123,9 @@ public sealed record EquipmentSnapshot(
     /// <summary>The last ordinary item-use answer.</summary>
     public ItemUseResult? UseOutcome { get; init; }
 
+    /// <summary>Everything in the shared pack, wearable or not, in the order the pack holds it.</summary>
+    public IReadOnlyList<EquipmentPackSnapshot> Pack { get; init; } = [];
+
     /// <summary>The equipment of a session that holds no figure.</summary>
     public static EquipmentSnapshot None => new(false, [], [], [], null);
 
@@ -92,7 +136,11 @@ public sealed record EquipmentSnapshot(
     /// <summary>Reads the figure screen out of the equipment owner, or nothing when the session holds none.</summary>
     /// <param name="outfitting">The session's equipment owner, or null when it composes none.</param>
     /// <returns>What the figure screen shows.</returns>
-    public static EquipmentSnapshot From(PartyOutfitting? outfitting, PartyItemUse? itemUses = null)
+    /// <param name="itemUses">The ordinary item uses, when the session composes them.</param>
+    /// <param name="readings">The game's reading of an item, when it states one.</param>
+    /// <param name="pictures">The images items are drawn with, when the session grants any.</param>
+    public static EquipmentSnapshot From(PartyOutfitting? outfitting, PartyItemUse? itemUses = null,
+        IItemReadingRule? readings = null, ContentImages? pictures = null)
     {
         if (outfitting is not { } owner) return None;
         IReadOnlyList<EquipmentSlot> slots = owner.Figure.Slots;
@@ -107,12 +155,12 @@ public sealed record EquipmentSnapshot(
             // does not list still shows, after them, rather than an item the member wears going unseen.
             foreach (EquipmentSlot slot in slots)
             {
-                if (member.Equipment.ItemIn(slot) is { } item) worn.Add(Worn(owner, slot, item, itemUses));
+                if (member.Equipment.ItemIn(slot) is { } item) worn.Add(Worn(owner, slot, item, itemUses, readings, pictures));
             }
 
             foreach (EquippedItem equipped in member.Equipment.Items)
             {
-                if (!slots.Contains(equipped.Slot)) worn.Add(Worn(owner, equipped.Slot, equipped.Item, itemUses));
+                if (!slots.Contains(equipped.Slot)) worn.Add(Worn(owner, equipped.Slot, equipped.Item, itemUses, readings, pictures));
             }
 
             members.Add(new EquipmentMemberSnapshot(index, member.Id.ToString(), member.Profile.Name, worn, itemUses?.Rule.Describe(member) ?? ""));
@@ -136,6 +184,15 @@ public sealed record EquipmentSnapshot(
                 .Where(item => itemUses.Rule.ActionOf(item) is not null)
                 .Select(item => new EquipmentUseSnapshot(item.Id.ToString(), owner.NameOf(item.Definition) + " — " + itemUses.Rule.Describe(item), itemUses.Rule.ActionOf(item)!))],
             UseOutcome = itemUses?.Last,
+            Pack = [.. owner.Party.Inventory.Items.Select(item => new EquipmentPackSnapshot(
+                item.Id.ToString(),
+                item.Definition.Value,
+                ItemName(owner, item, itemUses),
+                Picture(item, readings, pictures),
+                readings?.Read(item),
+                [.. owner.Figure.SlotsFor(item).Select(slot => slot.Value)],
+                itemUses?.Rule.ActionOf(item) ?? string.Empty,
+                owner.Party.JudgeItemRetention(item.Definition)?.Message ?? string.Empty))],
         };
     }
 
@@ -151,6 +208,7 @@ public sealed record EquipmentSnapshot(
             ("members", builder.Array([.. Members.Select(member => member.Write(builder))])),
             ("items", builder.Array([.. Items.Select(item => item.Write(builder))])),
             ("uses", builder.Array([.. Uses.Select(item => builder.Object(("item", builder.String(item.Item)), ("name", builder.String(item.Name)), ("action", builder.String(item.Action))))])),
+            ("pack", builder.Array([.. Pack.Select(item => item.Write(builder))])),
             ("useOutcome", builder.Object(("outcome", builder.String(UseOutcome is null ? "" : UseOutcome.Applied ? "used" : "refused")),
                 ("code", builder.String(UseOutcome?.Code ?? "")), ("message", builder.String(UseOutcome?.Message ?? "")))) ,
             // A change is made on a member, so one is offered while there is somebody to wear it.
@@ -173,8 +231,16 @@ public sealed record EquipmentSnapshot(
         (item.State.Enchantment is { } property ? $" — {property.Property} {property.Strength}" : string.Empty) +
         (item.State.IsHardened ? " — hardened" : string.Empty);
 
-    private static EquipmentWornSnapshot Worn(PartyOutfitting owner, EquipmentSlot slot, ItemInstance item, PartyItemUse? uses = null) =>
-        new(slot.Value, item.Id.ToString(), item.Definition.Value, ItemName(owner, item, uses));
+    private static EquipmentWornSnapshot Worn(PartyOutfitting owner, EquipmentSlot slot, ItemInstance item, PartyItemUse? uses,
+        IItemReadingRule? readings, ContentImages? pictures) =>
+        new(slot.Value, item.Id.ToString(), item.Definition.Value, ItemName(owner, item, uses))
+        {
+            Image = Picture(item, readings, pictures),
+            Reading = readings?.Read(item),
+        };
+
+    private static string Picture(ItemInstance item, IItemReadingRule? readings, ContentImages? pictures) =>
+        pictures is not null && readings?.PictureOf(item) is { } key ? pictures.Url(key) : string.Empty;
 }
 
 /// <summary>An ordinary item action offered by the compiled game policy.</summary>

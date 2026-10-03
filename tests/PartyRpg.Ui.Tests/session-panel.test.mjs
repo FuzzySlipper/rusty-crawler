@@ -716,6 +716,8 @@ function snapshot(mode, seconds = 0, steps = 0, _updates = 0, facts = undefined,
   // The equipment block is published on the same terms: a case that asks for none covers a projection whose
   // ruleset stated no figure.
   if (blocks?.equipment !== undefined) value.equipment = blocks.equipment;
+  // The character block is published on the same terms: a case that asks for none covers a ruleset with no sheet.
+  if (blocks?.character !== undefined) value.character = blocks.character;
   // The quests block is published in every mode too, so a case that asks for none covers a projection whose
   // ruleset stated no quests at all.
   if (blocks?.quests !== undefined) value.quests = blocks.quests;
@@ -4550,6 +4552,7 @@ test('every hand-written block this suite publishes is one the readers read with
     magic: magic(),
     alchemy: alchemy(),
     equipment: equipment(),
+    character: { available: true, members: [{ index: 0, member: '1', name: 'Roderick', sections: [{ title: 'Scores', rows: [{ label: 'Might', value: '16', detail: 'carried 14' }] }] }] },
     quests: quests(),
     journal: journal(),
     map: automap(),
@@ -4570,13 +4573,14 @@ function equipment(overrides = {}) {
     available: true,
     slots: ['off hand', 'main hand', 'bow', 'armour'],
     members: [
-      { index: 0, member: '1', name: 'Roderick', powers: '', worn: [{ slot: 'main hand', item: '21', definition: '1', name: 'Crude Longsword' }] },
+      { index: 0, member: '1', name: 'Roderick', powers: '', worn: [{ slot: 'main hand', item: '21', definition: '1', name: 'Crude Longsword', image: '', kind: 'Sword', facts: ['Damage 3d3'] }] },
       { index: 1, member: '2', name: 'Aelina', powers: '', worn: [] },
     ],
     items: [
       { item: '22', definition: '66', name: 'Leather Armor', slots: ['armour'] },
       { item: '23', definition: '15', name: 'Dagger', slots: ['main hand', 'off hand'] },
     ],
+    pack: [],
     canEquip: true,
     uses: [],
     useOutcome: { outcome: '', code: '', message: '' },

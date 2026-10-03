@@ -55,7 +55,8 @@ public sealed class PartyRpgSession : IGameSession
     private readonly HashSet<string> _contracts;
     private readonly ControlKeys _keys;
     private readonly Scene.IWorldPresenter? _view;
-    private readonly Presentation.PortraitImages? _portraits;
+    private readonly Presentation.ContentImages? _portraits;
+    private readonly Presentation.ContentImages? _itemPictures;
     private CreationDriver? _creation;
     private bool _accepted;
     private SessionMode _mode = SessionMode.Starting;
@@ -130,6 +131,7 @@ public sealed class PartyRpgSession : IGameSession
         owners.Bind(rules ?? SessionRules.None, records);
         _view = rules?.View;
         _portraits = rules?.Portraits;
+        _itemPictures = rules?.ItemPictures;
         _acts = new SessionActs(owners, controls);
         _fight = new CombatDriver(owners, controls.Movement, controls.Combat);
         _contracts = Contracts(controls);
@@ -584,6 +586,7 @@ public sealed class PartyRpgSession : IGameSession
         Publish();
         _view?.Dispose();
         _portraits?.Dispose();
+        _itemPictures?.Dispose();
         LiveWorld?.Dispose();
         Party?.Dispose();
         _saves.Store?.Dispose();
@@ -686,7 +689,10 @@ public sealed class PartyRpgSession : IGameSession
             _readings.Journal(Journal, Quests, LiveWorld, Clock, Knowledge, Maps),
             _readings.Map(Maps, LiveWorld, _owners.Rules.Magic?.Running),
             _keys,
-            _readings.Equipment(_owners.Outfitting, party, _owners.ItemUses));
+            _readings.Equipment(_owners.Outfitting, party, _owners.ItemUses, _owners.Rules.ItemReadings, _itemPictures, Quests))
+        {
+            Character = _readings.Character(Party, party, _owners.Rules.CharacterSheet, Clock),
+        };
     }
 
     /// <summary>Reads this session into the product's one current save schema, without writing anything.</summary>

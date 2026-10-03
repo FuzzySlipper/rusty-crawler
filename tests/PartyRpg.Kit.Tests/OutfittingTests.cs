@@ -102,6 +102,44 @@ public sealed class OutfittingTests
         Assert.False(EquipmentSnapshot.From(null).Available);
     }
 
+    [Fact]
+    public void The_pack_lists_every_item_with_its_picture_reading_slots_and_use_and_the_sheet_is_the_games()
+    {
+        using PartyEntity party = Party();
+        PartyOutfitting outfitting = new(party, new Figure());
+        ItemInstance blade = party.AcquireItem(Blade).Item!;
+        ItemInstance rock = party.AcquireItem(Rock).Item!;
+        RecordingUiService ui = new();
+        (Rusty.Engine.IContentService content, _) = RecordingEngineService<Rusty.Engine.IContentService>.Create();
+        using ContentImages pictures = new(new FakeEngineContext(ui, content: content),
+            key => key == "blade-picture" ? "packs/media/icons/blade.png" : null, "item pictures");
+
+        EquipmentSnapshot snapshot = EquipmentSnapshot.From(outfitting, readings: new Readings(), pictures: pictures);
+
+        // Everything the party carries is in the pack, wearable or not, each with the game's reading of it.
+        Assert.Equal([blade.Id.ToString(), rock.Id.ToString()], snapshot.Pack.Select(row => row.Item));
+        EquipmentPackSnapshot sword = snapshot.Pack[0];
+        Assert.Equal(("/__rusty/product/runtime/ui-images/1", "Blade"), (sword.Image, sword.Reading!.Kind));
+        Assert.Equal(["hand", "other hand"], sword.Slots);
+        Assert.Equal(["Sharp"], sword.Reading.Facts);
+        // A thing nobody can wear has no slots, and one the game draws with no picture publishes no URL.
+        EquipmentPackSnapshot stone = snapshot.Pack[1];
+        Assert.Equal((string.Empty, 0, string.Empty, string.Empty), (stone.Image, stone.Slots.Count, stone.Use, stone.Retained));
+
+        // A worn piece carries its picture and reading too.
+        Assert.Equal(OutfittingResult.Equipped, outfitting.Equip(0, blade.Id).Outcome);
+        EquipmentWornSnapshot worn = EquipmentSnapshot.From(outfitting, readings: new Readings(), pictures: pictures).Members[0].Worn.Single();
+        Assert.Equal(("/__rusty/product/runtime/ui-images/1", "Blade"), (worn.Image, worn.Reading!.Kind));
+        Assert.Single(ui.Images);
+
+        // The character block is the game's sheet, member by member, or nothing for a game that states none.
+        CharacterSnapshot sheet = CharacterSnapshot.From(party, new Sheet());
+        Assert.True(sheet.Available);
+        Assert.Equal(("Ann", "Scores", "Vigour", "12"), (sheet.Members[0].Name, sheet.Members[0].Sections[0].Title,
+            sheet.Members[0].Sections[0].Rows[0].Label, sheet.Members[0].Sections[0].Rows[0].Value));
+        Assert.False(CharacterSnapshot.From(party, null).Available);
+    }
+
     private static PartyEntity Party(IEquipmentUseRule? rule = null) =>
         new PartyEntityFactory(equipmentUse: rule).Create(new PartyCreation(
             [new MemberCreation(new PartyMemberSeed(
@@ -132,6 +170,19 @@ public sealed class OutfittingTests
             "ring" => [FingerOne, FingerTwo],
             _ => [],
         };
+    }
+
+    private sealed class Readings : IItemReadingRule
+    {
+        public ItemReading Read(ItemInstance item) => item.Definition == Blade ? new ItemReading("Blade", ["Sharp"]) : new ItemReading("Stone", []);
+
+        public string? PictureOf(ItemInstance item) => item.Definition == Blade ? "blade-picture" : null;
+    }
+
+    private sealed class Sheet : ICharacterSheetRule
+    {
+        public IReadOnlyList<CharacterSheetSection> Read(PartyMember member) =>
+            [new CharacterSheetSection("Scores", [new CharacterSheetRow("Vigour", member.Attributes.Scores[0].Value.ToString(System.Globalization.CultureInfo.InvariantCulture))])];
     }
 
     private sealed class RefuseCursed : IEquipmentUseRule

@@ -339,6 +339,7 @@
     "members": [],
     "items": [],
     "uses": [],
+    "pack": [],
     "useOutcome": {
       "outcome": "",
       "code": "",
@@ -357,6 +358,10 @@
       "displaced": "",
       "displacedName": ""
     }
+  },
+  "character": {
+    "available": false,
+    "members": []
   },
   "controls": {
     "pause": {

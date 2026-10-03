@@ -1072,7 +1072,14 @@
             "slot": "main hand",
             "item": "21",
             "definition": "1",
-            "name": "Crude Longsword"
+            "name": "Crude Longsword",
+            "image": "/__rusty/product/runtime/ui-images/4",
+            "kind": "Sword",
+            "facts": [
+              "Damage 3d3",
+              "Uses the Sword skill",
+              "Worth 50 gold"
+            ]
           }
         ],
         "powers": ""
@@ -1111,6 +1118,79 @@
         "action": "Use"
       }
     ],
+    "pack": [
+      {
+        "item": "22",
+        "definition": "66",
+        "name": "Leather Armor",
+        "image": "/__rusty/product/runtime/ui-images/5",
+        "kind": "Leather armour",
+        "facts": [
+          "Armour \u002B4",
+          "Uses the Leather skill",
+          "Worth 150 gold"
+        ],
+        "slots": [
+          "armour"
+        ],
+        "use": "",
+        "retained": ""
+      },
+      {
+        "item": "23",
+        "definition": "15",
+        "name": "Dagger",
+        "image": "",
+        "kind": "Dagger",
+        "facts": [
+          "Damage 2d2",
+          "Broken \u2014 a smith or a repair service mends it"
+        ],
+        "slots": [
+          "main hand",
+          "off hand"
+        ],
+        "use": "",
+        "retained": ""
+      },
+      {
+        "item": "24",
+        "definition": "lamp",
+        "name": "Genie Lamp \u2014 permanent resistance gift",
+        "image": "",
+        "kind": "Item",
+        "facts": [
+          "Worth 0 gold"
+        ],
+        "slots": [],
+        "use": "Use",
+        "retained": ""
+      },
+      {
+        "item": "8",
+        "definition": "300",
+        "name": "A scroll of light",
+        "image": "/__rusty/product/runtime/ui-images/6",
+        "kind": "Spell scroll",
+        "facts": [
+          "Worth 10 gold"
+        ],
+        "slots": [],
+        "use": "",
+        "retained": ""
+      },
+      {
+        "item": "639",
+        "definition": "639",
+        "name": "Golem part",
+        "image": "",
+        "kind": "Item",
+        "facts": [],
+        "slots": [],
+        "use": "",
+        "retained": "The errand Collect the six golem pieces needs it; the party cannot part with it."
+      }
+    ],
     "useOutcome": {
       "outcome": "used",
       "code": "item-use-applied",
@@ -1129,6 +1209,80 @@
       "displaced": "",
       "displacedName": ""
     }
+  },
+  "character": {
+    "available": true,
+    "members": [
+      {
+        "index": 0,
+        "member": "1",
+        "name": "Roderick",
+        "sections": [
+          {
+            "title": "Scores",
+            "rows": [
+              {
+                "label": "Might",
+                "value": "16",
+                "detail": "carried 14"
+              },
+              {
+                "label": "Speed",
+                "value": "13",
+                "detail": ""
+              }
+            ]
+          },
+          {
+            "title": "Vitals",
+            "rows": [
+              {
+                "label": "Hit points",
+                "value": "40 / 40",
+                "detail": ""
+              },
+              {
+                "label": "Armour class",
+                "value": "7",
+                "detail": ""
+              }
+            ]
+          },
+          {
+            "title": "Resistances",
+            "rows": [
+              {
+                "label": "Fire",
+                "value": "0",
+                "detail": ""
+              },
+              {
+                "label": "Body",
+                "value": "5",
+                "detail": ""
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "index": 1,
+        "member": "2",
+        "name": "Aelina",
+        "sections": [
+          {
+            "title": "Vitals",
+            "rows": [
+              {
+                "label": "Condition",
+                "value": "Unconscious",
+                "detail": ""
+              }
+            ]
+          }
+        ]
+      }
+    ]
   },
   "controls": {
     "pause": {

@@ -18,6 +18,7 @@
 
 import { mountAlchemy } from './alchemy.js';
 import { UI_ACTION_CONTRACT, UI_ACTION_INTENT, UI_CONTRACT, type Claim } from './actions.js';
+import { mountCharacter } from './character.js';
 import { mountCombat } from './combat.js';
 import type { ProductUiContext, ProjectionEnvelope } from './context.js';
 import { mountConversation } from './conversation.js';
@@ -108,6 +109,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   const spellbook = mountSpellbook(host);
   const alchemy = mountAlchemy(host);
   const equipment = mountEquipment(host);
+  const character = mountCharacter(host, details.awards);
   const map = mountMap(host);
   const journal = mountJournal(host);
   const quests = mountQuests(host);
@@ -128,9 +130,9 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   frame.body('conversation').append(conversation.element);
   frame.body('service').append(service.element);
   frame.body('rest').append(rest.element);
-  frame.body('character').append(equipment.element, skills.element, progression.element, promotion.element);
+  frame.body('character').append(character.element);
   frame.body('spellbook').append(spellbook.element, alchemy.element);
-  frame.body('journal').append(journal.element, details.awards);
+  frame.body('journal').append(journal.element);
   frame.body('map').append(map.element);
 
   // The fight stays beside the world, where the party is fighting it.
@@ -138,7 +140,8 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   fight.append(combat.element);
 
   // The facts and controls a developer reads: kept, complete and current, but out of the player's way.
-  frame.diagnostics.append(...details.top, ...details.bottom, problems);
+  // The rows the character book draws from are kept here whole as well, every member at once.
+  frame.diagnostics.append(...details.top, ...details.bottom, equipment.element, skills.element, progression.element, promotion.element, problems);
   hud.side.append(details.companions);
   panel.append(hud.message, fight, hud.side, frame.element, hud.bar, frame.diagnostics);
   root.append(style, panel);
@@ -175,6 +178,15 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     spellbook.render(snapshot.magic);
     alchemy.render(snapshot.alchemy);
     equipment.render(snapshot.equipment);
+    character.render({
+      character: snapshot.character,
+      party: snapshot.party,
+      equipment: snapshot.equipment,
+      magic: snapshot.magic,
+      skills: snapshot.skills,
+      progression: snapshot.progression,
+      promotion: snapshot.promotion,
+    });
     map.render(snapshot.map);
     // The books first, so the quests book's own title and state sentence are the product's words, and then the
     // quests book draws its errands underneath them.

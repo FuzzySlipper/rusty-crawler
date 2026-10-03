@@ -242,7 +242,7 @@ public sealed record CreationSnapshot(
     /// <returns>Where creation stands and what it offers.</returns>
     /// <exception cref="ArgumentNullException">The flow is null.</exception>
     /// <param name="faces">The images portraits are drawn with, or null for a session that grants none.</param>
-    public static CreationSnapshot From(PartyCreationFlow flow, Refusal? refusal, PortraitImages? faces = null)
+    public static CreationSnapshot From(PartyCreationFlow flow, Refusal? refusal, ContentImages? faces = null)
     {
         ArgumentNullException.ThrowIfNull(flow);
         CreationMember current = flow.Member(flow.MemberIndex);

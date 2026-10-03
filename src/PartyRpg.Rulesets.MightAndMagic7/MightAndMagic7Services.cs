@@ -1252,7 +1252,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
     }
 
     /// <summary>What an item is worth, as the imported item table states it.</summary>
-    private int ValueOf(ItemInstance? item)
+    internal int ValueOf(ItemInstance? item)
     {
         if (item is not { } instance || !_items.TryGetValue(instance.Definition, out ItemFacts facts)) return 0;
         // Fixed special-table value and temporary coatings are unchanged; permanent ordinary properties add value.

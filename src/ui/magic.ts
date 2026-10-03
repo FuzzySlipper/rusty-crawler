@@ -138,6 +138,11 @@ export interface MagicView {
   readonly sight: string;
 }
 
+/** The actors on the side the product says a casting names, every one for `any`, or none when it names nobody. */
+export function targetsOn(view: MagicView, side: string): readonly SpellTargetView[] {
+  return side === '' ? [] : side === 'any' ? view.targets : view.targets.filter((target) => target.side === side);
+}
+
 export function readMagic(f: Fields): MagicView {
   return {
     available: f.flag('available'),

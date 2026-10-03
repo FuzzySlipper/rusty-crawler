@@ -15,6 +15,27 @@ export interface EquipmentWornView {
   readonly item: string;
   readonly definition: string;
   readonly name: string;
+  /** The URL the Engine serves the item's picture at, empty when it has none. */
+  readonly image: string;
+  /** The game's word for what it is, and what a player is told about it. */
+  readonly kind: string;
+  readonly facts: readonly string[];
+}
+
+/** One thing in the party's shared pack, wearable or not, as the inventory page shows and inspects it. */
+export interface EquipmentPackView {
+  readonly item: string;
+  readonly definition: string;
+  readonly name: string;
+  readonly image: string;
+  readonly kind: string;
+  readonly facts: readonly string[];
+  /** The slots the figure has for it; empty when nobody can wear it. */
+  readonly slots: readonly string[];
+  /** The ordinary action the game offers for it, or empty. */
+  readonly use: string;
+  /** Why the party may not part with it, or empty. */
+  readonly retained: string;
 }
 
 /** One member's figure. */
@@ -54,6 +75,8 @@ export interface EquipmentView {
   readonly slots: readonly string[];
   readonly members: readonly EquipmentMemberView[];
   readonly items: readonly EquipmentItemView[];
+  /** Everything in the shared pack, in the order the pack holds it. */
+  readonly pack: readonly EquipmentPackView[];
   /** Whether the product would take a change now, which is when the Equip and Take off controls are offered. */
   readonly canEquip: boolean;
   readonly uses: readonly { readonly item: string; readonly name: string; readonly action: string }[];
@@ -77,6 +100,9 @@ export function readEquipment(f: Fields): EquipmentView {
         item: worn.text('item'),
         definition: worn.text('definition'),
         name: worn.text('name'),
+        image: worn.text('image'),
+        kind: worn.text('kind'),
+        facts: worn.words('facts'),
       })),
     })),
     items: f.list('items', (item) => ({
@@ -84,6 +110,17 @@ export function readEquipment(f: Fields): EquipmentView {
       definition: item.text('definition'),
       name: item.text('name'),
       slots: item.words('slots'),
+    })),
+    pack: f.list('pack', (item) => ({
+      item: item.text('item'),
+      definition: item.text('definition'),
+      name: item.text('name'),
+      image: item.text('image'),
+      kind: item.text('kind'),
+      facts: item.words('facts'),
+      slots: item.words('slots'),
+      use: item.text('use'),
+      retained: item.text('retained'),
     })),
     canEquip: f.flag('canEquip'),
     uses: f.list('uses', (item) => ({ item: item.text('item'), name: item.text('name'), action: item.text('action') })),

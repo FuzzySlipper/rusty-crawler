@@ -181,8 +181,8 @@ public sealed class CreationModeTests
     {
         RecordingUiService ui = new();
         (IContentService content, _) = PartyRpg.Testing.RecordingEngineService<IContentService>.Create();
-        using PortraitImages faces = new(new PartyRpg.Testing.FakeEngineContext(ui, content: content),
-            portrait => portrait == FolkA.Value ? "packs/media/folk-a.png" : null);
+        using ContentImages faces = new(new PartyRpg.Testing.FakeEngineContext(ui, content: content),
+            portrait => portrait == FolkA.Value ? "packs/media/folk-a.png" : null, "portraits");
         using Making making = new(new PartyCreationFlow(Options, Defaults), new SessionRules { Portraits = faces });
         PartyRpgSession session = making.Session;
 

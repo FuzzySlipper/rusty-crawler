@@ -23,8 +23,8 @@ public sealed class PartyRosterTests
 
         RecordingUiService ui = new();
         (IContentService content, _) = RecordingEngineService<IContentService>.Create();
-        using PortraitImages portraits = new(new FakeEngineContext(ui, content: content),
-            portrait => portrait == "human-man" ? "packs/media/icons/pc01-01.png" : null);
+        using ContentImages portraits = new(new FakeEngineContext(ui, content: content),
+            portrait => portrait == "human-man" ? "packs/media/icons/pc01-01.png" : null, "portraits");
 
         PartySnapshot snapshot = PartySnapshot.From(party, portraits: portraits);
 

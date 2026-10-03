@@ -45,6 +45,7 @@ internal sealed class ProjectionReadings
     private Kept<MagicKey, MagicSnapshot>? _magic;
     private Kept<AlchemyKey, AlchemySnapshot>? _alchemy;
     private Kept<EquipmentKey, EquipmentSnapshot>? _equipment;
+    private Kept<CharacterKey, CharacterSnapshot>? _character;
     private Kept<QuestsKey, QuestSnapshot>? _quests;
     private Kept<JournalKey, JournalSnapshot>? _journal;
     private Kept<MapKey, MapSnapshot>? _map;
@@ -55,7 +56,7 @@ internal sealed class ProjectionReadings
     /// <param name="standing">The game's reading of the party's standing, which reads the party alone.</param>
     /// <param name="portraits">The images the members' portraits are drawn with, which a composition does not change.</param>
     public PartySnapshot Party(PartyEntity? party, long stamp, IStandingRule? standing, IFollowerConversationRule? followers,
-        PortraitImages? portraits = null) =>
+        ContentImages? portraits = null) =>
         Read(ref _party, new PartyKey(party, stamp, party?.Roster.SelectedMember), () => PartySnapshot.From(party, standing, followers, portraits));
 
     /// <summary>The members a played party was made with, which the creation block shows once creation is over.</summary>
@@ -112,8 +113,21 @@ internal sealed class ProjectionReadings
     /// <summary>The equipment block: what every member wears, what in the pack could be worn, and the last change.</summary>
     /// <param name="outfitting">The outfitting owner, when the session has one.</param>
     /// <param name="party">The party's change stamp: the figures and the pack the rows are read from.</param>
-    public EquipmentSnapshot Equipment(PartyOutfitting? outfitting, long party, PartyItemUse? uses = null) =>
-        Read(ref _equipment, new EquipmentKey(outfitting, outfitting?.Stamp ?? 0, party, uses, uses?.Stamp ?? 0), () => EquipmentSnapshot.From(outfitting, uses));
+    /// <remarks>
+    /// A pack row says why the party may not part with a thing, which is the quest owner's answer, so the key holds
+    /// that owner's stamp: accepting an errand moves it without moving the party's.
+    /// </remarks>
+    public EquipmentSnapshot Equipment(PartyOutfitting? outfitting, long party, PartyItemUse? uses = null,
+        IItemReadingRule? readings = null, ContentImages? pictures = null, PartyQuests? quests = null) =>
+        Read(ref _equipment, new EquipmentKey(outfitting, outfitting?.Stamp ?? 0, party, uses, uses?.Stamp ?? 0, quests, quests?.Stamp ?? 0),
+            () => EquipmentSnapshot.From(outfitting, uses, readings, pictures));
+
+    /// <summary>
+    /// The character block: each member's sheet as the game reads it. The readings fold in worn things, running
+    /// effects and age, so the key holds the party's stamp and the clock's minute.
+    /// </summary>
+    public CharacterSnapshot Character(PartyEntity? party, long stamp, ICharacterSheetRule? sheet, GameClock? clock) =>
+        Read(ref _character, new CharacterKey(party, stamp, sheet, Minute(clock)), () => CharacterSnapshot.From(party, sheet));
 
     /// <summary>The quests block: every errand with its objectives, and the last outcome.</summary>
     /// <remarks>
@@ -234,7 +248,9 @@ internal sealed class ProjectionReadings
 
     private readonly record struct AlchemyKey(PotionMixing? Owner, long Stamp, long Party);
 
-    private readonly record struct EquipmentKey(PartyOutfitting? Owner, long Stamp, long Party, PartyItemUse? Uses, long UseStamp);
+    private readonly record struct EquipmentKey(PartyOutfitting? Owner, long Stamp, long Party, PartyItemUse? Uses, long UseStamp, PartyQuests? Quests, long QuestStamp);
+
+    private readonly record struct CharacterKey(PartyEntity? Party, long Stamp, ICharacterSheetRule? Sheet, (int, int, int, int, int) Minute);
 
     private readonly record struct QuestsKey(PartyQuests? Owner, long Stamp, long Party, (int, int, int, int) Hour);
 

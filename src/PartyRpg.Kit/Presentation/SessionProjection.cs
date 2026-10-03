@@ -89,7 +89,11 @@ public sealed record SessionSnapshot(
     JournalSnapshot Journal,
     MapSnapshot Map,
     ControlKeys Keys,
-    EquipmentSnapshot Equipment);
+    EquipmentSnapshot Equipment)
+{
+    /// <summary>Each member's character page as the game's sheet reads them, or the no-sheet value.</summary>
+    public CharacterSnapshot Character { get; init; } = CharacterSnapshot.None;
+}
 
 /// <summary>Where the party is in the world, as the panel needs it: which place, where in it, and how much of the world is known.</summary>
 /// <param name="Place">The place the party is in, empty when the session has no world.</param>
@@ -226,6 +230,9 @@ public static class SessionProjection
     /// <summary>The name of the projection field the members' figures are published under.</summary>
     public const string EquipmentField = "equipment";
 
+    /// <summary>The character block's field.</summary>
+    public const string CharacterField = "character";
+
     /// <summary>The name of the projection field the stand-alone controls are published under.</summary>
     public const string ControlsField = "controls";
 
@@ -334,6 +341,7 @@ public static class SessionProjection
             // The figures are published in every mode for the same reason: "this ruleset states no figure", "the
             // member wears nothing", and "a change was refused for a skill" are three different facts.
             (EquipmentField, snapshot.Equipment.Write(builder)),
+            (CharacterField, snapshot.Character.Write(builder)),
             // The controls are published in every mode for the same reason every block is: "this control would
             // be taken now", "it would be refused", and "it is bound to this key" are facts about the session, and
             // a screen that worked any of them out would be a second copy of the rule that decides them.
