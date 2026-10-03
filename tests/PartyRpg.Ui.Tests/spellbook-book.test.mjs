@@ -121,11 +121,13 @@ test('the target a player chose stays chosen when the fight redraws the book', (
   try {
     const ui = mountProductUi(h.root, h.context);
     const two = running();
-    two.magic.targets = [...two.magic.targets, { target: 'actor:2', name: 'A second beast', side: 'opposition' }];
+    two.magic.targets = [...two.magic.targets, { target: 'actor:2', name: 'A second beast', side: 'opposition', distance: 750 }];
     h.emit(two);
     const book = open(h);
     book.querySelector('.crawler-magic-book-spell[data-spell="2"]').click();
     const target = book.querySelector('.crawler-magic-book-target');
+    // Two foes are told apart by how far the product says each stands, nearest first as it lists them.
+    assert.deepEqual([...target.options].map((option) => option.textContent), ['A beast · within 500', 'A second beast · within 750']);
     target.value = 'actor:2';
     target.dispatchEvent(new h.dom.window.Event('change', { bubbles: true }));
 

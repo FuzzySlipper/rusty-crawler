@@ -565,7 +565,7 @@ when it first draws. `LoadedPack.Directory` lets a ruleset name a file beside a 
 canonical identity — as a cylindrical billboard cut from its `SceneSprite` atlas (an Engine sprite atlas per group,
 opened once and sampled nearest), showing the frame its time selects and the view its facing turns to the eye; a frame
 or view change is set on its sprite, and only an object that moved, appeared, left or changed group republishes. The product disables the Engine's default light rig, so the scene is lit only by those lights.
-A part may be a switch's (`RenderMeshPart.Switch`, with whether it starts hidden): the view asks `ISceneRule.Switch`
+A part may be a switch's (`RenderMeshPart.Switch`, with whether it starts hidden), a door's part included: the view asks `ISceneRule.Switch`
 what a game's events made of it — hidden or shown, and one place material every face draws with — and rebuilds and
 republishes the part when the answer changes, publishing a hidden part as not visible. A material the scene does not
 list is said once and the faces keep their own. Each `SceneBurst` the rule reports (`ISceneRule.Bursts`, empty by default) is emitted once as an Engine particle burst at

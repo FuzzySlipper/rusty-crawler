@@ -666,7 +666,7 @@ and a decoration target is aimed at half its look's height and seen by its front
 niche can be used ([event reading](../../docs/evidence/world-events.md)). **Presentation, passed over**: the product
 plays no sound and shows no portrait reaction or movie, so `play-sound`, `character-animation`,
 `toggle-indoor-light` (every interior light the shipped levels carry has a radius of zero, which the donor's sector
-lighting reads as reaching nothing, `OpenEnroth/src/Engine/Graphics/Lighting.cpp:133-151`), `show-movie` (the three effects the donor's player hangs on a movie's name — the arbiter's
+lighting reads as reaching nothing, `OpenEnroth/src/Engine/Graphics/Lighting.cpp:133-151`; keeping and drawing its switch is #9267's requirement should the lights ever be drawn), `show-movie` (the three effects the donor's player hangs on a movie's name — the arbiter's
 alignment and the crossing's week of rest, `OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:288-300` — are the
 executable's and are not kept: this build's path is the class a promotion chooses), and a `set-faces-bit` that only makes a face group fluid changes nothing and the
 event's gameplay steps still run — a decision (a fluid face is not water a party drowns in, and its

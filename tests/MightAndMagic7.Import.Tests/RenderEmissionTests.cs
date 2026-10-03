@@ -69,16 +69,17 @@ public sealed class RenderEmissionTests
     }
 
     [Fact]
-    public void A_door_keeps_a_switched_cogs_face_and_the_cogs_retexture_bitmaps_are_materials()
+    public void A_doors_face_of_a_switched_cog_is_a_part_carrying_both_and_the_cogs_retexture_bitmaps_are_materials()
     {
         IndoorMap moving = MapDecoder.DecodeIndoor(
             LodFixture.Stored("d01.blv", MapDecoderTests.IndoorPayload()), LodFixture.Stored("d01.dlv", MapDecoderTests.IndoorDeltaPayload()));
         PlaceSwitches switches = new(new HashSet<int> { 9 }, ["swap"]);
 
-        // The fixture's one face is cog 9 and moved by door 0: the door keeps it, and the retexture bitmap is still listed.
+        // The fixture's one face is cog 9 and moved by door 0: its part moves with the door and is switched as cog 9, so an
+        // event can hide, show or retexture it where the door has put it; the retexture bitmap is still listed.
         PlaceRender render = PlaceRender.Emit(7, moving, Tiles, name => name is "Cfb1" or "swap" ? (64, 32) : null, switches);
         RenderPart part = Assert.Single(render.Parts);
-        Assert.Equal((0, (int?)null, false), (part.Door, part.Switch, part.StartsHidden));
+        Assert.Equal((0, (int?)9, false), (part.Door, part.Switch, part.StartsHidden));
         Assert.Contains(render.Materials, material => material.Texture == "swap" && material.Resolved);
 
     }

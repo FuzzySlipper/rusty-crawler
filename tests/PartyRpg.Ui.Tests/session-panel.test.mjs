@@ -999,8 +999,8 @@ function magic(overrides = {}) {
       },
     ],
     targets: [
-      { target: 'member:1', name: 'Aelina', side: 'party' },
-      { target: 'actor:9', name: 'A beast', side: 'opposition' },
+      { target: 'member:1', name: 'Aelina', side: 'party', distance: 0 },
+      { target: 'actor:9', name: 'A beast', side: 'opposition', distance: 250 },
     ],
     outcome: 'none',
     member: 0,

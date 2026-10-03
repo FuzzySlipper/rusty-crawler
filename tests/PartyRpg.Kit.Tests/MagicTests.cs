@@ -35,6 +35,17 @@ public sealed class MagicTests
     private static readonly SpellId Torch = new("4");
 
     [Fact]
+    public void A_targets_distance_is_published_as_the_step_it_falls_within()
+    {
+        // A creature is told apart from another of its kind by the step it stands within, and a stride inside one step
+        // publishes nothing new; one step is the least, so a creature at the party's feet is not "within 0".
+        Assert.Equal(250, MagicSnapshot.DistanceBand(0));
+        Assert.Equal(250, MagicSnapshot.DistanceBand(250));
+        Assert.Equal(750, MagicSnapshot.DistanceBand(545));
+        Assert.Equal(MagicSnapshot.DistanceBand(501), MagicSnapshot.DistanceBand(749));
+    }
+
+    [Fact]
     public void A_catalog_reads_the_rows_content_declares_with_their_schools_and_answers_one_it_does_not()
     {
         SpellCatalog catalog = TestSpells.Catalog;

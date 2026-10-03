@@ -482,7 +482,7 @@ public sealed class ProjectionContractTests
             Targets:
             [
                 new SpellTargetSnapshot("member:1", "Roderick", "party"),
-                new SpellTargetSnapshot("actor:1", "A beast", "opposition"),
+                new SpellTargetSnapshot("actor:1", "A beast", "opposition", 500),
             ],
             Outcome: "cast",
             Member: 1,

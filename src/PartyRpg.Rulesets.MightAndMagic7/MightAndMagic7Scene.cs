@@ -317,8 +317,8 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
 
     /// <inheritdoc />
     /// <remarks>
-    /// A blow the fight resolved against a creature marks where it landed: a brief red flash for one that struck, a grey
-    /// one for a miss, and a pale blue one for a spell, sprayed from three-fifths of the creature's height. The colours, counts,
+    /// A blow the fight resolved against a creature marks where it landed: a brief red flash for one that struck, a pale
+    /// blue one for a spell that struck, and a grey one for anything that missed, sprayed from three-fifths of the creature's height. The colours, counts,
     /// sizes and speeds are ours, a presentation reading of the blow rather than a rule anybody adjusts;
     /// the donor shows a struck creature's flinch, which the creature's own sprite does here, and a spell's own sprite
     /// effect, which these bursts stand in for.
@@ -345,13 +345,25 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
             if (resolution.Hit) _struck[resolution.Target] = seconds;
             int height = _combat()?.RowOf(target.Placement) is { } row && _heights.TryGetValue(row, out int h) ? h : UnlookedHeight;
             PlacePose middle = target.Pose with { Z = target.Pose.Z + (height * 0.6) };
-            _bursts.Add(initiated.Kind == AttackKind.Spell
-                ? new SceneBurst(middle, new Vector3(0.6f, 0.8f, 1f), 16, 10, 0.6f, 160, "spell-struck")
-                : resolution.Hit
-                    ? new SceneBurst(middle, new Vector3(0.9f, 0.1f, 0.05f), 12, 7, 0.4f, 120, "blow-struck")
-                    : new SceneBurst(middle, new Vector3(0.75f, 0.75f, 0.75f), 5, 5, 0.25f, 60, "blow-missed"));
+            _bursts.Add(BurstOf(initiated.Kind, resolution.Hit, middle));
         }
     }
+
+    /// <summary>
+    /// The mark a resolved blow leaves where it was aimed: red for a blow that struck, pale blue for a spell that struck,
+    /// and a small grey puff for either that missed, so a miss never reads as a hit.
+    /// </summary>
+    /// <param name="kind">How the blow was made.</param>
+    /// <param name="hit">Whether the fight resolved it as landing.</param>
+    /// <param name="at">Where on the creature it marks.</param>
+    /// <returns>The burst to draw.</returns>
+    internal static SceneBurst BurstOf(AttackKind kind, bool hit, PlacePose at) => (kind, hit) switch
+    {
+        (AttackKind.Spell, true) => new SceneBurst(at, new Vector3(0.6f, 0.8f, 1f), 16, 10, 0.6f, 160, "spell-struck"),
+        (AttackKind.Spell, false) => new SceneBurst(at, new Vector3(0.75f, 0.75f, 0.75f), 5, 5, 0.25f, 60, "spell-missed"),
+        (_, true) => new SceneBurst(at, new Vector3(0.9f, 0.1f, 0.05f), 12, 7, 0.4f, 120, "blow-struck"),
+        _ => new SceneBurst(at, new Vector3(0.75f, 0.75f, 0.75f), 5, 5, 0.25f, 60, "blow-missed"),
+    };
 
     /// <summary>Whether a one-shot animation is still running this far into it.</summary>
     private bool Running(string sprite, double elapsed) =>

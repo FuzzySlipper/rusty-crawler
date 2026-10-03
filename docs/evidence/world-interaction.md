@@ -43,6 +43,28 @@ so the burst now uses them.
 melee group (sword raised and swung) and standing as its blows against the party resolve. The scenario's forty
 creatures still overwhelm a level-one party within seconds, so no frame of a party blow landing there was framed.
 
+**A learned spell** (read 2026-10-03, after the review found no live cast). The hand-written `rc-spell-scenario` started
+a scenario party in Barrow III, through the same diagnostic bundle (restored afterwards): Aelina, a Sorcerer who knows
+Fire Bolt at expert Fire, and Borin, a Knight. The world was held between steps (`assist time action-driven`), the
+party turned with the ordinary turn, and every cast went through the spellbook (**L**, the Fire page, Fire Bolt, the
+target picker, Cast).
+
+- `36-spell-rat-before.png` — a Giant Rat on the floor ahead (`Giant Rat — … at 545 — 6/6 hp`).
+- `37-spell-book-aimed.png` — the book aimed at it. The picker lists foes nearest first with the fight's own distance
+  (`Giant Rat · 545 away` in this build); before this it listed every creature in the place unordered, so the nearest
+  of twenty same-named rows could not be told apart. The review then found the exact distance went stale in the kept
+  magic block, so the product now publishes the 250-unit step a target stands within (`Giant Rat · within 750`), which
+  the block's key reads.
+- `38-spell-struck-burst.png` — the frame after the cast: `Aelina hits Giant Rat (spell): 19 Fire damage landed; Giant
+  Rat is at 0/6, and is down.` A pale blue burst marks the rat.
+- `39-spell-burst-spreads.png` — the burst spreads; the panel shows Aelina recovering and the rat down at 545.
+- `40-spell-rat-dying.png` — the rat in its dying group.
+- `41-spell-missed.png` — an earlier cast at the same rat missed (`the hit roll was 4483 against a 44.12% chance`). That
+  run showed the same blue burst a hit does, so a miss read as a hit. A missed spell now leaves the small grey puff a
+  missed blow does (`ScenePolicyTests`). This frame, from the fixed build, shows no blue burst; the grey puff is too
+  small to make out at this distance.
+- `42-spell-sequence-sheet.png` — the cast's sequence.
+
 Everything shown is read from the fight's own record (`CombatState.RecentBlows`): which actor struck, which target,
 and whether the blow landed. Nothing is decided by presentation, and a missed blow shows a grey burst and no flinch.
 Unit tests bind both outcomes (`ScenePolicyTests`, `WorldViewTests`, `CombatStateTests`).
@@ -59,12 +81,13 @@ The fixture runner passes over steps that only change what a player sees or hear
 | `character-animation` | 44 | 13 | portrait reactions, the HUD's work, not the world view |
 | `set-faces-bit` | 36 | 9 | passable (0x20000000, 19 steps) is kept and collides; invisible (0x2000, 12 steps) is drawn since #9254; fluid (0x10, 5 steps) stays a decision |
 | `play-sound` | 7 | 2 | no sound in the product |
-| `toggle-indoor-light` | 7 | 2 | passed over by decision: every shipped interior light has radius zero (#9254) |
+| `toggle-indoor-light` | 7 | 2 | passed over by decision: every shipped interior light has radius zero (#9254); its switch moves to #9267 |
 | `show-movie` | 2 | 1 | no video in the product |
 
 ## Limits
 
-- A spell's blue burst is bound by tests, but no live spell cast was framed.
+- The top message line can show a creature's later blow instead of the cast's own result (`37`–`41`). The book keeps
+  the cast's result, and placing feedback where the action was taken is #9226's.
 - Fidget groups are not driven.
 - Door faces keep their texture coordinates as the door moves.
 - No frame-rate claim follows from these captures.

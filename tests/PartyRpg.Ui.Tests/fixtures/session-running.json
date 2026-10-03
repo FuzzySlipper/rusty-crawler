@@ -835,12 +835,14 @@
       {
         "target": "member:1",
         "name": "Roderick",
-        "side": "party"
+        "side": "party",
+        "distance": 0
       },
       {
         "target": "actor:1",
         "name": "A beast",
-        "side": "opposition"
+        "side": "opposition",
+        "distance": 500
       }
     ],
     "outcome": "cast",

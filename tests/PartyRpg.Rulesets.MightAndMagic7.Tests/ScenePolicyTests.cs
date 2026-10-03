@@ -113,6 +113,20 @@ public sealed class ScenePolicyTests
     }
 
     [Fact]
+    public void A_spell_that_missed_is_marked_as_a_miss_and_never_as_a_strike()
+    {
+        PlacePose at = new(1, 2, 3, 0, 0);
+        Assert.Equal("spell-struck", MightAndMagic7Scene.BurstOf(AttackKind.Spell, hit: true, at).Label);
+        SceneBurst missed = MightAndMagic7Scene.BurstOf(AttackKind.Spell, hit: false, at);
+        Assert.Equal("spell-missed", missed.Label);
+        // A missed spell is the same small grey puff a missed blow is, so colour alone tells a player whether it landed.
+        SceneBurst blow = MightAndMagic7Scene.BurstOf(AttackKind.Melee, hit: false, at);
+        Assert.Equal((blow.Colour, blow.Count), (missed.Colour, missed.Count));
+        Assert.NotEqual(MightAndMagic7Scene.BurstOf(AttackKind.Spell, hit: true, at).Colour, missed.Colour);
+        Assert.Equal(at, missed.At);
+    }
+
+    [Fact]
     public void A_switch_is_drawn_as_the_places_ledger_keeps_it_and_as_the_mesh_starts_it_otherwise()
     {
         MonsterAiPolicyTests.Fixture fixture = MonsterAiPolicyTests.Fixture.Of();

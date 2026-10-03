@@ -129,6 +129,8 @@ export interface SpellTargetView {
   readonly name: string;
   /** Which side the actor is on: `party` or `opposition`. */
   readonly side: string;
+  /** The step of place units the fight's distance falls within, zero for a member; the product lists the nearest first. */
+  readonly distance: number;
 }
 
 /** What the party can cast, what it may aim at, and what the last casting did. */
@@ -172,7 +174,7 @@ export function targetsOn(view: MagicView, side: string): readonly SpellTargetVi
 export function aimRows(view: MagicView, row: SpellRowView): readonly { readonly value: string; readonly text: string }[] {
   const targets = targetsOn(view, row.targetSide);
   return targets.length > 0
-    ? targets.map((target) => ({ value: target.target, text: target.name }))
+    ? targets.map((target) => ({ value: target.target, text: target.distance > 0 ? `${target.name} · within ${target.distance}` : target.name }))
     : row.aims.map((aim) => ({ value: aim.aim, text: `${aim.name} (${aim.kind})` }));
 }
 
@@ -215,7 +217,7 @@ export function readMagic(f: Fields): MagicView {
         })),
       })),
     })),
-    targets: f.list('targets', (entry) => ({ target: entry.text('target'), name: entry.text('name'), side: entry.text('side') })),
+    targets: f.list('targets', (entry) => ({ target: entry.text('target'), name: entry.text('name'), side: entry.text('side'), distance: entry.number('distance') })),
     outcome: f.text('outcome', 'none'),
     member: f.number('member'),
     caster: f.text('caster'),

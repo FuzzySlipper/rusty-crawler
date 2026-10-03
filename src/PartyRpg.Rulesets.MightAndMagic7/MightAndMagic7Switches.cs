@@ -26,7 +26,8 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// <para>
 /// The interior-light step is passed over by decision: every light the shipped levels carry has a radius of zero,
 /// which the donor's sector lighting reads as reaching nothing (<c>src/Engine/Graphics/Lighting.cpp:133-151</c>), so
-/// turning one on or off changes nothing a player sees in the donor either.
+/// turning one on or off changes nothing a player sees in the donor either. Keeping that switch and drawing it is
+/// rusty-crawler#9267's requirement, which decides whether the product draws those lights at all.
 /// </para>
 /// </remarks>
 internal sealed class MightAndMagic7Switches

@@ -152,7 +152,7 @@ public sealed class PlaceRender
 
         // Static geometry is the first part; every door that moves a drawn face is a part of its own after it.
         // A face of a cog an event switches is kept even when it starts invisible, in a part of its own, so the event
-        // can show, hide or retexture it in place; a door's faces stay with their door.
+        // can show, hide or retexture it in place; a door's faces stay with their door, split by the cog they switch.
         List<(MapFace Face, int? Door)> faces = [];
         foreach ((int _, MapFace face, int _, string _) in MapFaceList.Flatten(map))
         {
@@ -165,14 +165,6 @@ public sealed class PlaceRender
             }
 
             int? door = face.VertexIds.Select(id => moved.TryGetValue(id, out CollisionCorner? bound) ? bound.Door : null).FirstOrDefault(found => found is not null);
-
-            // A door's part carries no switch, so an invisible face a door moves stays undrawn whatever its cog.
-            if (door is not null && (face.Attributes & InvisibleAttribute) != 0)
-            {
-                render.UndrawnFaces++;
-                continue;
-            }
-
             faces.Add((face, door));
         }
 
@@ -189,10 +181,15 @@ public sealed class PlaceRender
 
         foreach ((MapFace face, _) in faces.Where(entry => entry.Door is null && !Switched(entry.Face))) render.AddFace(face, null, moved);
         render.EndPart();
-        foreach (IGrouping<int, (MapFace Face, int? Door)> door in faces.Where(entry => entry.Door is not null).GroupBy(entry => entry.Door!.Value).OrderBy(group => group.Key))
+        // A door's faces of a switched cog are a part of their own that carries both, so a bridge an event raises and
+        // shows moves as its door and is hidden or shown as its cog (the sewers' event 151 does both to one walkway).
+        foreach (var door in faces.Where(entry => entry.Door is not null)
+            .GroupBy(entry => (Door: entry.Door!.Value, Cog: Switched(entry.Face) ? entry.Face.CogNumber : (int?)null,
+                Hidden: Switched(entry.Face) && (entry.Face.Attributes & InvisibleAttribute) != 0))
+            .OrderBy(group => group.Key.Door).ThenBy(group => group.Key.Cog ?? 0).ThenBy(group => group.Key.Hidden))
         {
-            render.BeginPart(door.Key);
-            foreach ((MapFace face, _) in door) render.AddFace(face, door.Key, moved);
+            render.BeginPart(door.Key.Door, door.Key.Cog, door.Key.Hidden);
+            foreach ((MapFace face, _) in door) render.AddFace(face, door.Key.Door, moved);
             render.EndPart();
         }
 

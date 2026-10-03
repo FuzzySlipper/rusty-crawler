@@ -82,7 +82,7 @@ internal sealed class ProjectionReadings
     /// <remarks>
     /// Beyond the party and the casting owner, a spellbook shows four live facts, each read whole and compared by
     /// value because each is a handful of rows or one word: what spells have left running (whose ends are the
-    /// clock's), who stands in the fight to be aimed at, where the party stands among the places it has visited,
+    /// clock's), who stands in the fight to be aimed at and the distance step each stands within, where the party stands among the places it has visited,
     /// which is what a travel spell offers, and what the party sees by, which follows the clock's daylight.
     /// </remarks>
     /// <param name="casting">The casting owner, when the session has one.</param>
@@ -98,7 +98,7 @@ internal sealed class ProjectionReadings
             world.Visited,
             new Rows<RunningSpellEffect>(casting?.Magic.Running?.Running),
             new Rows<RunningSpellEffect>(casting?.Magic.Members?.RunningOnMembers),
-            new Rows<(CombatantId, string, CombatSide)>(casting?.Fight?.Combatants.Select(combatant => (combatant.Id, combatant.Name, combatant.Side)).ToArray()),
+            new Rows<(CombatantId, string, CombatSide, double)>(casting?.Fight?.Combatants.Select(combatant => (combatant.Id, combatant.Name, combatant.Side, MagicSnapshot.DistanceBand(combatant.Distance))).ToArray()),
             casting?.Magic.Sight?.Sight);
         return Read(ref _magic, key, () => MagicSnapshot.From(casting));
     }
@@ -243,7 +243,7 @@ internal sealed class ProjectionReadings
         int Visited,
         Rows<RunningSpellEffect> Running,
         Rows<RunningSpellEffect> OnMembers,
-        Rows<(CombatantId, string, CombatSide)> Combatants,
+        Rows<(CombatantId, string, CombatSide, double)> Combatants,
         PartySight? Sight);
 
     private readonly record struct AlchemyKey(PotionMixing? Owner, long Stamp, long Party);

@@ -109,8 +109,9 @@ Owns:
   the same axes. Portals and invisible faces (`FACE_IsInvisible`) are not drawn, except that a face of a cog the map's
   own events retexture or hide (`PlaceSwitches`: a `set-texture` cog, or a `set-faces-bit` cog on the invisible bit) is
   kept in a part of its own marked with that cog and whether it starts hidden, and each bitmap a `set-texture` step
-  names is one more of the place's materials (OpenEnroth `src/Engine/Engine.cpp:948-990`); a door keeps its own faces
-  whatever their cog. Ethereal faces are drawn; a region's terrain
+  names is one more of the place's materials (OpenEnroth `src/Engine/Engine.cpp:948-990`); a door's faces of such a cog
+  are a part that carries both its door and its cog, so a walkway an event raises and shows moves and appears together.
+  Ethereal faces are drawn; a region's terrain
   square draws its tile record's bitmap once (OpenEnroth `OpenGLRenderer.cpp`, the terrain pass) and a face its texel
   coordinates plus its delta over its bitmap's size (the model and BSP passes); a door's faces are a part of their own
   carrying the collision layout's per-corner travel. A region's sky is its saved weather's, else the donor's first-visit

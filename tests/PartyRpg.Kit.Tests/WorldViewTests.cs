@@ -117,6 +117,30 @@ public sealed class WorldViewTests
         });
 
     [Fact]
+    public void A_door_part_of_a_switched_cog_moves_as_its_door_and_shows_as_its_switch()
+        => WithView((view, rule, graphics, _, party) =>
+        {
+            rule.Closed = true;
+            view.Present(party, 0);
+            // The door's part, published second, starts hidden as its switch does, at its closed corners.
+            Assert.False(graphics.Snapshots[^1][1].Visible);
+            Assert.Equal(new Vector3(10, 0, 50), ((MeshResourceCreateRequest)graphics.Calls.CallsTo(nameof(IGraphicsService.CreateMeshResource))[1][0]!).Positions.Span[1]);
+
+            // The event shows it where its closed door puts it: republished visible, not rebuilt.
+            int built = graphics.Calls.CallsTo(nameof(IGraphicsService.CreateMeshResource)).Count;
+            rule.Switches[8] = new SceneSwitch(false, null);
+            view.Present(party, 0);
+            Assert.Equal(built, graphics.Calls.CallsTo(nameof(IGraphicsService.CreateMeshResource)).Count);
+            Assert.True(graphics.Snapshots[^1][1].Visible);
+
+            // The door then opens: rebuilt at rest, and still shown.
+            rule.Closed = false;
+            view.Present(party, 0);
+            Assert.Equal(new Vector3(10, 0, 0), ((MeshResourceCreateRequest)graphics.Calls.CallsTo(nameof(IGraphicsService.CreateMeshResource))[^1][0]!).Positions.Span[1]);
+            Assert.True(graphics.Snapshots[^1][1].Visible);
+        }, switchedDoor: true);
+
+    [Fact]
     public void A_place_content_draws_nothing_for_is_said_once_and_an_image_the_engine_refuses_is_drawn_flat()
         => WithView((view, _, graphics, _, party) =>
         {
@@ -216,9 +240,9 @@ public sealed class WorldViewTests
     }
 
     private static void WithView(Action<WorldView, Rule, RecordingGraphicsService, RecordingEngineService<ICameraViewService>, PartyPoseOwner> test, bool refuseImages = false,
-        IPresentationService? presentation = null)
+        IPresentationService? presentation = null, bool switchedDoor = false)
     {
-        byte[] mesh = Mesh();
+        byte[] mesh = Mesh(switchedDoor);
         RecordingGraphicsService graphics = new((method, arguments) =>
             refuseImages && method.Name == nameof(IGraphicsService.OpenResourceFromContent)
                 ? throw new EngineCallException("Graphics", "OpenResourceFromContent", 1)
@@ -239,9 +263,9 @@ public sealed class WorldViewTests
 
     /// <summary>
     /// A three-part mesh: one static triangle, one triangle door 4 moves 50 along the Engine's z when closed, and switch 7's
-    /// triangle, which starts hidden.
+    /// triangle, which starts hidden. A switched door's part is also switch 8's, and starts hidden.
     /// </summary>
-    private static byte[] Mesh()
+    private static byte[] Mesh(bool switchedDoor = false)
     {
         Vector3[] positions = [new(0, 0, 0), new(10, 0, 0), new(0, 10, 0), new(0, 0, 0), new(10, 0, 0), new(0, 10, 0)];
         Vector3[] travel = [default, default, default, default, new(0, 0, 50), default];
@@ -255,7 +279,7 @@ public sealed class WorldViewTests
         foreach (Vector3 t in travel) { F32(t.X); F32(t.Y); F32(t.Z); }
         foreach (uint index in new uint[] { 0, 1, 2, 0, 1, 2 }) U32(index);
         U32(unchecked((uint)-1)); U32(unchecked((uint)-1)); U32(0); U32(0); U32(3); U32(0); U32(3); U32(0); U32(1);
-        U32(4); U32(unchecked((uint)-1)); U32(0); U32(3); U32(3); U32(3); U32(3); U32(1); U32(1);
+        U32(4); U32(switchedDoor ? 8 : unchecked((uint)-1)); U32(switchedDoor ? 1u : 0); U32(3); U32(3); U32(3); U32(3); U32(1); U32(1);
         U32(unchecked((uint)-1)); U32(7); U32(1); U32(0); U32(3); U32(0); U32(3); U32(2); U32(1);
         U32(0); U32(0); U32(3);
         U32(1); U32(0); U32(3);

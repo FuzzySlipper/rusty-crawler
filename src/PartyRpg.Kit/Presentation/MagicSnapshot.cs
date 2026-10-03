@@ -284,7 +284,8 @@ public sealed record SpellMemberSnapshot(
 /// <param name="Target">The identity a cast command names.</param>
 /// <param name="Name">What the actor is called.</param>
 /// <param name="Side">Which side the actor is on, as the wire spells it: <c>party</c> or <c>opposition</c>.</param>
-public sealed record SpellTargetSnapshot(string Target, string Name, string Side)
+/// <param name="Distance">The step of <see cref="MagicSnapshot.DistanceStep"/> place units the fight's distance falls within; zero for a member.</param>
+public sealed record SpellTargetSnapshot(string Target, string Name, string Side, double Distance = 0)
 {
     /// <summary>Writes one actor a casting could name, with the side it is on.</summary>
     /// <param name="builder">The projection being built.</param>
@@ -293,7 +294,8 @@ public sealed record SpellTargetSnapshot(string Target, string Name, string Side
         builder.Object(
             ("target", builder.String(Target)),
             ("name", builder.String(Name)),
-            ("side", builder.String(Side)));
+            ("side", builder.String(Side)),
+            ("distance", builder.Number(Distance)));
 }
 
 /// <summary>What the party can cast, what it may aim at, and what the last casting did.</summary>
@@ -355,6 +357,17 @@ public sealed record MagicSnapshot(
     IReadOnlyList<SpellItemSnapshot> Items,
     string Source)
 {
+    /// <summary>
+    /// How coarsely a target's distance is published: the step it falls within. A finer reading would change with every
+    /// stride a pursuing creature takes and rebuild the spellbook each update; this one still tells two of a kind apart.
+    /// </summary>
+    public const double DistanceStep = 250;
+
+    /// <summary>The step of <see cref="DistanceStep"/> units a distance falls within, which is what the magic block's key reads.</summary>
+    /// <param name="distance">The fight's distance.</param>
+    /// <returns>The smallest whole step at or beyond it, one step at the least.</returns>
+    public static double DistanceBand(double distance) => Math.Max(1, Math.Ceiling(distance / DistanceStep)) * DistanceStep;
+
     /// <summary>No magic: nobody's spellbook is readable and nothing can be cast.</summary>
     public static MagicSnapshot None => new(
         Available: false,
@@ -427,7 +440,9 @@ public sealed record MagicSnapshot(
         List<SpellTargetSnapshot> targets = [];
         if (owner.Fight is { } fight)
         {
-            foreach (Combatant combatant in fight.Combatants)
+            // Nearest step first, so the actor the party faces heads a list that may name every creature in the place, and
+            // the fight's own order within a step: the order is read from what the block's key reads, so it cannot go stale.
+            foreach (Combatant combatant in fight.Combatants.OrderBy(combatant => combatant.Side == CombatSide.Party ? 0 : 1).ThenBy(combatant => combatant.Side == CombatSide.Party ? 0 : DistanceBand(combatant.Distance)))
             {
                 // A combatant the fight has read as down is still offered: a body is a thing a spell can be
                 // aimed at, and the workflow refuses an aim it cannot carry out rather than the panel
@@ -435,7 +450,8 @@ public sealed record MagicSnapshot(
                 targets.Add(new SpellTargetSnapshot(
                     combatant.Id.ToString(),
                     combatant.Name,
-                    Presentation.SessionProjection.WireName(combatant.Side == CombatSide.Party ? CombatSide.Party : CombatSide.Opposition)));
+                    Presentation.SessionProjection.WireName(combatant.Side == CombatSide.Party ? CombatSide.Party : CombatSide.Opposition),
+                    combatant.Side == CombatSide.Party ? 0 : DistanceBand(combatant.Distance)));
             }
         }
         else
