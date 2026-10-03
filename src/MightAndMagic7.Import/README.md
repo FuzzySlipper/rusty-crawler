@@ -112,8 +112,8 @@ Owns:
   (OpenEnroth `src/GUI/UI/UIDialogue.cpp:67`) and each member face set's neutral frame (OpenEnroth `src/Engine/mm7_data.cpp:50-55`), the absent
   ones named in the summary. The UI tasks bind the interface images; the world view binds the rest.
 - Sprites and looks (`Render/SpriteTables`, `Render/SpriteAtlas`): the frame table (`dsft.bin`) and the monster,
-  decoration and object lists (`dmonlist.bin`, `ddeclist.bin`, `dobjlist.bin`) at the record sizes OpenEnroth
-  `src/Engine/Snapshots/EntitySnapshots.h` states; every sprite group a look draws is packed into one atlas
+  decoration and object lists (`dmonlist.bin`, `ddeclist.bin`, `dobjlist.bin`) at the record sizes the donor
+  states (OpenEnroth `src/Engine/Snapshots/EntitySnapshots.h`); every sprite group a look draws is packed into one atlas
   (`sprites.json`, kind `sprite`, one cell per view of each frame, by the donor's naming and mirroring rules of
   OpenEnroth `src/Engine/Graphics/Sprites.cpp:33-160`, coloured by the frame's own palette, transparent edges bled), and
   `looks.json` (kind `look`) names each monster row's eight animations, each placed decoration's group and each object
