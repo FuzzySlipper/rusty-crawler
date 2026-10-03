@@ -57,7 +57,17 @@
         "detail": "Thief"
       }
     ],
-    "followers": [],
+    "followers": [
+      {
+        "id": "npc-1",
+        "name": "Fool",
+        "portrait": "701",
+        "kind": "hired",
+        "canTalk": true,
+        "benefits": "Luck \u002B5",
+        "talkAction": "conversation.follower"
+      }
+    ],
     "debts": [
       {
         "account": "fine",

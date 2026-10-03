@@ -202,7 +202,11 @@ export function mountDetails(host: Host): Details {
       talk.dataset.follower = follower.id;
       talk.dataset.portrait = follower.portrait;
       talk.addEventListener('click', () => claim(follower.talkAction, { target: follower.id }));
-      return talk;
+      const row = element('div');
+      const benefits = element('span');
+      benefits.textContent = follower.benefits === '' ? '' : ` · ${follower.benefits}`;
+      row.append(talk, benefits);
+      return row;
     }));
     rows.pack.textContent = party.present ? String(party.pack) : '—';
     rows.coins.textContent = party.present ? String(party.coins) : '—';

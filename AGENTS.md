@@ -103,7 +103,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   `GameClock`
   over an authored calendar is the only time, and every advance reaches every owner registered with it.
 - **Party.** `PartyEntity` is one entity with its components: roster and members, one durable selected member and shared inventory of
-  item instances, per-member equipment, purse and larder, hired and story followers ([bounded reading](docs/evidence/followers.md)), reputation and fame, running effects, records,
+  item instances, per-member equipment, purse and larder, hired and story followers whose selected profession benefits are derived at current readers ([bounded reading](docs/evidence/followers.md)), reputation and fame, running effects, records,
   holdings, passages, memberships, debts and bans. Every charge is judged and settled through one ledger. Creation is a
   session mode with its own flow, and the scenario path builds a party through the same factory and the
   same owner composition (a parity suite proves every owner answers on both); the

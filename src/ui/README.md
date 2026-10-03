@@ -65,3 +65,5 @@ Cures and training therefore choose the member they were priced for. The bank am
 product for a fresh quote through `service.amount`; deposit and withdrawal buttons send that published
 quantity until the next projection replaces them. This is one transient counter selection, with no purse,
 holding, price arithmetic or eligibility in the companion. Counters without an offer show no action for it.
+
+The companion rows render the ruleset's named profession benefits and the ordinary Talk control from the same party projection, without calculating contributions.

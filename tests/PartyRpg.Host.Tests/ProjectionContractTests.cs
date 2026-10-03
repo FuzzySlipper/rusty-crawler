@@ -287,6 +287,7 @@ public sealed class ProjectionContractTests
             Awards: [new AwardSnapshot("promotion:rogue", "promotion", "Rogue", "Thief")])
         {
             Debts = [new PartyDebt("fine", 350)],
+            Followers = [new FollowerSnapshot("npc-1", "Fool", "701", "hired", true) { Benefits = "Luck +5" }],
         },
         new CreationSnapshot(
             Active: false, Accepted: true, HasDefault: true, MemberIndex: 0, MemberCount: 2, Step: string.Empty,

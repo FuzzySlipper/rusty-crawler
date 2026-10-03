@@ -282,7 +282,7 @@ internal static class MightAndMagic7World
         Func<PartyJournal?>? journal,
         MightAndMagic7Fixtures? fixtures)
     {
-        MightAndMagic7Interaction answers = new(schedule, corpses, loot, journal, fixtures);
+        MightAndMagic7Interaction answers = new(schedule, corpses, loot, journal, fixtures, conversation?.Followers);
         return conversation is null ? answers : new MightAndMagic7PeopleInteraction(conversation, answers, fixtures);
     }
 

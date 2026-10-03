@@ -146,6 +146,7 @@ export interface PartyView {
     readonly portrait: string;
     readonly kind: string;
     readonly canTalk: boolean;
+    readonly benefits: string;
     readonly talkAction: string;
   }[];
   /** The conditions acting on the party, empty when none act. */
@@ -326,7 +327,7 @@ export function readParty(f: Fields): PartyView {
     debts: f.list('debts', (debt) => ({ account: debt.text('account'), coins: debt.number('coins') })),
     followers: f.list('followers', (follower) => ({
       id: follower.text('id'), name: follower.text('name'), portrait: follower.text('portrait'),
-      kind: follower.text('kind'), canTalk: follower.flag('canTalk'), talkAction: follower.text('talkAction'),
+      benefits: follower.text('benefits'), kind: follower.text('kind'), canTalk: follower.flag('canTalk'), talkAction: follower.text('talkAction'),
     })),
     conditions: f.text('conditions'),
     hitPoints: f.number('hitPoints'),

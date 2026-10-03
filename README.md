@@ -23,7 +23,7 @@ Bundle assembles. Host launches.**
 > Stone 9 (breadth) has not started. With the
 > operator's imported packs selected, a session creates or resumes a party, walks it through the imported
 > world, pays for crossings, fares and nights, rests the living while naming fallen companions left as they were, opens doors and containers, drinks from wells and reads
-> obelisks and signs, talks, hires and dismisses companions, trades, steals and pays its fines, trains, promotes recovered members, learns and casts spells, selects a member and fights in real time or in rounds, takes
+> obelisks and signs, talks, hires and dismisses companions whose selected profession benefits enter the existing rules, trades, steals and pays its fines, trains, promotes recovered members, learns and casts spells, selects a member and fights in real time or in rounds, takes
 > and turns in errands, and keeps a dated journal, notes and an automap it can save and resume. The same save
 > carries the resident fight, including creature recovery, provocation, effects, summons and bodies with their held loot
 > ([bounded fight reading](docs/evidence/fight-persistence.md)),

@@ -186,7 +186,7 @@ internal static class MightAndMagic7Containers
     /// </remarks>
     /// <param name="target">The definition the container was given.</param>
     /// <param name="context">The container, its state, and the party the check is about.</param>
-    internal static InteractionTrap? Trap(InteractionTargetDefinition target, InteractionContext context)
+    internal static InteractionTrap? Trap(InteractionTargetDefinition target, InteractionContext context, MightAndMagic7Followers? followers = null)
     {
         if (!string.Equals(target.Kind.Value, TargetKind, StringComparison.Ordinal)) return null;
         if (context.Placement.Source.GetInt32(FlagsField) is not { } flags || (flags & TrappedFlag) == 0) return null;
@@ -203,8 +203,8 @@ internal static class MightAndMagic7Containers
         int dice = context.Placement.Source.GetInt32(TrapDamageDiceField) ?? 0;
         return new InteractionTrap(
             "a trap",
-            new InteractionChallenge("Perception", BestSkill(context.Party, PerceptionSkill), difficulty),
-            new InteractionChallenge("Disarm Traps", BestSkill(context.Party, DisarmTrapsSkill), 2 * difficulty),
+            new InteractionChallenge("Perception", BestSkill(context.Party, PerceptionSkill, followers), difficulty),
+            new InteractionChallenge("Disarm Traps", BestSkill(context.Party, DisarmTrapsSkill, followers), 2 * difficulty),
             new InteractionHarm(TrapDamage(dice)),
             string.Equals(target.State, TrappedState, StringComparison.Ordinal),
             TrappedState,
@@ -436,12 +436,12 @@ internal static class MightAndMagic7Containers
     private static int TrapDamage(int dice) => TrapBaseDamage + ((dice * (TrapDieSides + 1)) / 2);
 
     /// <summary>The best level of a skill in the party, which is what a band brings as one.</summary>
-    private static int BestSkill(PartyEntity? party, string skill)
+    private static int BestSkill(PartyEntity? party, string skill, MightAndMagic7Followers? followers)
     {
         if (party is null) return 0;
         SkillId id = new(skill);
         int best = 0;
-        foreach (PartyMember member in party.Members) best = Math.Max(best, member.Skills.LevelOf(id));
+        foreach (PartyMember member in party.Members) best = Math.Max(best, member.Skills.LevelOf(id) + (followers?.SkillBonus(skill) ?? 0));
         return best;
     }
 }

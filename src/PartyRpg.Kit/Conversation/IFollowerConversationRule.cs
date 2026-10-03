@@ -7,4 +7,7 @@ public interface IFollowerConversationRule
 {
     /// <summary>The companion's authored name and portrait, or null when that identity is not declared.</summary>
     ConversationPerson? Follower(FollowerDefinitionId definition);
+
+    /// <summary>The ruleset's supported benefits for this companion, or empty.</summary>
+    string BenefitsOf(FollowerDefinitionId definition) => string.Empty;
 }

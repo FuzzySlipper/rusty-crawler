@@ -4632,8 +4632,8 @@ test('companions render authored portraits and claim the published conversation 
   try {
     const ui = mountProductUi(h.root, h.context);
     h.emit(snapshot('running', 1, 60, 60, movement(), { party: party({ followers: [
-      { id: 'npc-1', name: 'Guide', portrait: '701', kind: 'hired', canTalk: true, talkAction: 'conversation.follower' },
-      { id: 'npc-4', name: 'Witness', portrait: '704', kind: 'story', canTalk: false, talkAction: 'conversation.follower' },
+      { id: 'npc-1', name: 'Guide', portrait: '701', kind: 'hired', canTalk: true, benefits: 'Luck +5', talkAction: 'conversation.follower' },
+      { id: 'npc-4', name: 'Witness', portrait: '704', kind: 'story', canTalk: false, benefits: 'No profession benefit', talkAction: 'conversation.follower' },
     ] }) }));
     const section = h.panel().querySelector('.crawler-followers');
     assert.equal(section.hidden, false);
@@ -4641,6 +4641,7 @@ test('companions render authored portraits and claim the published conversation 
     assert.match(guide.textContent, /Guide.*hired.*portrait 701/);
     assert.equal(guide.dataset.portrait, '701');
     assert.equal(section.querySelector('[data-follower="npc-4"]').disabled, true);
+    assert.match(section.textContent, /Luck \+5/);
     guide.click();
     assert.deepEqual(h.claims.at(-1).value.data, { action: 'conversation.follower', target: 'npc-1' });
     h.emit(snapshot('running', 2, 120, 120, movement(), { party: party() }));

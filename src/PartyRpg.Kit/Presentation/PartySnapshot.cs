@@ -9,9 +9,11 @@ namespace PartyRpg.Kit.Presentation;
 /// <summary>A party companion's authored words and ordinary conversation action.</summary>
 public sealed record FollowerSnapshot(string Id, string Name, string Portrait, string Kind, bool CanTalk)
 {
+    /// <summary>The benefits the compiled ruleset reads from this companion.</summary>
+    public string Benefits { get; init; } = string.Empty;
     internal uint Write(UiValueBuilder builder) => builder.Object(
         ("id", builder.String(Id)), ("name", builder.String(Name)), ("portrait", builder.String(Portrait)),
-        ("kind", builder.String(Kind)), ("canTalk", builder.Boolean(CanTalk)),
+        ("kind", builder.String(Kind)), ("canTalk", builder.Boolean(CanTalk)), ("benefits", builder.String(Benefits)),
         ("talkAction", builder.String(ConversationActions.Follower)));
 }
 
@@ -184,7 +186,7 @@ public sealed record PartySnapshot(
             {
                 ConversationPerson? person = followers?.Follower(follower.Definition);
                 return new FollowerSnapshot(follower.Definition.Value, person?.Name ?? follower.Definition.Value,
-                    person?.Portrait ?? string.Empty, follower.Kind == FollowerKind.Hired ? "hired" : "story", person is not null);
+                    person?.Portrait ?? string.Empty, follower.Kind == FollowerKind.Hired ? "hired" : "story", person is not null) { Benefits = followers?.BenefitsOf(follower.Definition) ?? string.Empty };
             })],
         };
     }

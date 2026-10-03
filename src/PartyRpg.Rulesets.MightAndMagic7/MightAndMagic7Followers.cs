@@ -31,6 +31,35 @@ internal sealed class MightAndMagic7Followers : IFoundGoldRule
 
     internal MightAndMagic7FollowerFacts? Describe(string id) => _describe(id);
 
+    // Canonical joined identities are read on every question. Each profession contributes once, even
+    // when two people share it (OpenEnroth Character.cpp CheckHiredNPCSpeciality).
+    private bool HasProfession(int profession) => _party()?.Followers.All.Any(follower =>
+        _describe(follower.Definition.Value)?.Profession == profession) == true;
+
+    internal int LuckBonus => Sum((27, 5), (28, 20), (47, 10));
+    internal int ResistanceBonus => HasProfession(37) ? 20 : 0;
+    internal int LearningBonus => Sum((13, 10), (14, 15), (4, 5));
+    internal int SkillBonus(string skill) => skill switch
+    {
+        "Merchant" => Sum((20, 4), (21, 6), (48, 3), (50, 8)),
+        "Perception" => Sum((22, 6), (47, 5)),
+        "Disarm Traps" => Sum((25, 4), (26, 6), (51, 8)),
+        _ => 0,
+    };
+    private int Sum(params (int Profession, int Amount)[] terms) => terms.Sum(term =>
+        HasProfession(term.Profession) ? term.Amount : 0);
+
+    internal string BenefitOf(string id) => _describe(id) is { } facts ? facts.Profession switch
+    {
+        27 => "Luck +5", 28 => "Luck +20", 47 => "Luck +10; Perception +5",
+        37 => "Fire/Air/Water/Earth/Mind/Body/Spirit resistance +20",
+        13 => "Experience learning +10%", 14 => "Experience learning +15%", 4 => "Experience learning +5%; other abilities not compiled",
+        20 => "Merchant +4", 21 => "Merchant +6", 48 => "Merchant +3; other abilities not compiled", 50 => "Merchant +8; other abilities not compiled",
+        22 => "Perception +6", 25 => "Disarm Traps +4", 26 => "Disarm Traps +6", 51 => "Disarm Traps +8; free hiring; other abilities not compiled",
+        31 => "Found gold +10%; companion share applies", 32 => "Found gold +20%; companion share applies", 45 => "Found gold +10%; companion share applies; other abilities not compiled",
+        0 => "No profession benefit", _ => "Profession abilities not compiled",
+    } : string.Empty;
+
     internal bool Joined(string id) => _party()?.Followers.Find(new FollowerDefinitionId(id)) is not null;
 
     internal Verdict HireOffer(string id)

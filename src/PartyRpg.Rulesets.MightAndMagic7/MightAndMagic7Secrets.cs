@@ -19,7 +19,7 @@ internal static class MightAndMagic7Secrets
     internal const string DiscoveryPrefix = "secret-discovered:";
     private static readonly SkillId Perception = new("Perception");
 
-    internal static InteractionOutcome? Discover(InteractionTargetDefinition target, InteractionContext context)
+    internal static InteractionOutcome? Discover(InteractionTargetDefinition target, InteractionContext context, MightAndMagic7Followers? followers = null)
     {
         if (context.Raised.Length > 0 || context.Placement.Source.GetBoolean(SecretField) != true) return null;
         string key = DiscoveryPrefix + context.Placement.Content;
@@ -30,7 +30,7 @@ internal static class MightAndMagic7Secrets
         {
             if (!MightAndMagic7Conditions.CanAct(member)) continue;
             int tier = member.Skills.TierOf(Perception).Value;
-            int value = tier >= 4 ? 10000 : member.Skills.LevelOf(Perception) * tier;
+            int value = tier >= 4 ? 10000 : (member.Skills.LevelOf(Perception) + (followers?.SkillBonus(Perception.Value) ?? 0)) * tier;
             best = Math.Max(best, value);
         }
 
