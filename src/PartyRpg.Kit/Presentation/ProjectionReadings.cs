@@ -80,7 +80,8 @@ internal sealed class ProjectionReadings
     /// Beyond the party and the casting owner, a spellbook shows four live facts, each read whole and compared by
     /// value because each is a handful of rows or one word: what spells have left running (whose ends are the
     /// clock's), who stands in the fight to be aimed at, where the party stands among the places it has visited,
-    /// which is what a travel spell offers, and what the party sees by, which follows the clock's daylight.
+    /// which is what a travel spell offers, and what the party sees by, which follows the clock's daylight. Named spell aims are also compared by value: the live world may change a focus
+    /// as the party moves or uses a target without changing party or casting state.
     /// </remarks>
     /// <param name="casting">The casting owner, when the session has one.</param>
     /// <param name="party">The party's change stamp: the pools, spellbooks, skills and items the rows are read from.</param>
@@ -93,6 +94,10 @@ internal sealed class ProjectionReadings
             party,
             world.Place,
             world.Visited,
+            new Rows<(SpellId, SpellAim)>(casting is { Magic.Aim: { } aims }
+                ? casting.Party.Members.SelectMany(member => member.Spells.Known).Distinct()
+                    .SelectMany(spell => aims.AimsOf(casting.Rule.Catalog.Read(spell)).Select(aim => (spell, aim))).ToArray()
+                : []),
             new Rows<RunningSpellEffect>(casting?.Magic.Running?.Running),
             new Rows<RunningSpellEffect>(casting?.Magic.Members?.RunningOnMembers),
             new Rows<(CombatantId, string, CombatSide)>(casting?.Fight?.Combatants.Select(combatant => (combatant.Id, combatant.Name, combatant.Side)).ToArray()),
@@ -224,6 +229,7 @@ internal sealed class ProjectionReadings
         long Party,
         string Place,
         int Visited,
+        Rows<(SpellId, SpellAim)> Aims,
         Rows<RunningSpellEffect> Running,
         Rows<RunningSpellEffect> OnMembers,
         Rows<(CombatantId, string, CombatSide)> Combatants,

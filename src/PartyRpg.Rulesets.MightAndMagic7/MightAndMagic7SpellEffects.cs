@@ -1,5 +1,6 @@
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Interaction;
+using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit;
 using System.Globalization;
 using PartyRpg.Kit.Combat;
@@ -42,6 +43,7 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
 {
     private readonly MightAndMagic7Spells _spells;
     private readonly double _worldUseReach;
+    private readonly Func<PartyKnowledge?> _knowledge;
     private readonly GameClock? _clock;
     private readonly Func<SessionWorld?> _world;
     private readonly Func<MightAndMagic7Combat?> _combat;
@@ -80,8 +82,10 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         MightAndMagic7ItemMagic? items = null,
         Func<MightAndMagic7Followers?>? followers = null,
         Func<PartyProgression?>? progression = null,
-        double? worldUseReach = null)
+        double? worldUseReach = null,
+        Func<PartyKnowledge?>? knowledge = null)
     {
+        _knowledge = knowledge ?? (() => null);
         _worldUseReach = worldUseReach ?? MightAndMagic7Tuning.TelekinesisReach.Default;
         _items = items;
         _followers = followers ?? (() => null);
@@ -1264,6 +1268,8 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
             if (result is null || !result.IsApplied)
                 return SpellApplicationOutcome.Unexpressed(application.Spell.Effect,
                     $"{application.Spell.Name}: {result?.Message ?? "No world interaction is available."}");
+            if (_knowledge() is { } knowledge)
+                foreach (KnowledgeReport report in result.Learned) knowledge.Record(report);
             return SpellApplicationOutcome.Expressed(application.Spell.Effect,
                 $"{application.Spell.Name}: {result.Message}",
                 [new SpellEffectFact("world-use", target.Id.ToString()), new SpellEffectFact("state", result.State)]);
