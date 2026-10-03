@@ -112,6 +112,8 @@ public sealed class ProjectionContractTests
         CreationActions.RemoveSkill,
         CreationActions.Advance,
         CreationActions.Accept,
+        CreationActions.ResetMember,
+        CreationActions.ApplyDefault,
         .. ProductIdentity.ServicePayloadActions,
         ConversationActions.Topic,
         ConversationActions.Person,

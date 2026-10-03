@@ -156,6 +156,8 @@ internal sealed class CreationDriver(SessionCreation creation, CreationIntentNam
         CreationCommandKind.ChooseSkill => Missing(command, "skill") ?? flow.ChooseSkill(new SkillId(command.Value)),
         CreationCommandKind.RemoveSkill => Missing(command, "skill") ?? flow.RemoveSkill(new SkillId(command.Value)),
         CreationCommandKind.Advance => flow.Advance(),
+        CreationCommandKind.ResetMember => flow.ResetMember(),
+        CreationCommandKind.ApplyDefault => flow.ApplyDefault(),
         _ => null,
     };
 

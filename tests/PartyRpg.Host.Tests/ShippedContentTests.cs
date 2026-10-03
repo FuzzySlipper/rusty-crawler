@@ -68,7 +68,10 @@ public sealed class ShippedContentTests
         // The product over the shipped tree, staged the way the engine stages the content root.
         (string Path, string Text)[] staged = [.. Directory.GetFiles(root, "*", SearchOption.AllDirectories)
             .Select(file => (Path.GetRelativePath(root, file).Replace(Path.DirectorySeparatorChar, '/'), File.ReadAllText(file)))];
-        (Rusty.Engine.ProductCreateContext context, _) = ProductTestContext.Create(staged);
+        // The engine's content service is the one the creation screen's faces are opened through when the imported
+        // media is present.
+        (Rusty.Engine.IContentService faces, _) = RecordingEngineService<Rusty.Engine.IContentService>.Create();
+        (Rusty.Engine.ProductCreateContext context, _) = ProductTestContext.Create(persistence: null, spatial: null, faces, staged);
         using CrawlerProduct product = new(context, ProductTestContext.NoVariables);
 
         Assert.NotNull(defaultPacks);

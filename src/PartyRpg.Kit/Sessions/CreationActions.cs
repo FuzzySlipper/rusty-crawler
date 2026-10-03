@@ -90,6 +90,12 @@ public static class CreationActions
 
     /// <summary>Accepts the finished party and leaves creation for the world.</summary>
     public const string Accept = "creation.accept";
+
+    /// <summary>Clears the member being created back to its first step, every choice undone.</summary>
+    public const string ResetMember = "creation.reset-member";
+
+    /// <summary>Starts the whole party again from the ruleset's default party.</summary>
+    public const string ApplyDefault = "creation.apply-default";
 }
 
 /// <summary>Which creation command a screen asked for.</summary>
@@ -124,6 +130,12 @@ public enum CreationCommandKind
 
     /// <summary>Accept the finished party.</summary>
     Accept,
+
+    /// <summary>Clear the member being created back to its first step.</summary>
+    ResetMember,
+
+    /// <summary>Start the whole party again from the ruleset's default party.</summary>
+    ApplyDefault,
 }
 
 /// <summary>One creation command, with the choice it carries.</summary>
@@ -198,6 +210,8 @@ public sealed class CreationInput
         CreationActions.RemoveSkill => action => Choice(CreationCommandKind.RemoveSkill, action.Text("skill")),
         CreationActions.Advance => action => CreationCommand.Of(CreationCommandKind.Advance),
         CreationActions.Accept => action => CreationCommand.Of(CreationCommandKind.Accept),
+        CreationActions.ResetMember => action => CreationCommand.Of(CreationCommandKind.ResetMember),
+        CreationActions.ApplyDefault => action => CreationCommand.Of(CreationCommandKind.ApplyDefault),
         _ => null,
     };
 

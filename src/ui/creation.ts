@@ -10,7 +10,7 @@
 import type { ControlView } from './overview.js';
 import type { Fields } from './reader.js';
 import { ACTIONS } from './actions.js';
-import { button, element, options, redrawGuard, section, type Host, type Section } from './dom.js';
+import { button, element, options, plural, redrawGuard, section, type Host, type Section } from './dom.js';
 
 /** One member of the party being created, as the flow published it. */
 export interface CreationMemberView {
@@ -23,6 +23,8 @@ export interface CreationMemberView {
   /** The class chosen, empty while none has been. */
   readonly class: string;
   readonly portrait: string;
+  /** The URL the Engine serves the chosen portrait's face at, empty when there is none to show. */
+  readonly portraitImage: string;
   /** How many attribute points this member has still to spend. */
   readonly pool: number;
 }
@@ -41,6 +43,8 @@ export interface CreationPortraitView {
   readonly id: string;
   readonly name: string;
   readonly race: string;
+  /** The URL the Engine serves the portrait's face at, empty when there is none to show. */
+  readonly image: string;
   readonly selected: boolean;
 }
 
@@ -109,12 +113,14 @@ export function readCreation(f: Fields): CreationView {
       race: entry.text('race'),
       class: entry.text('class'),
       portrait: entry.text('portrait'),
+      portraitImage: entry.text('portraitImage'),
       pool: entry.number('pool'),
     })),
     portraits: f.list('portraits', (entry) => ({
       id: entry.text('id'),
       name: entry.text('name'),
       race: entry.text('race'),
+      image: entry.text('image'),
       selected: entry.flag('selected'),
     })),
     classes: f.list('classes', (entry) => ({ id: entry.text('id'), name: entry.text('name'), selected: entry.flag('selected') })),
@@ -146,33 +152,66 @@ export interface CreationReading {
   readonly accept: ControlView;
 }
 
-/**
- * One member of the party as a person reads it, from the values the flow published and no others. The race is
- * left to the chosen portrait and to the accepted list: it is the portrait that decided it.
- */
-function describe(member: CreationMemberView): string {
-  const named = member.name === '' ? 'unnamed' : member.name;
-  return `${member.index + 1}. ${named} · ${member.class === '' ? 'no class' : member.class} · ${member.step}`;
+/** A face: the portrait's image when the Engine serves one, otherwise the initial that names it. */
+function face(image: string, initial: string): HTMLElement {
+  if (image !== '') {
+    const picture = element('img', 'crawler-creation-face');
+    picture.src = image;
+    picture.alt = '';
+    return picture;
+  }
+
+  // A face offered by name alone needs no initial beside that name; a member card without one shows its initial.
+  const letter = element('span', 'crawler-creation-face crawler-creation-initial');
+  letter.textContent = initial.charAt(0).toUpperCase();
+  return letter;
 }
 
-/** Mounts the creation screen. */
+/** A line of text in the given class. */
+function line(className: string, text: string): HTMLElement {
+  const made = element('span', className);
+  made.textContent = text;
+  return made;
+}
+
+/**
+ * Mounts the creation screen: the party's members across the top, each a card that moves creation onto it; the
+ * faces, classes and skills the member being made may take on the left; its name and attributes on the right; and
+ * the flow's controls beneath, with the rule the last choice broke where a player cannot miss it.
+ */
 export function mountCreation(host: Host): Section<CreationReading> {
   const { panel, claim } = host;
   const creation = section('crawler-creation');
   const stepHead = element('p', 'crawler-step-head');
-  const memberList = element('div', 'crawler-row');
-  const portraitRow = element('div', 'crawler-row');
+  const memberRow = element('div', 'crawler-creation-members');
+  const choices = element('div', 'crawler-creation-choices');
+  const portraitRow = element('div', 'crawler-row crawler-creation-portraits');
   const classRow = element('div', 'crawler-row');
   const skillRow = element('div', 'crawler-row');
-  const attributeRow = element('div', 'crawler-row');
-  const nameRow = element('div', 'crawler-name');
+  choices.append(portraitRow, classRow, skillRow);
+  const sheet = element('div', 'crawler-creation-sheet');
+  const nameRow = element('form', 'crawler-name');
+  const nameLabel = line('crawler-row-label', 'Name');
   const nameInput = element('input');
   nameInput.type = 'text';
   nameInput.placeholder = 'Name this character';
   const nameButton = button('Set name');
-  nameButton.addEventListener('click', () => claim(ACTIONS.setName, { name: nameInput.value }));
-  nameRow.append(nameInput, nameButton);
+  nameButton.type = 'submit';
+  // Enter in the box and the button are one control: the name is sent as typed and the flow judges it.
+  nameRow.addEventListener('submit', (event) => {
+    event.preventDefault();
+    claim(ACTIONS.setName, { name: nameInput.value });
+  });
+  nameRow.append(nameLabel, nameInput, nameButton);
+  const attributeRow = element('div', 'crawler-row');
+  sheet.append(nameRow, attributeRow);
+  const layout = element('div', 'crawler-creation-layout');
+  layout.append(choices, sheet);
   const flowRow = element('div', 'crawler-actions');
+  const resetButton = button('Reset member');
+  resetButton.addEventListener('click', () => claim(ACTIONS.resetMember));
+  const defaultButton = button('Restore default party');
+  defaultButton.addEventListener('click', () => claim(ACTIONS.applyDefault));
   const advanceButton = button('Confirm step');
   const acceptButton = button('Accept party');
   for (const control of [advanceButton, acceptButton]) {
@@ -181,40 +220,59 @@ export function mountCreation(host: Host): Section<CreationReading> {
     });
   }
 
-  flowRow.append(advanceButton, acceptButton);
+  flowRow.append(resetButton, defaultButton, advanceButton, acceptButton);
   const refusal = element('p', 'crawler-refusal');
   refusal.hidden = true;
   const acceptedList = element('ul', 'crawler-accepted');
-  creation.append(stepHead, memberList, portraitRow, classRow, skillRow, attributeRow, nameRow, flowRow, refusal, acceptedList);
+  creation.append(stepHead, memberRow, refusal, layout, flowRow, acceptedList);
   const changed = redrawGuard();
+  // The name box is written from the projection only when the member it names, or that member's published name,
+  // changes: a draft being typed is the player's until it is sent.
+  let named = '';
 
-  /** The members as they stand, each a button that moves creation onto it. */
-  const members = (view: CreationView): HTMLElement => {
+  /** The members as they stand, each a card that moves creation onto it. */
+  const members = (view: CreationView): HTMLElement[] =>
+    view.roster.map((member) => {
+      const card = button('', 'crawler-creation-member');
+      card.dataset.member = String(member.index);
+      card.dataset.step = member.step;
+      card.dataset.selected = String(member.index === view.member);
+      const kind = [member.race, member.class].filter((part) => part !== '').join(' · ');
+      card.append(
+        face(member.portraitImage, member.name),
+        line('crawler-creation-member-name', member.name === '' ? 'Unnamed' : member.name),
+        line('crawler-creation-member-kind', kind === '' ? 'No portrait or class yet' : kind),
+        line('crawler-creation-member-step', member.step === 'complete' ? 'Ready' : member.step),
+        line('crawler-creation-member-pool', `${member.pool} point${plural(member.pool)} left`),
+      );
+      card.addEventListener('click', () => claim(ACTIONS.selectMember, { member: member.index }));
+      return card;
+    });
+
+  /** The faces creation offers; the one chosen decides the member's race. */
+  const portraits = (view: CreationView): HTMLElement => {
     const row = element('div');
-    const heading = element('span', 'crawler-row-label');
-    heading.textContent = `Party — member ${view.member + 1} of ${view.members}`;
     const list = element('div', 'crawler-options');
-    for (const member of view.roster) {
-      const choice = button(describe(member));
-      choice.dataset.member = String(member.index);
-      choice.dataset.step = member.step;
-      choice.dataset.selected = String(member.index === view.member);
-      choice.addEventListener('click', () => claim(ACTIONS.selectMember, { member: member.index }));
+    for (const portrait of view.portraits) {
+      const choice = button('');
+      choice.dataset.id = portrait.id;
+      choice.dataset.selected = String(portrait.selected);
+      choice.title = `${portrait.name} — ${portrait.race}`;
+      choice.append(face(portrait.image, ''), line('crawler-creation-face-name', portrait.name));
+      choice.addEventListener('click', () => claim(ACTIONS.selectPortrait, { portrait: portrait.id }));
       list.append(choice);
     }
 
-    row.append(heading, list);
+    row.append(line('crawler-row-label', 'Face — decides the race'), list);
     return row;
   };
 
   /** The attributes with the two moves creation allows, each carrying what the race permits. */
   const attributes = (view: CreationView): HTMLElement => {
     const row = element('div');
-    const heading = element('span', 'crawler-row-label');
-    heading.textContent = `Attributes — ${view.pool} point${view.pool === 1 ? '' : 's'} left`;
-    row.append(heading);
+    row.append(line('crawler-row-label', `Attributes — ${view.pool} point${plural(view.pool)} left`));
     for (const attribute of view.attributes) {
-      const line = element('div', 'crawler-attribute');
+      const entry = element('div', 'crawler-attribute');
       const value = element('span');
       value.textContent = `${attribute.name} ${attribute.value} (${attribute.minimum}–${attribute.maximum})`;
       const lower = button('−');
@@ -225,8 +283,8 @@ export function mountCreation(host: Host): Section<CreationReading> {
       raise.dataset.attribute = attribute.id;
       raise.dataset.canRaise = String(attribute.canRaise);
       raise.addEventListener('click', () => claim(ACTIONS.raiseAttribute, { attribute: attribute.id }));
-      line.append(value, lower, raise);
-      row.append(line);
+      entry.append(value, lower, raise);
+      row.append(entry);
     }
 
     return row;
@@ -246,6 +304,7 @@ export function mountCreation(host: Host): Section<CreationReading> {
     advanceButton.dataset.action = reading.advance.action;
     acceptButton.disabled = !reading.accept.enabled;
     acceptButton.dataset.action = reading.accept.action;
+    defaultButton.hidden = !view.hasDefault;
     if (!changed(reading)) return;
 
     if (!view.active) {
@@ -259,32 +318,30 @@ export function mountCreation(host: Host): Section<CreationReading> {
         }),
       );
       stepHead.textContent = view.accepted ? (resumed ? 'Party resumed' : 'Party accepted') : '';
-      for (const row of [memberList, portraitRow, classRow, skillRow, attributeRow]) row.replaceChildren();
+      for (const row of [memberRow, portraitRow, classRow, skillRow, attributeRow]) row.replaceChildren();
+      named = '';
       nameRow.hidden = true;
       flowRow.hidden = true;
+      layout.hidden = true;
       return;
     }
 
     acceptedList.replaceChildren();
     nameRow.hidden = false;
     flowRow.hidden = false;
+    layout.hidden = false;
     stepHead.textContent = view.roster.every((member) => member.step === 'complete')
       ? 'Every member is finished; accept the party, or reopen one to change it.'
       : `Creating member ${view.member + 1} of ${view.members} · ${view.step}`;
-    memberList.replaceChildren(members(view));
-    portraitRow.replaceChildren(
-      options(
-        claim,
-        'Portrait — decides the race',
-        view.portraits.map((portrait) => ({
-          id: portrait.id,
-          text: portrait.name,
-          selected: portrait.selected,
-          action: ACTIONS.selectPortrait,
-          payload: () => ({ portrait: portrait.id }),
-        })),
-      ),
-    );
+    memberRow.replaceChildren(...members(view));
+    const current = view.roster.find((member) => member.index === view.member);
+    const naming = `${view.member}:${current?.name ?? ''}`;
+    if (naming !== named) {
+      named = naming;
+      nameInput.value = current?.name ?? '';
+    }
+
+    portraitRow.replaceChildren(portraits(view));
     classRow.replaceChildren(
       options(
         claim,

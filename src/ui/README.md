@@ -19,7 +19,7 @@ its own:
 | `snapshot.ts` | `readSnapshot`: every block of one projection, and every problem met reading it. |
 | `dom.ts` | The small DOM vocabulary the sections share, and the one guard that decides when a section's controls are rebuilt. |
 | `overview.ts`, `details.ts` | The composition, session, world, movement, clock, party, save, interaction, and controls blocks, and the panel's head, fact rows, pause/save/use controls, accomplishments, and keyboard hint. |
-| `creation.ts`, `conversation.ts`, `service.ts`, `rest.ts`, `combat.ts` | Party creation, a conversation, a counter, the stops, and the fight. |
+| `creation.ts`, `conversation.ts`, `service.ts`, `rest.ts`, `combat.ts` | Party creation (the four members as face cards, the faces, classes and skills on offer, the member's name and attributes, and reset, restore-default, confirm and accept), a conversation, a counter, the stops, and the fight. |
 | `progression.ts`, `promotion.ts`, `skills.ts`, `magic.ts` + `spellbook.ts`, `alchemy.ts` | Levels, ranks, skills, the spellbook and the magic the pack carries, and mixing. |
 | `equipment.ts` | What each member wears, named working powers and permanent gifts, the pack's wearable and usable things, and ordinary Equip, Take off and Use controls; the product judges every action. |
 | `quests.ts`, `journal.ts`, `map.ts` | The quests book, the other four books, and the automap. |

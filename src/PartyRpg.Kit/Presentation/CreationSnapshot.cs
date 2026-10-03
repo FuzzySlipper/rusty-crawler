@@ -24,6 +24,9 @@ public sealed record CreationMemberSnapshot(
     string Portrait,
     int PoolRemaining)
 {
+    /// <summary>The URL the Engine serves the chosen portrait's image at, empty when none is chosen or drawn.</summary>
+    public string PortraitImage { get; init; } = string.Empty;
+
     /// <summary>Writes one member of the roster being made.</summary>
     /// <param name="builder">The projection being built.</param>
     /// <returns>The row's node.</returns>
@@ -35,6 +38,7 @@ public sealed record CreationMemberSnapshot(
             ("race", builder.String(Race)),
             ("class", builder.String(Class)),
             ("portrait", builder.String(Portrait)),
+            ("portraitImage", builder.String(PortraitImage)),
             ("pool", builder.Number(PoolRemaining)));
 }
 
@@ -74,6 +78,9 @@ public sealed record CreationPartyMemberSnapshot(
 /// <param name="Selected">Whether this is the portrait the member being created carries.</param>
 public sealed record CreationPortraitSnapshot(string Id, string Name, string Race, bool Selected)
 {
+    /// <summary>The URL the Engine serves the portrait's image at, empty when it is drawn with none.</summary>
+    public string Image { get; init; } = string.Empty;
+
     /// <summary>Writes one portrait on offer.</summary>
     /// <param name="builder">The projection being built.</param>
     /// <returns>The row's node.</returns>
@@ -82,6 +89,7 @@ public sealed record CreationPortraitSnapshot(string Id, string Name, string Rac
             ("id", builder.String(Id)),
             ("name", builder.String(Name)),
             ("race", builder.String(Race)),
+            ("image", builder.String(Image)),
             ("selected", builder.Boolean(Selected)));
 }
 
@@ -233,7 +241,8 @@ public sealed record CreationSnapshot(
     /// <param name="refusal">The last choice the flow refused, or null when the last one was accepted.</param>
     /// <returns>Where creation stands and what it offers.</returns>
     /// <exception cref="ArgumentNullException">The flow is null.</exception>
-    public static CreationSnapshot From(PartyCreationFlow flow, Refusal? refusal)
+    /// <param name="faces">The images portraits are drawn with, or null for a session that grants none.</param>
+    public static CreationSnapshot From(PartyCreationFlow flow, Refusal? refusal, PortraitImages? faces = null)
     {
         ArgumentNullException.ThrowIfNull(flow);
         CreationMember current = flow.Member(flow.MemberIndex);
@@ -251,7 +260,10 @@ public sealed record CreationSnapshot(
                 member.Race?.Value ?? string.Empty,
                 member.Class?.Value ?? string.Empty,
                 member.Portrait?.Value ?? string.Empty,
-                member.PoolRemaining));
+                member.PoolRemaining)
+            {
+                PortraitImage = member.Portrait is { } chosen ? faces?.Url(chosen.Value) ?? string.Empty : string.Empty,
+            });
         }
 
         List<CreationPortraitSnapshot> portraits = [];
@@ -261,7 +273,10 @@ public sealed record CreationSnapshot(
                 portrait.Id.Value,
                 portrait.Name,
                 portrait.Race.Value,
-                portrait.Id == current.Portrait));
+                portrait.Id == current.Portrait)
+            {
+                Image = faces?.Url(portrait.Id.Value) ?? string.Empty,
+            });
         }
 
         List<CreationClassSnapshot> classes = [];

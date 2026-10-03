@@ -588,12 +588,12 @@ function creation(overrides = {}) {
     refusalCode: '',
     refusalMessage: '',
     roster: [
-      { index: 0, step: 'portrait', name: '', race: '', class: '', portrait: '', pool: 50 },
-      { index: 1, step: 'complete', name: 'Aelina', race: 'Elf', class: 'Sorcerer', portrait: 'elf-woman', pool: 0 },
+      { index: 0, step: 'portrait', name: '', race: '', class: '', portrait: '', portraitImage: '', pool: 50 },
+      { index: 1, step: 'complete', name: 'Aelina', race: 'Elf', class: 'Sorcerer', portrait: 'elf-woman', portraitImage: '/__rusty/product/runtime/ui-images/2', pool: 0 },
     ],
     portraits: [
-      { id: 'human-woman', name: 'Human woman', race: 'Human', selected: false },
-      { id: 'elf-woman', name: 'Elf woman', race: 'Elf', selected: true },
+      { id: 'human-woman', name: 'Human woman', race: 'Human', image: '', selected: false },
+      { id: 'elf-woman', name: 'Elf woman', race: 'Elf', image: '/__rusty/product/runtime/ui-images/2', selected: true },
     ],
     classes: [
       { id: 'Knight', name: 'Knight', selected: false },
@@ -806,15 +806,20 @@ function creationPanel(h) {
   const panel = h.panel();
   const section = panel?.querySelector('.crawler-creation');
   const buttons = [...(section?.querySelectorAll('.crawler-options button') ?? [])];
+  const cards = [...(section?.querySelectorAll('.crawler-creation-member') ?? [])];
   return {
     state: panel?.getAttribute('data-creation'),
     hidden: section?.hidden,
     head: section?.querySelector('.crawler-step-head')?.textContent,
     refusal: section?.querySelector('.crawler-refusal')?.textContent,
     refusalCode: section?.querySelector('.crawler-refusal')?.getAttribute('data-code'),
-    members: buttons
-      .filter((button) => button.dataset.member !== undefined)
-      .map((button) => ({ text: button.textContent, index: button.dataset.member, step: button.dataset.step })),
+    members: cards.map((card) => ({
+      name: card.querySelector('.crawler-creation-member-name')?.textContent,
+      kind: card.querySelector('.crawler-creation-member-kind')?.textContent,
+      index: card.dataset.member,
+      step: card.dataset.step,
+      selected: card.dataset.selected,
+    })),
     options: buttons
       .filter((button) => button.dataset.id !== undefined)
       .map((button) => ({ id: button.dataset.id, text: button.textContent, disabled: button.disabled })),
@@ -824,7 +829,7 @@ function creationPanel(h) {
       raise: line.querySelectorAll('button')[1]?.dataset.canRaise,
     })),
     accepted: [...(section?.querySelectorAll('.crawler-accepted li') ?? [])].map((item) => item.textContent),
-    name: section?.querySelector('input')?.value,
+    name: section?.querySelector('.crawler-name input')?.value,
   };
 }
 
@@ -2011,8 +2016,8 @@ test('the panel renders the creation steps and the choices the product published
     // The members are read from the flow's own roster, step included, so a finished member and one still
     // at its portrait are two different readings.
     assert.deepEqual(shown.members, [
-      { text: '1. unnamed · no class · portrait', index: '0', step: 'portrait' },
-      { text: '2. Aelina · Sorcerer · complete', index: '1', step: 'complete' },
+      { name: 'Unnamed', kind: 'No portrait or class yet', index: '0', step: 'portrait', selected: 'true' },
+      { name: 'Aelina', kind: 'Elf · Sorcerer', index: '1', step: 'complete', selected: 'false' },
     ]);
     // Every choice the projection listed is offered; a fixed skill is shown as fixed and cannot be chosen.
     assert.deepEqual(shown.options, [
@@ -2050,7 +2055,7 @@ test('every creation control asks for the choice it was shown', () => {
     clickOption(h, 'Water');
     clickOption(h, 'Air');
     // A member button moves creation onto that member without the screen deciding anything about it.
-    const member = h.panel().querySelector('.crawler-options button[data-member="1"]');
+    const member = h.panel().querySelector('.crawler-creation-member[data-member="1"]');
     member.dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
     // The two attribute moves are reported by id, one action each.
     const attribute = h.panel().querySelectorAll('.crawler-attribute')[0];
@@ -2062,6 +2067,8 @@ test('every creation control asks for the choice it was shown', () => {
     h.panel().querySelector('.crawler-name button').dispatchEvent(new h.dom.window.MouseEvent('click', { bubbles: true }));
     clickFlow(h, 'Confirm step');
     clickFlow(h, 'Accept party');
+    clickFlow(h, 'Reset member');
+    clickFlow(h, 'Restore default party');
 
     assert.deepEqual(h.claims, [
       { intent: ACTION_INTENT, value: { kind: 'product-payload', contract: ACTION_CONTRACT, data: { action: 'creation.select-portrait', portrait: 'elf-woman' } } },
@@ -2074,6 +2081,8 @@ test('every creation control asks for the choice it was shown', () => {
       { intent: ACTION_INTENT, value: { kind: 'product-payload', contract: ACTION_CONTRACT, data: { action: 'creation.set-name', name: 'Roderick' } } },
       { intent: ACTION_INTENT, value: { kind: 'product-payload', contract: ACTION_CONTRACT, data: { action: 'creation.advance' } } },
       { intent: ACTION_INTENT, value: { kind: 'product-payload', contract: ACTION_CONTRACT, data: { action: 'creation.accept' } } },
+      { intent: ACTION_INTENT, value: { kind: 'product-payload', contract: ACTION_CONTRACT, data: { action: 'creation.reset-member' } } },
+      { intent: ACTION_INTENT, value: { kind: 'product-payload', contract: ACTION_CONTRACT, data: { action: 'creation.apply-default' } } },
     ]);
 
     ui.dispose();

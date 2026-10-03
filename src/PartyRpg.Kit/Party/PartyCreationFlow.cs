@@ -442,6 +442,14 @@ public sealed class PartyCreationFlow
         }
     }
 
+    /// <summary>Clears the member being created back to its first step, every choice it had made undone.</summary>
+    /// <returns>Null: a member can always begin again.</returns>
+    public Refusal? ResetMember()
+    {
+        _members[_memberIndex].Reset();
+        return null;
+    }
+
     /// <summary>Applies the ruleset's default party through the same steps and the same validation.</summary>
     /// <remarks>
     /// The default is offered as a starting point, not as a shortcut: every one of its answers goes through

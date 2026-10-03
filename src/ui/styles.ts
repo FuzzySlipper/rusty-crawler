@@ -152,37 +152,45 @@ export const STYLES = `
 }
 .crawler-session button:disabled { opacity: 0.55; cursor: default; }
 .crawler-session .crawler-hint { margin: 0.4rem 0 0; color: #b9ad8c; font-size: 0.72rem; }
-.crawler-creation { margin: 0 0 0.5rem; border-top: 1px solid rgba(210, 196, 158, 0.25); padding-top: 0.5rem; }
-.crawler-creation[hidden] { display: none; }
-.crawler-creation .crawler-step-head { margin: 0 0 0.35rem; color: #d8cba6; font-size: 0.82rem; }
-.crawler-creation .crawler-row { margin: 0 0 0.25rem; }
-.crawler-creation .crawler-row-label { display: block; color: #b9ad8c; font-size: 0.72rem; }
-.crawler-creation .crawler-options { display: flex; flex-wrap: wrap; gap: 0.2rem; }
-.crawler-creation .crawler-options button { width: auto; padding: 0.1rem 0.35rem; font-size: 0.72rem; }
+.crawler-creation { margin: 0 0 0.5rem; }
+.crawler-creation .crawler-step-head { margin: 0 0 0.45rem; color: #e0d3ae; font-size: 0.95rem; }
+.crawler-creation .crawler-row { margin: 0 0 0.5rem; }
+.crawler-creation .crawler-row-label { display: block; margin-bottom: 0.2rem; color: #b9ad8c; font-size: 0.78rem; }
+.crawler-creation .crawler-options { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.crawler-creation .crawler-options button { width: auto; padding: 0.2rem 0.5rem; font-size: 0.8rem; }
 .crawler-creation .crawler-options button[data-selected='true'] { border-color: rgba(226, 176, 96, 0.9); background: rgba(96, 78, 50, 0.9); }
 .crawler-creation .crawler-options button[data-available='false'] { opacity: 0.7; }
-.crawler-creation .crawler-fixed { color: #8d8a7a; font-size: 0.75rem; }
-.crawler-creation .crawler-attribute { display: flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; line-height: 1.3; }
-.crawler-creation .crawler-attribute span { flex: 1; }
-.crawler-creation .crawler-attribute button { width: 1.3rem; padding: 0 0; font-size: 0.72rem; text-align: center; }
-.crawler-creation .crawler-name { display: flex; gap: 0.2rem; margin-top: 0.2rem; }
-/* A row the screen hides must actually be hidden: these two rows carry a display rule of their own, which
-   without this would keep the accepting player's name box and the creation controls on screen after the
-   party has been accepted, and would keep them in the tab order too. */
-.crawler-creation .crawler-name[hidden] { display: none; }
-.crawler-creation .crawler-actions[hidden] { display: none; }
-.crawler-creation .crawler-name input {
-  flex: 1;
-  min-width: 0;
-  padding: 0.2rem 0.35rem;
-  border: 1px solid rgba(210, 196, 158, 0.5);
-  border-radius: 0.25rem;
-  background: rgba(18, 16, 14, 0.9);
-  color: inherit;
-  font: inherit;
+/* The party across the top: one card per member, the one being made outlined. */
+.crawler-creation-members { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.5rem; margin-bottom: 0.5rem; }
+.crawler-session .crawler-creation-member {
+  display: grid; grid-template-columns: 3.6rem minmax(0, 1fr); column-gap: 0.5rem; align-items: center;
+  width: auto; padding: 0.3rem; text-align: left;
+  border: 2px solid #4b4030; border-radius: 0.2rem; background: rgba(10, 9, 7, 0.8);
 }
-.crawler-creation .crawler-actions { display: flex; gap: 0.2rem; margin-top: 0.3rem; }
-.crawler-creation .crawler-actions button { padding: 0.2rem 0.4rem; font-size: 0.75rem; }
+.crawler-session .crawler-creation-member[data-selected='true'] { border-color: #e2b060; box-shadow: 0 0 6px rgba(226, 176, 96, 0.6); }
+.crawler-creation-member .crawler-creation-face { grid-row: 1 / span 4; width: 3.6rem; height: 4.2rem; }
+.crawler-creation-member-name { font-weight: 600; color: #f0e4c4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crawler-creation-member-kind, .crawler-creation-member-pool { font-size: 0.75rem; color: #b9ad8c; }
+.crawler-creation-member-step { font-size: 0.72rem; color: #d6a76a; text-transform: capitalize; }
+.crawler-creation-member[data-step='complete'] .crawler-creation-member-step { color: #8fc27a; }
+.crawler-creation-face { display: grid; place-items: center; object-fit: cover; image-rendering: pixelated; border: 1px solid #000; background: #222; color: #8d8a7a; font-size: 1.5rem; }
+/* The choices on the left, the member's name and attributes on the right. */
+.crawler-creation-layout { display: grid; grid-template-columns: minmax(0, 3fr) minmax(16rem, 2fr); gap: 1rem; }
+@media (max-width: 760px) { .crawler-creation-layout { grid-template-columns: minmax(0, 1fr); } }
+.crawler-creation-portraits .crawler-options button { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; padding: 0.25rem; }
+.crawler-creation-portraits .crawler-creation-face { width: 4rem; height: 4.7rem; }
+.crawler-creation-face-name { font-size: 0.7rem; }
+.crawler-creation .crawler-attribute { display: grid; grid-template-columns: minmax(0, 1fr) 1.8rem 1.8rem; align-items: center; gap: 0.3rem; padding: 0.1rem 0; font-size: 0.85rem; border-bottom: 1px solid rgba(210, 196, 158, 0.12); }
+.crawler-creation .crawler-attribute button { width: 1.8rem; padding: 0; text-align: center; }
+.crawler-creation .crawler-name { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.3rem; margin: 0 0 0.6rem; }
+.crawler-creation .crawler-name .crawler-row-label { grid-column: 1 / -1; }
+.crawler-creation .crawler-name input {
+  min-width: 0; padding: 0.3rem 0.45rem; font: inherit; font-size: 0.95rem;
+  color: #f0e4c4; background: rgba(0, 0, 0, 0.55); border: 1px solid #6a5a3a; border-radius: 0.2rem;
+}
+.crawler-creation .crawler-name button { width: auto; }
+.crawler-creation .crawler-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; }
+.crawler-creation .crawler-actions button { width: auto; padding: 0.3rem 0.8rem; font-size: 0.85rem; }
 .crawler-refusal { margin: 0.4rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(226, 120, 96, 0.8); color: #e8c8b0; font-size: 0.75rem; }
 .crawler-refusal[hidden] { display: none; }
 .crawler-accepted { margin: 0.35rem 0 0; padding: 0; list-style: none; color: #d8cba6; font-size: 0.75rem; }

@@ -669,7 +669,7 @@ public sealed class PartyRpgSession : IGameSession
             // While a party is being made the flow is the screen's subject; once one is played, the members shown
             // are the party's own, whether it was created in this run or resumed.
             _creation is { } creation
-                ? CreationSnapshot.From(creation.Flow, creation.Refusal)
+                ? CreationSnapshot.From(creation.Flow, creation.Refusal, _portraits)
                 : _accepted || _resumed ? _readings.Members(Party, party) : CreationSnapshot.None,
             _saves.State,
             InteractionSnapshot.From(LiveWorld?.Interaction),

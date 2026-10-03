@@ -37,6 +37,8 @@ export const ACTIONS = {
   lowerAttribute: 'creation.lower-attribute',
   chooseSkill: 'creation.choose-skill',
   removeSkill: 'creation.remove-skill',
+  resetMember: 'creation.reset-member',
+  applyDefault: 'creation.apply-default',
   // A counter's commands. Entering a service is not one of them: the party enters by using the person it faces.
   serviceBuy: 'service.buy',
   serviceSell: 'service.sell',

@@ -177,6 +177,41 @@ public sealed class CreationModeTests
     }
 
     [Fact]
+    public void A_member_begins_again_and_the_default_party_is_restored_through_the_sessions_actions()
+    {
+        RecordingUiService ui = new();
+        (IContentService content, _) = PartyRpg.Testing.RecordingEngineService<IContentService>.Create();
+        using PortraitImages faces = new(new PartyRpg.Testing.FakeEngineContext(ui, content: content),
+            portrait => portrait == FolkA.Value ? "packs/media/folk-a.png" : null);
+        using Making making = new(new PartyCreationFlow(Options, Defaults), new SessionRules { Portraits = faces });
+        PartyRpgSession session = making.Session;
+
+        // The member card and the offered face carry the image the Engine granted; a face with none carries no URL.
+        ProjectedNode creation = making.Projections.Latest().Field("creation");
+        Assert.Equal("/__rusty/product/runtime/ui-images/1", creation.Field("roster").Item(0).Field("portraitImage").AsString());
+        Assert.Equal(string.Empty, creation.Field("roster").Item(1).Field("portraitImage").AsString());
+        ProjectedNode offered = creation.Field("portraits");
+        Assert.Contains("/__rusty/product/runtime/ui-images/1", Enumerable.Range(0, offered.Length()).Select(i => offered.Item(i).Field("image").AsString()));
+
+        // Beginning the first member again undoes every choice it had made, and the party is no longer finished.
+        session.Update(Admitted.Update(10, 1, Command(CreationActions.ResetMember)));
+        Assert.Null(session.CreationRefusal);
+        PartyCreationFlow flow = session.Creation!;
+        Assert.Equal((CreationStep.Portrait, (PortraitId?)null, string.Empty), (flow.Step, flow.Member(0).Portrait, flow.Member(0).Name));
+        Assert.Equal("Bo", flow.Member(1).Name);
+        Assert.False(flow.IsComplete);
+        Assert.Equal(string.Empty, making.Projections.Latest().Field("creation").Field("roster").Item(0).Field("portraitImage").AsString());
+
+        // Restoring the default party puts every member back as the ruleset offered it, ready to accept.
+        session.Update(Admitted.Update(11, 1, Command(CreationActions.ApplyDefault)));
+        Assert.Null(session.CreationRefusal);
+        Assert.True(flow.IsComplete);
+        Assert.Equal(("Ann", (PortraitId?)FolkA), (flow.Member(0).Name, flow.Member(0).Portrait));
+        session.Update(Admitted.Update(12, 1, Command(CreationActions.Accept)));
+        Assert.Equal("Ann", Assert.Single(making.Built).Members[0].Profile.Name);
+    }
+
+    [Fact]
     public void An_illegal_choice_is_refused_and_named_without_leaving_creation()
     {
         using Making making = new(new PartyCreationFlow(Options, Defaults));

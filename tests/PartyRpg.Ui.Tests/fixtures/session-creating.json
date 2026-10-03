@@ -87,6 +87,7 @@
         "race": "Human",
         "class": "Knight",
         "portrait": "human-man",
+        "portraitImage": "",
         "pool": 0
       },
       {
@@ -96,6 +97,7 @@
         "race": "Elf",
         "class": "Sorcerer",
         "portrait": "elf-woman",
+        "portraitImage": "",
         "pool": 0
       },
       {
@@ -105,6 +107,7 @@
         "race": "Dwarf",
         "class": "Cleric",
         "portrait": "dwarf-man",
+        "portraitImage": "",
         "pool": 0
       },
       {
@@ -114,6 +117,7 @@
         "race": "Goblin",
         "class": "Thief",
         "portrait": "goblin-woman",
+        "portraitImage": "",
         "pool": 0
       }
     ],
@@ -122,48 +126,56 @@
         "id": "human-woman",
         "name": "Human woman",
         "race": "Human",
+        "image": "",
         "selected": false
       },
       {
         "id": "human-man",
         "name": "Human man",
         "race": "Human",
+        "image": "",
         "selected": true
       },
       {
         "id": "elf-woman",
         "name": "Elf woman",
         "race": "Elf",
+        "image": "",
         "selected": false
       },
       {
         "id": "elf-man",
         "name": "Elf man",
         "race": "Elf",
+        "image": "",
         "selected": false
       },
       {
         "id": "goblin-woman",
         "name": "Goblin woman",
         "race": "Goblin",
+        "image": "",
         "selected": false
       },
       {
         "id": "goblin-man",
         "name": "Goblin man",
         "race": "Goblin",
+        "image": "",
         "selected": false
       },
       {
         "id": "dwarf-woman",
         "name": "Dwarf woman",
         "race": "Dwarf",
+        "image": "",
         "selected": false
       },
       {
         "id": "dwarf-man",
         "name": "Dwarf man",
         "race": "Dwarf",
+        "image": "",
         "selected": false
       }
     ],

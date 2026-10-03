@@ -266,11 +266,13 @@ portraits, an attribute pool bought through `AttributeCreationRange` prices, and
 and offers — taken one step at a time with `CreationMember` as the answer to each, refusing an illegal
 choice where it is made with the rule it broke, spending the pool exactly and choosing the promised number
 of skills before a step is confirmed, applying a ruleset's `PartyCreationDefaults` through those same
-steps rather than beside them, and handing `ToCreation` to `PartyEntityFactory` without minting an
+steps rather than beside them — and starting again from them, or beginning one member again with
+`ResetMember`, on the player's word — and handing `ToCreation` to `PartyEntityFactory` without minting an
 identity — held as the session's creation mode (`SessionMode.Creating` with `SessionCreation` and the
 commands `CreationInput` reads), in which the one admitted update does nothing but drive the flow and
 the world, movement, and the clock are untouched, and published to the screen as `CreationSnapshot`:
-where the flow stands, every choice it offers, and the rule the last illegal choice broke), the
+where the flow stands, every choice it offers with the face image each portrait is drawn with, and the rule the
+last illegal choice broke), the
 structured UI value builder, the Engine-backed projection channel, `PortraitImages` (a game's portrait content images
 granted to the panel once each through the Engine's `Ui.OpenImage`, their same-origin URLs published in the party
 block's `roster` beside each member's pools, the percentage a bar is drawn at, conditions and selection, and revoked
