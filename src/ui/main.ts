@@ -29,6 +29,7 @@ import { mountEquipment } from './equipment.js';
 import { mountFrame } from './frame.js';
 import { mountHud, type Hud } from './hud.js';
 import { mountJournal } from './journal.js';
+import { mountMagicBook } from './magic-book.js';
 import { mountMap } from './map.js';
 import { mountProgression } from './progression.js';
 import { mountPromotion } from './promotion.js';
@@ -108,6 +109,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   const skills = mountSkills(host);
   const spellbook = mountSpellbook(host);
   const alchemy = mountAlchemy(host);
+  const magicBook = mountMagicBook(host, alchemy.element);
   const equipment = mountEquipment(host);
   const character = mountCharacter(host, details.awards);
   const map = mountMap(host);
@@ -131,7 +133,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   frame.body('service').append(service.element);
   frame.body('rest').append(rest.element);
   frame.body('character').append(character.element);
-  frame.body('spellbook').append(spellbook.element, alchemy.element);
+  frame.body('spellbook').append(magicBook.element);
   frame.body('journal').append(journal.element);
   frame.body('map').append(map.element);
 
@@ -141,7 +143,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
 
   // The facts and controls a developer reads: kept, complete and current, but out of the player's way.
   // The rows the character book draws from are kept here whole as well, every member at once.
-  frame.diagnostics.append(...details.top, ...details.bottom, equipment.element, skills.element, progression.element, promotion.element, problems);
+  frame.diagnostics.append(...details.top, ...details.bottom, equipment.element, skills.element, progression.element, promotion.element, spellbook.element, problems);
   hud.side.append(details.companions);
   panel.append(hud.message, fight, hud.side, frame.element, hud.bar, frame.diagnostics);
   root.append(style, panel);
@@ -177,6 +179,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     skills.render(snapshot.skills);
     spellbook.render(snapshot.magic);
     alchemy.render(snapshot.alchemy);
+    magicBook.render({ magic: snapshot.magic, party: snapshot.party, alchemy: snapshot.alchemy });
     equipment.render(snapshot.equipment);
     character.render({
       character: snapshot.character,

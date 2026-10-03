@@ -6,7 +6,7 @@
  * could be aimed at all are the product's own answers, and the panel's buttons name the row a player pressed.
  */
 
-import { targetsOn, type MagicView, type SpellTargetView } from './magic.js';
+import { aimRows, targetsOn, type MagicView, type SpellTargetView } from './magic.js';
 import { ACTIONS } from './actions.js';
 import { button, element, head, picker, plural, redrawGuard, report, result, section, type Host, type Section } from './dom.js';
 
@@ -135,15 +135,8 @@ export function mountSpellbook(host: Host): Section<MagicView> {
           text.textContent = `${row.name} · ${row.school} · ${row.tier} · ${row.cost} point${plural(row.cost)} · ${row.targeting} · ${row.effect}`;
           line.append(text);
 
-          // A spell whose aim names an actor offers that side's rows; a spell whose aim names no actor offers what
-          // the product said it may be pointed at; and a spell neither names is cast with no target at all.
-          const targets = candidates(row.targetSide);
-          const choice =
-            targets.length > 0
-              ? picker('crawler-target', targets.map((entry) => ({ value: entry.target, text: entry.name })))
-              : row.aims.length > 0
-                ? picker('crawler-target', row.aims.map((aim) => ({ value: aim.aim, text: `${aim.name} (${aim.kind})` })))
-                : null;
+          const aims = aimRows(view, row);
+          const choice = aims.length > 0 ? picker('crawler-target', aims) : null;
           if (choice !== null) line.append(choice);
 
           const cast = button(`Cast for ${row.cost}`, 'crawler-cast');

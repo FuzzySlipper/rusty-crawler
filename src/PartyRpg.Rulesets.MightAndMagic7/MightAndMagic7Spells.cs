@@ -546,6 +546,20 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule
 
     /// <inheritdoc />
     /// <remarks>
+    /// The school the caster's own class closes (<see cref="ClosedSchool"/>), refused before anything is paid and naming
+    /// the choice that closed it: a character who took one alternative of a second promotion holds its school and none
+    /// of the other, and a spell of the other school that reached their spellbook anyway — a scenario's own party, a
+    /// save — is not one they may cast. A casting from an item is not asked this: a scroll and a potion carry a spell at
+    /// the strength they were made, and what their carrier may study is a different question.
+    /// </remarks>
+    public Refusal? CasterMay(PartyMember caster, SpellDefinition spell) => ClosedSchool(caster, spell);
+
+    /// <inheritdoc />
+    /// <remarks>A potion's row stands in this game's word for "carried by an item", which no character learns.</remarks>
+    public bool InSpellbook(string school) => !string.Equals(school, MightAndMagic7Potions.School, StringComparison.Ordinal);
+
+    /// <inheritdoc />
+    /// <remarks>
     /// The donor's mana column for the rung the member's mastery of the spell's school stands at
     /// (<c>src/Engine/Spells/Spells.cpp:162-168</c>, <c>mana_per_skill</c>, one price per rung). A member who
     /// has not learned the school at all pays the novice price the table states, because a price is a fact

@@ -456,7 +456,28 @@ public sealed class ProjectionContractTests
                     new SpellRowSnapshot("1", "Torch Light", "Fire", "basic", 1, 1, "party", "light", []),
                     new SpellRowSnapshot("31", "Town Portal", "Water", "master", 4, 20, "none", "travel", [new SpellAimSnapshot("place:1", "Emerald Island", "town")]),
                     new SpellRowSnapshot("68", "Heal", "Body", "basic", 1, 2, "ally", "healing", [], "party"),
-                ]),
+                ])
+                {
+                    Pages =
+                    [
+                        new SpellPageSnapshot("Fire", "expert",
+                        [
+                            new SpellPageEntrySnapshot("1", "Torch Light", "basic", true, 1, null),
+                            new SpellPageEntrySnapshot("2", "Fire Bolt", "basic", true, 2, null),
+                            new SpellPageEntrySnapshot("4", "Fire Aura", "expert", false, 4, PartyRpg.Kit.Magic.SpellRefusals.NotKnown("Aelina", "Fire Aura")),
+                            new SpellPageEntrySnapshot("11", "Inferno", "master", false, 15, PartyRpg.Kit.Magic.SpellRefusals.NotKnown("Aelina", "Inferno")),
+                        ]),
+                        new SpellPageSnapshot("Water", "master",
+                        [
+                            new SpellPageEntrySnapshot("31", "Town Portal", "master", true, 20, null),
+                        ]),
+                        new SpellPageSnapshot("Body", "basic",
+                        [
+                            new SpellPageEntrySnapshot("68", "Heal", "basic", true, 2, null),
+                            new SpellPageEntrySnapshot("71", "Regeneration", "expert", true, 10, PartyRpg.Kit.Magic.SpellRefusals.MasteryTooLow("Aelina", "Regeneration", "expert", "basic")),
+                        ]),
+                    ],
+                },
             ],
             Targets:
             [

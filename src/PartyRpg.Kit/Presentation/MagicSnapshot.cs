@@ -197,6 +197,39 @@ public sealed record SpellRowSnapshot(
             ("canCast", builder.Boolean(magic.Aimable(TargetSide) || Aims.Count > 0)));
 }
 
+/// <summary>One spell on a school's page of a member's spellbook, learned or not.</summary>
+/// <param name="Spell">Which spell, as content names it.</param>
+/// <param name="Name">What it is called.</param>
+/// <param name="Tier">The game's word for the rung of the school it asks for.</param>
+/// <param name="Known">Whether the member has learned it.</param>
+/// <param name="Cost">What one casting would cost this member.</param>
+/// <param name="Refusal">Why this member could not cast it now — not learned, too low a rung, too few points — or null.</param>
+public sealed record SpellPageEntrySnapshot(string Spell, string Name, string Tier, bool Known, int Cost, Refusal? Refusal)
+{
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("spell", builder.String(Spell)),
+            ("name", builder.String(Name)),
+            ("tier", builder.String(Tier)),
+            ("known", builder.Boolean(Known)),
+            ("cost", builder.Number(Cost)),
+            ("refusalCode", builder.String(Refusal?.Code ?? string.Empty)),
+            ("refusal", builder.String(Refusal?.Message ?? string.Empty)));
+}
+
+/// <summary>One school's page of a member's spellbook: the rung the member holds and every spell the school teaches.</summary>
+/// <param name="School">The school, as the catalog names it.</param>
+/// <param name="Held">The game's word for the rung of the school the member holds.</param>
+/// <param name="Spells">Every spell of the school, in the catalog's order.</param>
+public sealed record SpellPageSnapshot(string School, string Held, IReadOnlyList<SpellPageEntrySnapshot> Spells)
+{
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("school", builder.String(School)),
+            ("held", builder.String(Held)),
+            ("spells", builder.Array([.. Spells.Select(spell => spell.Write(builder))])));
+}
+
 /// <summary>One member's spellbook and what casting from it costs, as the panel shows it.</summary>
 /// <param name="Index">The member's place in the party, counted from zero, which a cast control names.</param>
 /// <param name="Member">The member's durable identity.</param>
@@ -218,6 +251,12 @@ public sealed record SpellMemberSnapshot(
     string QuickSpellName,
     IReadOnlyList<SpellRowSnapshot> Spells)
 {
+    /// <summary>
+    /// The member's spellbook by school: a page for every school they hold a rung of or know a spell from, each
+    /// listing every spell the school teaches with whether it is learned and what would stop this member casting it.
+    /// </summary>
+    public IReadOnlyList<SpellPageSnapshot> Pages { get; init; } = [];
+
     /// <summary>Writes one member's spellbook.</summary>
     /// <param name="builder">The projection being built.</param>
     /// <param name="magic">The block the member is listed in.</param>
@@ -232,7 +271,8 @@ public sealed record SpellMemberSnapshot(
             ("spellPointsMax", builder.Number(SpellPointsMax)),
             ("quickSpell", builder.String(QuickSpell)),
             ("quickSpellName", builder.String(QuickSpellName)),
-            ("spells", builder.Array([.. Spells.Select(spell => spell.Write(builder, magic))])));
+            ("spells", builder.Array([.. Spells.Select(spell => spell.Write(builder, magic))])),
+            ("pages", builder.Array([.. Pages.Select(page => page.Write(builder))])));
 }
 
 /// <summary>One actor a casting may be aimed at, as the fight and the party stand now.</summary>
@@ -378,7 +418,10 @@ public sealed record MagicSnapshot(
                 owner.Rule.SpellPointCapacity(member),
                 quick?.Value ?? string.Empty,
                 quick is { } chosen ? owner.Rule.Catalog.Read(chosen).Name : string.Empty,
-                spells));
+                spells)
+            {
+                Pages = Pages(owner, member),
+            });
         }
 
         List<SpellTargetSnapshot> targets = [];
@@ -576,4 +619,35 @@ public sealed record MagicSnapshot(
     internal bool Aimable(string side) =>
         side.Length == 0 ||
         (string.Equals(side, AnySide, StringComparison.Ordinal) ? Targets.Count > 0 : Targets.Any(target => string.Equals(target.Side, side, StringComparison.Ordinal)));
+
+    /// <summary>
+    /// A member's spellbook by school, in the catalog's order of schools: a school is a page when the member holds a
+    /// rung of its skill or has learned one of its spells, and each page lists the whole school with the casting
+    /// workflow's own readiness for this member.
+    /// </summary>
+    private static IReadOnlyList<SpellPageSnapshot> Pages(Spellcasting owner, PartyMember member)
+    {
+        List<SpellPageSnapshot> pages = [];
+        foreach (string school in owner.Rule.Catalog.Schools())
+        {
+            if (!owner.Rule.InSpellbook(school)) continue;
+            IReadOnlyList<SpellDefinition> taught = owner.Rule.Catalog.OfSchool(school);
+            if (taught.Count == 0) continue;
+            SkillTier held = member.Skills.TierOf(taught[0].SchoolSkill);
+            bool knowsAny = taught.Any(spell => member.Spells.Knows(spell.Id));
+            if (held.Value <= 0 && !knowsAny) continue;
+            pages.Add(new SpellPageSnapshot(
+                school,
+                GameNames.Tier(owner.Names, held),
+                [.. taught.Select(spell => new SpellPageEntrySnapshot(
+                    spell.Id.Value,
+                    spell.Name,
+                    GameNames.Tier(owner.Names, spell.Tier),
+                    member.Spells.Knows(spell.Id),
+                    owner.CostFor(member, spell),
+                    owner.Readiness(member, spell)))]));
+        }
+
+        return pages;
+    }
 }

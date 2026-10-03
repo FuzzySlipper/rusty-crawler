@@ -58,6 +58,23 @@ public interface ISpellRule
     int CostFor(PartyMember member, SpellDefinition spell);
 
     /// <summary>
+    /// Whether a school is one a character's spellbook has a page for. A game may carry rows in its catalog that
+    /// travel through the casting workflow without being anybody's to learn — what an item does, read as a spell —
+    /// and a spellbook shows none of those.
+    /// </summary>
+    /// <param name="school">The school, as the catalog names it.</param>
+    bool InSpellbook(string school) => true;
+
+    /// <summary>
+    /// Whatever else the game says stands between a caster and a spell from their own spellbook, beyond knowing it,
+    /// its rung and its points — a school the caster's path closed, say — or null. It is the caster's own question,
+    /// asked before the aim, so a spellbook can show it before anything is cast.
+    /// </summary>
+    /// <param name="caster">The member who would cast it.</param>
+    /// <param name="spell">The spell.</param>
+    Refusal? CasterMay(PartyMember caster, SpellDefinition spell) => null;
+
+    /// <summary>
     /// Whether a member may learn a spell, or why they may not.
     /// </summary>
     /// <remarks>

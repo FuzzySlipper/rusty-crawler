@@ -17,6 +17,7 @@ import type { Fields } from './reader.js';
 import type { SkillsView } from './skills.js';
 import { ACTIONS } from './actions.js';
 import { button, element, plural, redrawGuard, report, result, section, type Host, type Section } from './dom.js';
+import { memberFaces, shownMember } from './faces.js';
 import { mountInventory } from './inventory.js';
 
 /** One row of a member's sheet, in the game's words. */
@@ -219,8 +220,7 @@ export function mountCharacter(host: Host, awards: HTMLElement): Section<Charact
   const render = (reading: CharacterReading): void => {
     last = reading;
     const roster = reading.party.roster;
-    const shown = roster.find((entry) => entry.selected) ?? roster[0];
-    const index = shown === undefined ? -1 : roster.indexOf(shown);
+    const { member: shown, index } = shownMember(roster);
     book.hidden = roster.length === 0;
     panel.dataset.characterPage = page;
     awardsPage.hidden = page !== 'awards';
@@ -229,25 +229,7 @@ export function mountCharacter(host: Host, awards: HTMLElement): Section<Charact
     if (page === 'inventory') inventory.render({ equipment: reading.equipment, magic: reading.magic, member: index });
     if (!changed({ reading, page })) return;
 
-    faces.replaceChildren(
-      ...roster.map((entry) => {
-        const face = button('', 'crawler-character-face');
-        face.dataset.member = entry.member;
-        face.dataset.selected = entry === shown ? 'yes' : 'no';
-        face.title = entry.name;
-        if (entry.portraitImage !== '') {
-          const picture = element('img');
-          picture.src = entry.portraitImage;
-          picture.alt = entry.name;
-          face.append(picture);
-        } else {
-          face.textContent = entry.name.charAt(0);
-        }
-
-        face.addEventListener('click', () => claim(ACTIONS.partySelectMember, { member: entry.member }));
-        return face;
-      }),
-    );
+    faces.replaceChildren(...memberFaces(claim, roster, shown));
     title.textContent = shown === undefined ? '' : `${shown.name} · ${shown.class}${shown.conditions === '' ? '' : ` · ${shown.conditions}`}`;
     for (const tab of tabButtons) tab.dataset.open = tab.dataset.page === page ? 'yes' : 'no';
 

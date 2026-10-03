@@ -114,7 +114,7 @@ test('the inventory page shows the member’s figure beside the party pack, and 
     assert.deepEqual(h.claims.at(-1).value.data, { action: ACTIONS.useItem, member: 0, item: '24' });
     book.querySelector('.crawler-item-tile[data-item="8"]').click();
     const read = inspector().querySelector('.crawler-inventory-cast');
-    assert.equal(read.textContent, 'Read Torch Light');
+    assert.equal(read.textContent, 'Use: Torch Light');
     read.click();
     assert.deepEqual(h.claims.at(-1).value.data, { action: ACTIONS.cast, member: 0, spell: '1', target: '', item: '8' });
 

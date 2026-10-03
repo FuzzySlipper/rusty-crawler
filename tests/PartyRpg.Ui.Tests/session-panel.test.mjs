@@ -986,6 +986,16 @@ function magic(overrides = {}) {
             cost: 1, targeting: 'party', effect: 'light', aims: [], targetSide: '', canCast: true,
           },
         ],
+        pages: [
+          {
+            school: 'Fire', held: 'basic',
+            spells: [
+              { spell: '1', name: 'Torch Light', tier: 'basic', known: true, cost: 1, refusalCode: '', refusal: '' },
+              { spell: '2', name: 'Fire Bolt', tier: 'basic', known: true, cost: 2, refusalCode: '', refusal: '' },
+              { spell: '3', name: 'Fire Resistance', tier: 'expert', known: false, cost: 3, refusalCode: 'spell-not-known', refusal: 'Aelina has not learned Fire Resistance.' },
+            ],
+          },
+        ],
       },
     ],
     targets: [
@@ -3795,7 +3805,7 @@ test('the panel renders every member\'s spellbook, casts the row a player presse
       magic: magic({
         outcome: 'refused',
         code: 'spell-mastery-too-low',
-        message: 'Fireball asks for a expert mastery of its school, and Aelina stands at basic.',
+        message: 'Fireball asks for expert mastery of its school, and Aelina stands at basic.',
       }),
     }));
     const refused = magicPanel(h);
@@ -3962,6 +3972,7 @@ test('the panel shows what a cast changed, what is running, and where a spell ma
                 canCast: true,
               },
             ],
+            pages: [],
           },
         ],
       }),

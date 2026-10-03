@@ -322,6 +322,46 @@ public sealed class MagicTests
     }
 
     [Fact]
+    public void The_spellbook_has_a_page_per_school_held_with_every_spell_and_the_casts_own_readiness()
+    {
+        using PartyEntity party = Party(withFire: true);
+        Spellcasting casting = new(party, Capabilities.Magic(new TestSpells(), new RecordingEffects()));
+        PartyMember nyx = party.Members[0];
+        nyx.Spells.Learn(FireBolt);
+        nyx.Spells.Learn(Fireball);
+
+        // Nyx holds fire at the first rung: one page, every fire spell on it, learned or not, each with what a cast
+        // would be refused on first. Borin holds no school and knows no spell, so his book has no page.
+        SpellMemberSnapshot book = MagicSnapshot.From(casting).Members[0];
+        SpellPageSnapshot fire = Assert.Single(book.Pages);
+        Assert.Equal("fire", fire.School);
+        Assert.Equal(["Fire Bolt", "Fireball", "Torch"], fire.Spells.Select(spell => spell.Name));
+        Assert.Equal([true, true, false], fire.Spells.Select(spell => spell.Known));
+        Assert.Null(fire.Spells[0].Refusal);
+        Assert.Equal(SpellCodes.SpellMasteryTooLow, fire.Spells[1].Refusal!.Code);
+        Assert.Equal(SpellCodes.SpellNotKnown, fire.Spells[2].Refusal!.Code);
+        Assert.Empty(MagicSnapshot.From(casting).Members[1].Pages);
+
+        // The readiness is the cast's own first answer: an emptied pool refuses Fire Bolt for points, by the same code.
+        Assert.True(nyx.Resources.TrySpendSpellPoints(nyx.Resources.SpellPoints.Current));
+        Refusal unready = casting.Readiness(nyx, TestSpells.Catalog.Read(FireBolt))!;
+        Assert.Equal(SpellCodes.SpellPointsShort, unready.Code);
+        Assert.Equal(unready.Code, casting.Cast(new SpellCastRequest(0, FireBolt, "")).Code);
+    }
+
+    [Fact]
+    public void What_the_game_says_of_the_caster_stands_on_the_page_and_refuses_the_cast_the_same_way()
+    {
+        using PartyEntity party = Party(withFire: true);
+        Spellcasting casting = new(party, Capabilities.Magic(new ClosedFire(), new RecordingEffects()));
+        party.Members[0].Spells.Learn(FireBolt);
+
+        SpellPageEntrySnapshot bolt = MagicSnapshot.From(casting).Members[0].Pages.Single().Spells[0];
+        Assert.Equal(SpellCodes.SpellSchoolClosed, bolt.Refusal!.Code);
+        Assert.Equal(SpellCodes.SpellSchoolClosed, casting.Cast(new SpellCastRequest(0, FireBolt, "")).Code);
+    }
+
+    [Fact]
     public void The_quick_spell_is_the_characters_own_slot_and_only_holds_what_they_know()
     {
         using PartyEntity party = Party(withFire: true);
@@ -406,6 +446,23 @@ public sealed class MagicTests
     /// This suite's rules: two schools, four spells, a pool of three points a level plus the intellect's
     /// own twelve, and the learning rule a book is judged against.
     /// </summary>
+    /// <summary>The suite's spells, with every fire spell closed to its casters by the game.</summary>
+    private sealed class ClosedFire : ISpellRule
+    {
+        private readonly TestSpells _spells = new();
+
+        public SpellCatalog Catalog => TestSpells.Catalog;
+
+        public int SpellPointCapacity(PartyMember member) => _spells.SpellPointCapacity(member);
+
+        public int CostFor(PartyMember member, SpellDefinition spell) => _spells.CostFor(member, spell);
+
+        public Refusal? MayLearn(PartyMember member, SpellDefinition spell) => _spells.MayLearn(member, spell);
+
+        public Refusal? CasterMay(PartyMember caster, SpellDefinition spell) =>
+            new(SpellCodes.SpellSchoolClosed, $"{caster.Profile.Name}'s path closed {spell.School}.");
+    }
+
     private sealed class TestSpells : ISpellRule
     {
         internal static readonly SpellDefinition Bolt = new(

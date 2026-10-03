@@ -224,6 +224,15 @@ public sealed class AlchemyPolicyTests
         Assert.Empty(onMembers.RunningOnMembers);
     }
 
+    [Fact]
+    public void A_potion_travels_through_the_catalog_but_is_no_page_of_anybody_s_spellbook()
+    {
+        (_, MightAndMagic7Spells spells) = Read();
+        Assert.Contains(MightAndMagic7Potions.School, spells.Catalog.Schools());
+        Assert.False(spells.InSpellbook(MightAndMagic7Potions.School));
+        Assert.All(spells.Catalog.Schools().Where(school => school != MightAndMagic7Potions.School), school => Assert.True(spells.InSpellbook(school)));
+    }
+
     /// <summary>Reads this game's alchemy and magic over this suite's own content, as the session does.</summary>
     private static (MightAndMagic7Alchemy Alchemy, MightAndMagic7Spells Spells) Read()
     {

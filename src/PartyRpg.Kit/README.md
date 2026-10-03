@@ -30,6 +30,10 @@ Owns:
   is aimed at, and an opaque effect identity, and `ISpellEffectRule` is where every effect is expressed. An aim
   (`SpellTargeting`) is the caster, one member, one opponent, one actor of either side (`Either`, a member first and a
   creature the fight holds otherwise, which the projection publishes as the side `any`), or the band.
+  `Spellcasting.Readiness` answers, without casting, the questions a cast asks of the caster first (learned, rung,
+  points, and `ISpellRule.CasterMay`, the game's own word on the caster), and the cast asks them through it; the magic block publishes each member's spellbook by school — a page
+  for every school the member holds or knows a spell of and `ISpellRule.InSpellbook` admits, every spell of it with
+  whether it is learned, its price for this member and that readiness.
 - Magic's effect mechanisms (`Magic/Effects/`): what a game's category paths apply through. A duration is
   a deadline on the session's one clock, held by `RunningSpellEffects` and applied through the party's own
   carried effects, so a ward or a light lapses on an advance and not on a count of updates; an effect a

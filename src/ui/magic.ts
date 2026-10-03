@@ -88,6 +88,26 @@ export interface SpellRowView {
   readonly canCast: boolean;
 }
 
+/** One spell on a school's page, learned or not, with what would stop this member casting it. */
+export interface SpellPageEntryView {
+  readonly spell: string;
+  readonly name: string;
+  readonly tier: string;
+  readonly known: boolean;
+  readonly cost: number;
+  readonly refusalCode: string;
+  /** Why the member could not cast it now — not learned, too low a rung, too few points — or empty. */
+  readonly refusal: string;
+}
+
+/** One school's page of a member's spellbook. */
+export interface SpellPageView {
+  readonly school: string;
+  /** The game's word for the rung of the school the member holds. */
+  readonly held: string;
+  readonly spells: readonly SpellPageEntryView[];
+}
+
 /** One member's spellbook and what casting from it costs. */
 export interface MagicMemberView {
   readonly index: number;
@@ -99,6 +119,8 @@ export interface MagicMemberView {
   readonly quickSpell: string;
   readonly quickSpellName: string;
   readonly spells: readonly SpellRowView[];
+  /** The member's spellbook by school, every spell of each school they hold. */
+  readonly pages: readonly SpellPageView[];
 }
 
 /** One actor a casting may be aimed at, with the side it is on. */
@@ -143,6 +165,17 @@ export function targetsOn(view: MagicView, side: string): readonly SpellTargetVi
   return side === '' ? [] : side === 'any' ? view.targets : view.targets.filter((target) => target.side === side);
 }
 
+/**
+ * What a casting of a spell may be pointed at, as the rows a picker offers: the actors on the side its aim names, else
+ * the places or things the product says it may be pointed at, else nothing — a spell neither names is cast with no target.
+ */
+export function aimRows(view: MagicView, row: SpellRowView): readonly { readonly value: string; readonly text: string }[] {
+  const targets = targetsOn(view, row.targetSide);
+  return targets.length > 0
+    ? targets.map((target) => ({ value: target.target, text: target.name }))
+    : row.aims.map((aim) => ({ value: aim.aim, text: `${aim.name} (${aim.kind})` }));
+}
+
 export function readMagic(f: Fields): MagicView {
   return {
     available: f.flag('available'),
@@ -167,6 +200,19 @@ export function readMagic(f: Fields): MagicView {
         aims: spell.list('aims', (aim) => ({ aim: aim.text('aim'), name: aim.text('name'), kind: aim.text('kind') })),
         targetSide: spell.text('targetSide'),
         canCast: spell.flag('canCast'),
+      })),
+      pages: entry.list('pages', (page) => ({
+        school: page.text('school'),
+        held: page.text('held'),
+        spells: page.list('spells', (spell) => ({
+          spell: spell.text('spell'),
+          name: spell.text('name'),
+          tier: spell.text('tier'),
+          known: spell.flag('known'),
+          cost: spell.number('cost'),
+          refusalCode: spell.text('refusalCode'),
+          refusal: spell.text('refusal'),
+        })),
       })),
     })),
     targets: f.list('targets', (entry) => ({ target: entry.text('target'), name: entry.text('name'), side: entry.text('side') })),

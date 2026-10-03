@@ -294,6 +294,32 @@ public sealed class Spellcasting
         return _rule.CostFor(caster, spell);
     }
 
+    /// <summary>
+    /// Whether a caster could cast a spell from their own spellbook, as far as the caster alone decides it: whether
+    /// they know it, hold the rung of its school it asks for, have the points it costs them, and whatever else the
+    /// game says of the caster (<see cref="ISpellRule.CasterMay"/>). What it is aimed at
+    /// and whether the caster may act now are judged when it is cast.
+    /// </summary>
+    /// <remarks>
+    /// Knowing a spell and being allowed to cast it are different questions, and the answer names which one stands in
+    /// the way: a spell the character never learned is refused before its mastery or its price is considered. A cast
+    /// asks exactly these questions in this order, so a spellbook that shows this answer shows the cast's own.
+    /// </remarks>
+    /// <param name="caster">The member who would cast it.</param>
+    /// <param name="spell">The spell, as the catalog declares it.</param>
+    /// <returns>Null when nothing about the caster stands in the way; otherwise the rule that does.</returns>
+    public Refusal? Readiness(PartyMember caster, SpellDefinition spell)
+    {
+        ArgumentNullException.ThrowIfNull(caster);
+        if (!caster.Spells.Knows(spell.Id)) return SpellRefusals.NotKnown(caster.Profile.Name, spell.Name);
+        SkillTier held = caster.Skills.TierOf(spell.SchoolSkill);
+        if (held.Value < spell.Tier.Value)
+            return SpellRefusals.MasteryTooLow(caster.Profile.Name, spell.Name, GameNames.Tier(_names, spell.Tier), GameNames.Tier(_names, held));
+        int cost = _rule.CostFor(caster, spell);
+        int available = caster.Resources.SpellPoints.Current;
+        return available < cost ? SpellRefusals.NotEnoughPoints(caster.Profile.Name, spell.Name, cost, available) : _rule.CasterMay(caster, spell);
+    }
+
     /// <summary>Casts one spell for one member, or refuses by name and changes nothing.</summary>
     /// <param name="request">Who casts, what they cast, what it is aimed at, and what carries it.</param>
     /// <returns>What the casting did, or why nothing was cast.</returns>
@@ -332,31 +358,12 @@ public sealed class Spellcasting
                 return Record(SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spellName: string.Empty, SpellRefusals.Unknown(request.Spell.Value)));
             }
 
-            // Knowing a spell and being allowed to cast it are different questions, and the answer names which
-            // one blocked the casting: a spell the character never learned is refused before its mastery or its
-            // price is even considered.
-            if (!caster.Spells.Knows(request.Spell))
+            if (Readiness(caster, spell) is { } unready)
             {
-                return Record(SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spell.Name, SpellRefusals.NotKnown(caster.Profile.Name, spell.Name)));
-            }
-
-            SkillTier held = caster.Skills.TierOf(spell.SchoolSkill);
-            if (held.Value < spell.Tier.Value)
-            {
-                return Record(SpellCastResult.Refused(
-                    request.Member,
-                    caster.Profile.Name,
-                    request.Spell,
-                    spell.Name,
-                    SpellRefusals.MasteryTooLow(caster.Profile.Name, spell.Name, GameNames.Tier(_names, spell.Tier), GameNames.Tier(_names, held))));
+                return Record(SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spell.Name, unready));
             }
 
             cost = _rule.CostFor(caster, spell);
-            int available = caster.Resources.SpellPoints.Current;
-            if (available < cost)
-            {
-                return Record(SpellCastResult.Refused(request.Member, caster.Profile.Name, request.Spell, spell.Name, SpellRefusals.NotEnoughPoints(caster.Profile.Name, spell.Name, cost, available)));
-            }
         }
 
         CombatantId casterId = CombatantId.Of(caster.Id);

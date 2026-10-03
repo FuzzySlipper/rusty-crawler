@@ -12,7 +12,7 @@
 import type { EquipmentPackView, EquipmentView, EquipmentWornView } from './equipment.js';
 import { targetsOn, type MagicView, type SpellItemView } from './magic.js';
 import { ACTIONS } from './actions.js';
-import { button, element, picker, plural, redrawGuard, report, result, type Host } from './dom.js';
+import { button, element, heldPicker, plural, redrawGuard, report, result, type Host } from './dom.js';
 
 /** What the inventory page draws from: the figure and pack, the item spells, and the member being looked at. */
 export interface InventoryReading {
@@ -57,6 +57,8 @@ export function mountInventory(host: Host): { readonly element: HTMLElement; ren
   page.append(outcome, used, cast, figure, pack, inspector);
   const changed = redrawGuard();
   let picked = '';
+  // The target chosen for each member's use of an item, kept across redraws so a cast names the actor the player chose.
+  const aimed = new Map<string, string>();
 
   /** The inspector for one picked thing: what it is, and what the product offers for it. */
   const inspect = (reading: InventoryReading, choice: Picked, spell: SpellItemView | undefined): HTMLElement[] => {
@@ -114,9 +116,12 @@ export function mountInventory(host: Host): { readonly element: HTMLElement; ren
       // A scroll is read and a wand fired through the spellbook's own casting, with the targets that spell takes.
       if (spell !== undefined) {
         const targets = targetsOn(magic, spell.targetSide);
-        const target = targets.length === 0 ? null : picker('crawler-inventory-target', targets.map((entry) => ({ value: entry.target, text: entry.name })));
+        const target =
+          targets.length === 0
+            ? null
+            : heldPicker('crawler-inventory-target', targets.map((entry) => ({ value: entry.target, text: entry.name })), aimed, `${member}:${spell.item}`);
         if (target !== null) actions.append(target);
-        const fire = button(spell.kind === 'charged' ? `Fire ${spell.spellName}` : `Read ${spell.spellName}`, 'crawler-inventory-cast');
+        const fire = button(spell.kind === 'charged' ? `Fire ${spell.spellName}` : `Use: ${spell.spellName}`, 'crawler-inventory-cast');
         fire.disabled = !spell.canUse;
         fire.addEventListener('click', () =>
           claim(ACTIONS.cast, { member, spell: spell.spell, target: target === null ? '' : target.value, item: spell.item }),

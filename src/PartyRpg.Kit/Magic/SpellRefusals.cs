@@ -72,7 +72,7 @@ public static class SpellRefusals
     /// <returns>The refusal.</returns>
     public static Refusal MasteryTooLow(string name, string spell, string required, string held) => new(
         SpellCodes.SpellMasteryTooLow,
-        $"{spell} asks for a {required} mastery of its school, and {name} stands at {held}.");
+        $"{spell} asks for {required} mastery of its school, and {name} stands at {held}.");
 
     /// <summary>The caster has not enough spell points left for one casting.</summary>
     /// <param name="name">What the caster is called.</param>

@@ -143,4 +143,22 @@ export function picker(className: string, rows: readonly { readonly value: strin
   return made;
 }
 
+/**
+ * A picker that keeps the player's choice across redraws: a screen redrawn because something else changed — a blow
+ * landed, a pool moved — shows the row the player chose rather than snapping back to the first, so the command it
+ * sends is the one they meant. The choice is presentation state, kept by key, and applied only while its row is offered.
+ */
+export function heldPicker(
+  className: string,
+  rows: readonly { readonly value: string; readonly text: string }[],
+  memory: Map<string, string>,
+  key: string,
+): HTMLSelectElement {
+  const made = picker(className, rows);
+  const kept = memory.get(key);
+  if (kept !== undefined && rows.some((row) => row.value === kept)) made.value = kept;
+  made.addEventListener('change', () => memory.set(key, made.value));
+  return made;
+}
+
 export type { Claim };

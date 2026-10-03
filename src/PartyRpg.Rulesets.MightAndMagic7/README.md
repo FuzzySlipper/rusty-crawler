@@ -17,6 +17,8 @@ Owns:
   splits each class into a light and a dark alternative (`MightAndMagic7Promotions`: the ladder itself, the
   people who give each rank, what each rank asks for, and the record it leaves).
 - Skills with their class- and rank-specific mastery ceilings, and skill points.
+- Spellbook pages: every school but the potion's own word (`MightAndMagic7Potions.School`, carried by an item and
+  learned by nobody) is a page of a character's spellbook (`InSpellbook`).
 - Alchemy (`MightAndMagic7Alchemy`, `MightAndMagic7Potions`): the mixtures the shipped `POTION.TXT` states,
   read from the pack the importer writes — which reagent makes which potion, which pairs make something,
   which go off and how hard, and the discovery each one records — with the rung each result asks for. The

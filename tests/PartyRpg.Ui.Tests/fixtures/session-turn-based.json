@@ -766,6 +766,89 @@
             "targetSide": "party",
             "canCast": true
           }
+        ],
+        "pages": [
+          {
+            "school": "Fire",
+            "held": "expert",
+            "spells": [
+              {
+                "spell": "1",
+                "name": "Torch Light",
+                "tier": "basic",
+                "known": true,
+                "cost": 1,
+                "refusalCode": "",
+                "refusal": ""
+              },
+              {
+                "spell": "2",
+                "name": "Fire Bolt",
+                "tier": "basic",
+                "known": true,
+                "cost": 2,
+                "refusalCode": "",
+                "refusal": ""
+              },
+              {
+                "spell": "4",
+                "name": "Fire Aura",
+                "tier": "expert",
+                "known": false,
+                "cost": 4,
+                "refusalCode": "spell-not-known",
+                "refusal": "Aelina does not know Fire Aura, so there is nothing in their spellbook to cast."
+              },
+              {
+                "spell": "11",
+                "name": "Inferno",
+                "tier": "master",
+                "known": false,
+                "cost": 15,
+                "refusalCode": "spell-not-known",
+                "refusal": "Aelina does not know Inferno, so there is nothing in their spellbook to cast."
+              }
+            ]
+          },
+          {
+            "school": "Water",
+            "held": "master",
+            "spells": [
+              {
+                "spell": "31",
+                "name": "Town Portal",
+                "tier": "master",
+                "known": true,
+                "cost": 20,
+                "refusalCode": "",
+                "refusal": ""
+              }
+            ]
+          },
+          {
+            "school": "Body",
+            "held": "basic",
+            "spells": [
+              {
+                "spell": "68",
+                "name": "Heal",
+                "tier": "basic",
+                "known": true,
+                "cost": 2,
+                "refusalCode": "",
+                "refusal": ""
+              },
+              {
+                "spell": "71",
+                "name": "Regeneration",
+                "tier": "expert",
+                "known": true,
+                "cost": 10,
+                "refusalCode": "spell-mastery-too-low",
+                "refusal": "Regeneration asks for expert mastery of its school, and Aelina stands at basic."
+              }
+            ]
+          }
         ]
       }
     ],

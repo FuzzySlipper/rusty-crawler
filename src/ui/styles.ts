@@ -119,7 +119,7 @@ export const STYLES = `
 .crawler-screen-body { flex: 1; overflow-y: auto; padding: 0.5rem 0.8rem; columns: 2 22rem; column-gap: 1.2rem; }
 .crawler-screen-body > section { break-inside: avoid-column; margin-bottom: 0.6rem; }
 .crawler-screen[data-screen='map'] .crawler-screen-body, .crawler-screen[data-screen='creation'] .crawler-screen-body,
-.crawler-screen[data-screen='character'] .crawler-screen-body,
+.crawler-screen[data-screen='character'] .crawler-screen-body, .crawler-screen[data-screen='spellbook'] .crawler-screen-body,
 .crawler-screen[data-screen='conversation'] .crawler-screen-body, .crawler-screen[data-screen='service'] .crawler-screen-body { columns: auto; }
 .crawler-screen[data-screen='map'] .crawler-map-drawing { display: block; height: calc(100vh - 17rem); width: auto; margin: 0 auto; aspect-ratio: 1; background: #0c0a08; }
 
@@ -445,5 +445,17 @@ export const STYLES = `
   margin: 0 0 0.4rem; padding: 0.3rem 0.5rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.85rem;
 }
 :is(.crawler-inventory-outcome, .crawler-inventory-use-outcome, .crawler-inventory-cast-result, .crawler-character-skill-outcome, .crawler-character-train-outcome)[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.9); color: #e8c8b0; }
+/* The spellbook: a page per school, the picked spell beside it, and the Mixing page. */
+.crawler-magic-book-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(16rem, 1fr); gap: 0.8rem; align-items: start; }
+.crawler-magic-book-spells { display: grid; gap: 0.25rem; }
+.crawler-session .crawler-magic-book-spell { display: flex; justify-content: space-between; gap: 0.6rem; width: auto; padding: 0.3rem 0.6rem; text-align: left; }
+.crawler-session .crawler-magic-book-spell[data-known='false'] { opacity: 0.55; }
+.crawler-session .crawler-magic-book-spell[data-picked='true'] { border-color: #e2b060; background: rgba(96, 78, 50, 0.9); }
+.crawler-magic-book-spell-meta { color: #b9ad8c; font-size: 0.8rem; }
+.crawler-magic-book-detail { padding: 0.5rem; border: 1px solid #5a4b31; background: rgba(0, 0, 0, 0.3); }
+.crawler-spell-ready { color: #8fc27a; }
+.crawler-spell-refusal { color: #e8c8b0; }
+.crawler-magic-book-outcome { margin: 0 0 0.4rem; padding: 0.3rem 0.5rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.85rem; }
+.crawler-magic-book-outcome[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.9); color: #e8c8b0; }
 @media (max-width: 900px) { .crawler-inventory { grid-template-columns: minmax(0, 1fr); } }
 `;
