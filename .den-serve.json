@@ -1,7 +1,7 @@
 {
   "project": "rusty-crawler",
   "serve": {
-    "command": "PATH=\"$HOME/.local/bin:$PATH\" exec rusty dev --project ./src/PartyRpg.Host/PartyRpg.Host.csproj --live-debug --bind-host {host} --port {port} --diagnostics-log {session_dir}/rusty-engine-diagnostics.ndjson",
+    "command": "./scripts/developer-launch.sh host --live-debug --bind-host {host} --port {port} --diagnostics-log {session_dir}/rusty-engine-diagnostics.ndjson",
     "preferredPort": 4176,
     "healthUrl": "/product-ui/details.js",
     "readyText": "Rusty Crawler",

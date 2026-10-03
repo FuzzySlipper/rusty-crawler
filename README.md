@@ -140,7 +140,7 @@ current.
 | [`src/`](src/README.md) | The product graph: kit, ruleset, host, importer and its tool, and the product DOM companion. |
 | [`tests/`](tests/README.md) | The suites, including the architecture suite that enforces the ownership laws. |
 | [`content/`](content/README.md) | Loaded content: the shipped bundle, and the packs the importer writes offline (never committed). |
-| `scripts/` | `verify.sh`, the one verification entry. The Engine pair is installed and moved by the Engine's own `rusty` command. |
+| `scripts/` | `verify.sh`, the verification entry, and `developer-launch.sh`, the toolchain, content-preparation and host wrapper. The Engine pair remains owned by `rusty`. |
 | [`tools/`](tools/portable-assets-example/README.md) | An independent Engine example product, built by `verify.sh` so it keeps compiling against the pin; not part of the product graph. |
 
 For every task, identify:
@@ -204,14 +204,17 @@ rather than passing.
 Ordinary development runs the product on the pinned runtime:
 
 ```bash
-rusty dev --project ./src/PartyRpg.Host/PartyRpg.Host.csproj
+scripts/developer-launch.sh doctor
+scripts/developer-launch.sh host
 ```
 
-The same command is what `.den-serve.json` uses; `--headless` runs it unattended, and `--live-debug`
+The wrapper discovers installed tools even when a service shell omits their directories from PATH;
+`doctor` reports the resolved tools and pair. `.den-serve.json` uses the same host command, which delegates
+to `rusty dev`; `--headless` runs it unattended, and `--live-debug`
 opens the engine's debug surface. **The runtime needs a GPU adapter**: `rusty dev` always builds the
 engine's renderer and refuses to load without one (a software Vulkan driver such as llvmpipe counts).
 **The product draws the world** from the imported render meshes and media (`mm7-world`, `mm7-media`)
-through the Engine's graphics and camera services, from the party's own eye, with the DOM panel beside it. A session driven through the agent playtest service's browser takes the player's keys; with
+through the Engine's graphics and camera services, from the party's own eye, beneath the companion's adventure frame. A session driven through the agent playtest service's browser takes the player's keys; with
 `--live-debug` the product's `playtest.observe`, `playtest.action` and `interaction.inspect` commands read the
 place, pose, facing target, hostiles (including their canonical live feet positions) and each control's key
 and availability without scraping the panel.
@@ -250,9 +253,12 @@ population seam as the encounters.
 `write` produces the content packs the product loads, and proves its own reproducibility:
 
 ```bash
-dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll write \
-  --install /path/to/mm7 --output content/partyrpg/imports --check-determinism
+scripts/developer-launch.sh prepare-content --install /path/to/your/mm7
 ```
+
+Preparation builds the current importer, verifies the operator data, decodes its maps and invokes
+`write --check-determinism`. It regenerates obsolete output through the importer and preserves its
+invalid-content refusals. `CRAWLER_MM7_INSTALL` can supply the install path instead of `--install`.
 
 Packs land under `content/partyrpg/imports` (generated, never committed) and are loaded once their ids
 are listed in a bundle under `content/partyrpg/bundles`. The bundle is the selection: only the packs it

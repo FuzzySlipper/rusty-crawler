@@ -22,6 +22,20 @@
 # --aot; the ordinary development loop does not need it.
 set -uo pipefail
 
+# Service managers and Den brokers may start with a PATH that omits the
+# installer's user directories. Discover the normal user-local locations
+# without naming a machine or assessor account; the Rusty CLI itself uses the
+# same dotnet-on-PATH contract for the pinned pair.
+if ! command -v rusty >/dev/null 2>&1 && [[ -n "${HOME:-}" && -x "$HOME/.local/bin/rusty" ]]; then
+  export PATH="$HOME/.local/bin:$PATH"
+fi
+if [[ -n "${DOTNET_ROOT:-}" && -x "$DOTNET_ROOT/dotnet" ]]; then
+  export PATH="$DOTNET_ROOT:$PATH"
+elif ! command -v dotnet >/dev/null 2>&1 && [[ -n "${HOME:-}" && -x "$HOME/.dotnet/dotnet" ]]; then
+  export DOTNET_ROOT="$HOME/.dotnet"
+  export PATH="$DOTNET_ROOT:$PATH"
+fi
+
 aot=false
 for argument in "$@"; do
   case "$argument" in

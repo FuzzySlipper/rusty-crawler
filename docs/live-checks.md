@@ -12,10 +12,25 @@ and `content/` and replaces the running runtime on any write there: staging into
 playing drops that lane's session.
 
 ```sh
-rusty install                                   # the pinned pair, once per machine
-rusty dev --project src/PartyRpg.Host/PartyRpg.Host.csproj \
+scripts/developer-launch.sh doctor              # resolve tools and print pair status
+scripts/developer-launch.sh install             # the pinned pair, once per machine
+scripts/developer-launch.sh host \
   --port <port> --bind-host <address> --live-debug
 ```
+
+`scripts/developer-launch.sh` is the supported checkout-local wrapper around
+the Engine CLI. It resolves `rusty` from `PATH` (with the installer's normal
+`$HOME/.local/bin` fallback) and resolves the .NET SDK from `PATH`,
+`DOTNET_ROOT`, or the installer's normal `$HOME/.dotnet` location. It exports
+the resolved SDK directory before invoking `rusty dev`, so a service manager or
+Den broker with a sparse `PATH` reports the actual missing tool instead of
+silently selecting a different SDK. No assessor or machine-specific home path
+is part of the launch contract. `doctor` is read-only; it prints the checkout,
+resolved tools, and the pinned pair before a host starts.
+
+The same user-local discovery is applied by `scripts/verify.sh`, so a fresh
+service or CI shell can run the repository gate without copying an assessor's
+SDK path into its environment.
 
 - **Bind to an address the browser can reach.** The Engine's development host admits a request only from
   the origin it is bound to, so a browser on another machine (the playtest service's) needs the host bound
@@ -26,7 +41,8 @@ rusty dev --project src/PartyRpg.Host/PartyRpg.Host.csproj \
   exposes the Engine's debug surface, where the product registers the playtest and interaction commands
   ([Reading gameplay state](#reading-gameplay-state)): read gameplay state there, not from the panel.
 - Wait for the host to log that the runtime was replaced. A content refusal appears in the same log as the
-  product's own sentence (`Rusty Crawler cannot start: <reason>`); a refused start has loaded nothing.
+  product's own sentence (`Rusty Crawler cannot start: <reason>`); a refused start has loaded nothing. A
+  `developer-launch` tool or pair error happens before product startup and should be diagnosed with `doctor`.
 
 ## Staging content
 
@@ -35,8 +51,18 @@ A check usually stages the operator's imported packs, a bundle that names them, 
 imported pack with unwanted records dropped. All of it lives under `content/partyrpg/imports/<pack>/`
 (ignored) and a bundle (tracked). Generated game data is never committed. An ordinary run plays the default
 `mm7-new-game` bundle — the imported tables and world from the authored opening, through creation — and needs
-nothing staged beyond `mm7import write`. A check with its own scenario names it in `partyrpg-default` and serves
-with `RUSTY_CRAWLER_BUNDLE=partyrpg-default`, so the new game's start and the check's never collide.
+nothing staged beyond the current importer preparation command:
+
+```sh
+scripts/developer-launch.sh prepare-content --install /path/to/your/mm7
+```
+
+The command builds the checkout's importer, runs `verify` and `maps`, then runs the actual `write` command
+with `--check-determinism`. It stops on an invalid or obsolete source/content refusal; do not patch generated
+JSON or weaken validation to make an old pack load. Set `CRAWLER_MM7_INSTALL` instead of `--install` when a
+shell or service already owns the operator-install path. A check with its own scenario names it in
+`partyrpg-default` and serves with `RUSTY_CRAWLER_BUNDLE=partyrpg-default`, so the new game's start and the
+check's never collide.
 
 - **A pack's directory name must equal its `packId`.** The loader refuses a mismatch by name.
 - **A scenario says which start it takes.** Its `scenario-start` entry's `"party": "scenario"` plays the party
@@ -110,13 +136,21 @@ Record a staged pose as staging, not as play, in the evidence.
 
 ```sh
 playtest games                                                    # the profiles the service knows
-playtest start <profile>                                          # prints the session id
+playtest start <profile>                                          # one owned session; prints its id
 playtest observe SESSION                                          # a PNG plus console[] and page_errors[]
 playtest browser SESSION --json '{"op":"click","selector":"text=Accept party"}'
 playtest browser SESSION --json '{"op":"inspect","selector":".crawler-session dt,.crawler-session dd"}'
 playtest input   SESSION --json '[{"kind":"hold","keys":[87],"ms":800}]'   # hold W for 800 ms
-playtest stop SESSION
+playtest stop SESSION                                             # stop only the id this check owns
 ```
+
+Start checks sequentially when the host is being replaced or a profile is
+being reused. A broker lease timeout while another start is in progress is an
+orchestration failure, not a product startup refusal: wait for the prior
+owned start to finish or clean up its owned session, then retry one start.
+Never stop a session belonging to another check to clear a lease, and do not
+claim a product failure until the host's own readiness text and product log
+have been read.
 
 A profile names the URL the service's browser opens; adding or changing one is `playtest reload` after the
 service's game list is edited.

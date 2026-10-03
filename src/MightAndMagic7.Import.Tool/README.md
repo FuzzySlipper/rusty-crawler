@@ -4,6 +4,19 @@ The operator-facing command line (`mm7import`) that drives `MightAndMagic7.Impor
 inspect a source file, check an operator-supplied game installation against the
 recorded inventory, and write normalized packs under `content/partyrpg/imports`.
 
+For a fresh checkout, the supported preparation path is:
+
+```bash
+scripts/developer-launch.sh prepare-content --install /path/to/your/mm7
+```
+
+That wrapper resolves the installed Rusty Engine/.NET tools without an
+assessor-specific path, builds this tool, runs `verify` and `maps`, and invokes
+`write --check-determinism`. A failed source or content check remains a named
+refusal; generated packs must be regenerated through this importer rather than
+patched by hand. `CRAWLER_MM7_INSTALL` may supply the install path instead of
+`--install`.
+
 Boundary rules:
 
 - It is a product of its own and calls the import library; it holds no format

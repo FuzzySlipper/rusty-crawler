@@ -1,10 +1,22 @@
 # Imported content packs
 
 Packs written by the offline importer land here. They are generated from the operator's own game
-data, so they are not committed: run
+data, so they are not committed. From a prepared checkout, run the supported preparation command:
 
 ```bash
-dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll write --install /path/to/mm7 --output content/partyrpg/imports
+scripts/developer-launch.sh prepare-content --install /path/to/your/mm7
+```
+
+The command resolves the installed `rusty`/dotnet pair, builds this checkout's
+importer, runs `mm7import verify` and `maps`, and invokes the real `write`
+command with `--check-determinism`. Set `CRAWLER_MM7_INSTALL` when the install
+path is already present in the environment. It refuses an unreadable or
+obsolete install; do not edit generated JSON to bypass a content refusal. A
+direct invocation remains available after the importer is built:
+
+```bash
+dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll write \
+  --install /path/to/your/mm7 --output content/partyrpg/imports --check-determinism
 ```
 
 The default [`mm7-new-game` bundle](../bundles/mm7-new-game/bundle.json) already names `mm7-tables` and
