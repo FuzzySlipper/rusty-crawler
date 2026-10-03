@@ -96,8 +96,26 @@ internal static class MightAndMagic7Tuning
     /// <summary>The donor's Knight reward per highest party level.</summary>
     internal static readonly TuningHandle ArenaKnightGold = new("arena.knight-gold-per-level", 200, 0, 1_000_000, "Knight reward per highest party level");
 
+    /// <summary>The camera's vertical field of view in degrees (ours: the donor draws a fixed 640×480 window).</summary>
+    internal static readonly TuningHandle ViewFieldOfView = new("view.field-of-view", 60, 30, 120, "the camera's vertical field of view in degrees");
+    /// <summary>How far the camera sees, in place units (ours: across a whole 127-square region).</summary>
+    internal static readonly TuningHandle ViewDistance = new("view.distance", 96_000, 4_000, 200_000, "how far the camera sees, in place units");
+    /// <summary>The fill light that reaches every outdoor surface at noon (ours, like every light value).</summary>
+    internal static readonly TuningHandle LightDayAmbient = new("light.day-ambient", 0.8, 0, 4, "the outdoor fill light at full day", Whole: false);
+    /// <summary>The fill light outdoors at night.</summary>
+    internal static readonly TuningHandle LightNightAmbient = new("light.night-ambient", 0.25, 0, 4, "the outdoor fill light at night", Whole: false);
+    /// <summary>The sun's strength at noon.</summary>
+    internal static readonly TuningHandle LightSun = new("light.sun", 1.4, 0, 8, "the sun's strength at noon", Whole: false);
+    /// <summary>The fill light that reaches every interior surface.</summary>
+    internal static readonly TuningHandle LightInteriorAmbient = new("light.interior-ambient", 0.45, 0, 4, "the fill light indoors", Whole: false);
+    /// <summary>The strength of the light the party carries indoors and at night.</summary>
+    internal static readonly TuningHandle LightCarried = new("light.carried", 1.6, 0, 8, "the strength of the light the party carries", Whole: false);
+    /// <summary>How far the light the party carries reaches, in place units.</summary>
+    internal static readonly TuningHandle LightCarriedRange = new("light.carried-range", 2400, 100, 20_000, "how far the light the party carries reaches, in place units");
+
     internal static readonly IReadOnlyList<TuningHandle> Handles =
     [
+        ViewFieldOfView, ViewDistance, LightDayAmbient, LightNightAmbient, LightSun, LightInteriorAmbient, LightCarried, LightCarriedRange,
         HiredLimit,
         ArenaKnightOpponents, ArenaKnightGold,
         EnchantChancePerRank, EnchantWeaponValue, EnchantEquipmentValue, EnchantMasterLow, EnchantGrandMasterLow, EnchantValuePerStrength,

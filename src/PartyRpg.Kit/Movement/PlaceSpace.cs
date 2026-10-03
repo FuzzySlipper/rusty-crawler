@@ -37,7 +37,7 @@ public readonly record struct PlaceSpace
     /// <exception cref="ArgumentOutOfRangeException">
     /// A value is not a number, the unit turns through nothing, or the body centre is below the pose.
     /// </exception>
-    public PlaceSpace(double radiansPerFacingUnit, double radiansAtZeroFacing, double bodyCentreHeight = 0)
+    public PlaceSpace(double radiansPerFacingUnit, double radiansAtZeroFacing, double bodyCentreHeight = 0, double? eyeHeight = null)
     {
         if (!double.IsFinite(radiansPerFacingUnit) || radiansPerFacingUnit <= 0)
         {
@@ -63,9 +63,18 @@ public readonly record struct PlaceSpace
                 "A party's body must be centred at a finite height at or above its pose; a body below the ground it stands on is not a body the engine can walk.");
         }
 
+        if (eyeHeight is { } eye && (!double.IsFinite(eye) || eye < 0))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(eyeHeight),
+                eyeHeight,
+                "A party's eye must be at a finite height at or above its pose; an eye below the ground it stands on sees nothing the party can reach.");
+        }
+
         RadiansPerFacingUnit = radiansPerFacingUnit;
         RadiansAtZeroFacing = radiansAtZeroFacing;
         BodyCentreHeight = bodyCentreHeight;
+        EyeHeight = eyeHeight ?? bodyCentreHeight;
     }
 
     /// <summary>Radians one place facing unit turns through.</summary>
@@ -85,8 +94,24 @@ public readonly record struct PlaceSpace
     /// <param name="radiansAtZeroFacing">The engine heading a place facing unit of zero means, in radians.</param>
     /// <param name="bodyCentreHeight">How far above a party's pose the engine's character body is centred.</param>
     /// <exception cref="ArgumentOutOfRangeException">A value is not a number, or the facing rule holds no units.</exception>
-    public static PlaceSpace HeightIsThird(FacingRule facing, double radiansAtZeroFacing, double bodyCentreHeight = 0) =>
-        new(2 * Math.PI / facing.UnitsPerTurn, radiansAtZeroFacing, bodyCentreHeight);
+    public static PlaceSpace HeightIsThird(FacingRule facing, double radiansAtZeroFacing, double bodyCentreHeight = 0, double? eyeHeight = null) =>
+        new(2 * Math.PI / facing.UnitsPerTurn, radiansAtZeroFacing, bodyCentreHeight, eyeHeight);
+
+    /// <summary>
+    /// How far above the party's feet it looks from, in the place's units: where the drawn world is seen from. The body
+    /// centre when the game names no eye. The reticle's reach is measured from the body centre
+    /// (<see cref="Position(PlacePose)"/>), the interaction owner's own contract, so a use's reach does not move with
+    /// where the eye is drawn.
+    /// </summary>
+    public double EyeHeight { get; }
+
+    /// <summary>The party's eye in the engine's axes.</summary>
+    /// <param name="pose">Where the party stands.</param>
+    public Vector3 EyePosition(PlacePose pose) => GroundPosition(pose) with { Y = (float)(pose.Z + EyeHeight) };
+
+    /// <summary>A pitch in the place's facing units as radians, positive looking up.</summary>
+    /// <param name="pitch">The pitch.</param>
+    public double PitchRadians(double pitch) => pitch * RadiansPerFacingUnit;
 
     /// <summary>The engine world position of a pose in a place.</summary>
     /// <param name="pose">The pose to place, whose facing is ignored.</param>

@@ -54,9 +54,6 @@ internal sealed class ProductContentSource : IContentSource
     /// <inheritdoc />
     public string ReadText(string relativePath) => _content.ReadText(relativePath);
 
-    /// <inheritdoc />
-    public ReadOnlyMemory<byte> ReadBytes(string relativePath) => _content.ReadBytes(relativePath);
-
     private IEnumerable<string> Paths() =>
         _content.Files.ToArray().Select(file => file.RelativePath.Replace('\\', '/'));
 

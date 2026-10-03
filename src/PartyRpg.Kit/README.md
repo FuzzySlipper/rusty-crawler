@@ -535,10 +535,9 @@ handed the party after every admitted update and released with the session) read
 normals, texture coordinates and door travel per vertex, divided into parts drawn independently) — its
 `SceneMaterial`s, its doors' identities and its sky. It reads the mesh and opens images through the Engine content
 service, binds materials and meshes through the safe Graphics API (a door part rebuilt where `ISceneRule.IsClosed`
-puts it: a closed door's corners stand at rest plus travel, the collision's own pairing), aims an explicit-basis camera
-at `PartyView.Derive` through the movement's `PlaceSpace`, sets the sky panorama or clear colour and the ambient,
+puts it: a closed door's corners stand at rest plus travel, the collision's own pairing), aims the camera from the
+movement `PlaceSpace`'s eye (`EyeHeight`; the reticle shares its heading and keeps its body-centre reach) along its heading, sets the sky panorama or clear colour and the ambient,
 sun and carried lights the rule's `SceneLighting` names (a light changes only when the answer does), and publishes
 one snapshot when what it draws changed. A place with no scene and an image the Engine refuses are each said once in
 `Notes`; a material without an image is drawn flat grey rather than guessed. It reaches for the Engine's services only
-when it first draws. `IContentSource.ReadBytes` and `LoadedPack.Directory` let a ruleset name a file beside a pack's
-documents. The product disables the Engine's default light rig, so the scene is lit only by those lights.
+when it first draws. `LoadedPack.Directory` lets a ruleset name a file beside a pack's documents, which the view reads through the Engine. The product disables the Engine's default light rig, so the scene is lit only by those lights.

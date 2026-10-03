@@ -17,7 +17,7 @@ namespace PartyRpg.Kit.Tests;
 public sealed class WorldViewTests
 {
     private static readonly FacingRule Facing = new(unitsPerTurn: 2048, minimumPitch: -512, maximumPitch: 512);
-    private static readonly PlaceSpace Space = PlaceSpace.HeightIsThird(Facing, Math.PI / 2);
+    private static readonly PlaceSpace Space = PlaceSpace.HeightIsThird(Facing, Math.PI / 2, eyeHeight: 160);
     private static readonly PlaceId Place = new("1");
 
     [Fact]
@@ -51,10 +51,12 @@ public sealed class WorldViewTests
             Assert.Single(graphics.Snapshots);
             Assert.Equal(new WorldViewReport(Place, 2, 2, 1, 1, 1, false), view.Report);
 
-            // The party faces along its first ground axis at yaw zero, which is the Engine's +x; the eye is the rule's.
+            // The party faces along its first ground axis at yaw zero, which is the Engine's +x — a derived yaw of 90 degrees
+            // from -z — and the eye is the movement space's.
             CameraDescriptor camera = (CameraDescriptor)Assert.Single(cameras.CallsTo(nameof(ICameraViewService.CreateCamera)))[0]!;
-            Assert.Equal(CameraBasisMode.Explicit, camera.BasisMode);
-            Assert.True(Vector3.Distance(Vector3.UnitX, camera.Basis.Forward) < 1e-5f);
+            Assert.Equal(CameraBasisMode.Derived, camera.BasisMode);
+            Assert.Equal(90d, camera.Pose.YawDegrees, 6);
+            Assert.Equal(0d, camera.Pose.PitchDegrees, 6);
             Assert.Equal(new Vector3(100, 160, -200), camera.Pose.Position);
 
             // Nothing changed, so nothing is rebuilt or republished; the camera follows the party every update.
@@ -161,8 +163,6 @@ public sealed class WorldViewTests
     private sealed class Rule : ISceneRule
     {
         public bool Closed { get; set; }
-
-        public PartyViewOffsets Eye => new(lookPitch: 0, eyeHeight: 160, bobOffset: 0);
 
         public double FieldOfViewDegrees => 60;
 

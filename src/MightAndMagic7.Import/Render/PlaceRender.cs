@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using MightAndMagic7.Import.Collision;
 using MightAndMagic7.Import.Maps;
 using MightAndMagic7.Import.Packs;
 
@@ -61,8 +62,9 @@ public sealed record RenderGroup(int Material, int Start, int Count);
 /// as the door moves rather than following the donor's per-door texture sliding, which is ours.
 /// </para>
 /// <para>
-/// <b>Doors.</b> A door's faces are written as their own part, at the corners' rest positions with each corner's
-/// travel beside it, which is the collision layout's own pair: a closed door's corners stand at rest plus travel.
+/// <b>Doors.</b> A door's faces are written as their own part, each corner at the rest position and with the travel
+/// <see cref="PlaceCollisionLayout.DoorCorners"/> reads for the collision too: a closed door's corners stand at rest plus
+/// travel in both.
 /// </para>
 /// </remarks>
 public sealed class PlaceRender
@@ -137,16 +139,8 @@ public sealed class PlaceRender
         ArgumentNullException.ThrowIfNull(tiles);
         ArgumentNullException.ThrowIfNull(bitmaps);
         PlaceRender render = new(placeId, bitmaps);
-        Dictionary<int, (int Door, double[] Travel)> moved = [];
-        if (map is IndoorMap indoor)
-        {
-            foreach (MapDoor door in indoor.Doors.Where(door => door.InUse))
-            {
-                double[] travel = [door.Direction.X * door.MoveLength / 65536d,
-                    door.Direction.Z * door.MoveLength / 65536d, -door.Direction.Y * door.MoveLength / 65536d];
-                foreach (int vertex in door.VertexIds) moved.TryAdd(vertex, (door.Index, travel));
-            }
-        }
+        // A door's corners are the collision layout's own reading: the same rest positions and travel.
+        Dictionary<int, CollisionCorner> moved = PlaceCollisionLayout.DoorCorners(map);
 
         // Static geometry is the first part; every door that moves a drawn face is a part of its own after it.
         List<(MapFace Face, int? Door)> faces = [];
@@ -158,7 +152,7 @@ public sealed class PlaceRender
                 continue;
             }
 
-            int? door = face.VertexIds.Select(id => moved.TryGetValue(id, out var bound) ? bound.Door : (int?)null).FirstOrDefault(found => found is not null);
+            int? door = face.VertexIds.Select(id => moved.TryGetValue(id, out CollisionCorner? bound) ? bound.Door : null).FirstOrDefault(found => found is not null);
             faces.Add((face, door));
         }
 
@@ -283,7 +277,7 @@ public sealed class PlaceRender
     }
 
     /// <summary>One face, fanned from its first corner, laid by its own texture coordinates.</summary>
-    private void AddFace(MapFace face, int? door, Dictionary<int, (int Door, double[] Travel)> moved)
+    private void AddFace(MapFace face, int? door, Dictionary<int, CollisionCorner> moved)
     {
         RenderSurface surface = (face.Attributes & SkyAttribute) != 0 ? RenderSurface.Sky : RenderSurface.Face;
         int material = Material(face.TextureName, surface);
@@ -296,11 +290,12 @@ public sealed class PlaceRender
         {
             MapPoint point = face.Vertices[index];
             MapTextureCoordinate texel = index < face.TextureCoordinates.Count ? face.TextureCoordinates[index] : default;
-            double[]? travel = door is not null && moved.TryGetValue(face.VertexIds[index], out var bound) && bound.Door == door ? bound.Travel : null;
-            corners.Add(Vertex(point.X, point.Z, -point.Y, normal,
+            CollisionCorner? bound = door is not null && moved.TryGetValue(face.VertexIds[index], out CollisionCorner? corner) && corner.Door == door ? corner : null;
+            double[] at = bound?.Rest ?? [point.X, point.Z, -point.Y];
+            corners.Add(Vertex(at[0], at[1], at[2], normal,
                 (texel.U + face.TextureDeltaU) / (double)size.Width,
                 (texel.V + face.TextureDeltaV) / (double)size.Height,
-                travel));
+                bound?.Travel));
         }
 
         List<uint> group = Group(material);

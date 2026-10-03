@@ -16,7 +16,7 @@ public sealed class ScenePolicyTests
     [Fact]
     public void A_place_is_read_with_its_mesh_beside_its_pack_its_materials_images_its_doors_and_its_sky()
     {
-        MightAndMagic7Scene scene = MightAndMagic7Scene.Read(Content(), () => null, MightAndMagic7Time.Compose())!;
+        MightAndMagic7Scene scene = MightAndMagic7Scene.Read(Content(), () => null, MightAndMagic7Time.Compose(), MightAndMagic7Tuning.Read(null))!;
 
         PlaceScene region = scene.For(new PlaceId("1"))!;
         Assert.Equal("packs/world/render/1.mesh", region.MeshPath);
@@ -40,7 +40,7 @@ public sealed class ScenePolicyTests
     public void The_sun_lights_a_region_by_day_and_leaves_it_to_a_dim_night_and_the_carried_light()
     {
         GameClock clock = MightAndMagic7Time.Compose();
-        MightAndMagic7Scene scene = MightAndMagic7Scene.Read(Content(), () => null, clock)!;
+        MightAndMagic7Scene scene = MightAndMagic7Scene.Read(Content(), () => null, clock, MightAndMagic7Tuning.Read(null))!;
 
         // The session begins in the morning: the sun is up and the sky shows.
         SceneLighting morning = scene.Lighting(new PlaceId("1"), outdoors: true);
@@ -69,8 +69,8 @@ public sealed class ScenePolicyTests
             .Add("packs/world/pack.json", TestPacks.Manifest("world", ("places", "place")))
             .Add("packs/world/places.json", TestPacks.Document("places", "place", """{"id":"1","kind":"region"}"""));
 
-        Assert.Null(MightAndMagic7Scene.Read(ContentCatalogLoader.Load(source, new ContentLayout("packs", "imports", "bundles")).RequireValid(), () => null, MightAndMagic7Time.Compose()));
-        Assert.Null(MightAndMagic7Scene.Read(null, () => null, MightAndMagic7Time.Compose()));
+        Assert.Null(MightAndMagic7Scene.Read(ContentCatalogLoader.Load(source, new ContentLayout("packs", "imports", "bundles")).RequireValid(), () => null, MightAndMagic7Time.Compose(), MightAndMagic7Tuning.Read(null)));
+        Assert.Null(MightAndMagic7Scene.Read(null, () => null, MightAndMagic7Time.Compose(), MightAndMagic7Tuning.Read(null)));
     }
 
     private static ContentCatalog Content()

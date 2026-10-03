@@ -2,7 +2,6 @@ using System.Numerics;
 using System.Text.Json;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
-using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Scene;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
@@ -28,8 +27,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// drawn door and a walked door can therefore never disagree.
 /// </para>
 /// <para>
-/// <b>The eye</b> stands 160 units above the party's feet, the donor's default <c>eyeLevel</c> (OpenEnroth
-/// <c>src/Engine/Party.h:281</c>, read from <c>PartyEyeLevel</c> at <c>src/Engine/Party.cpp:64</c>).
+/// <b>The eye</b> is the movement's (<see cref="MightAndMagic7Movement.EyeLevel"/>); the reticle shares its heading.
 /// </para>
 /// <para>
 /// <b>Light is ours.</b> The original shades terrain by a sun that crosses the sky with the hour and dims the world
@@ -44,34 +42,30 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
     internal const string RenderDefinitionKind = "place-render";
     internal const string TextureDefinitionKind = "texture";
 
-    /// <summary>The donor's default eye level above the party's feet.</summary>
-    private const double EyeLevel = 160;
-
     private readonly Dictionary<PlaceId, PlaceScene> _scenes = [];
     private readonly Func<SessionWorld?> _world;
     private readonly GameClock _clock;
+    private readonly TuningProfile _tuning;
 
-    private MightAndMagic7Scene(Func<SessionWorld?> world, GameClock clock)
+    private MightAndMagic7Scene(Func<SessionWorld?> world, GameClock clock, TuningProfile tuning)
     {
         _world = world;
         _clock = clock;
+        _tuning = tuning;
     }
 
     /// <inheritdoc />
-    public PartyViewOffsets Eye { get; } = new(lookPitch: 0, eyeHeight: EyeLevel, bobOffset: 0);
+    public double FieldOfViewDegrees => _tuning[MightAndMagic7Tuning.ViewFieldOfView];
 
     /// <inheritdoc />
-    public double FieldOfViewDegrees => 60;
-
-    /// <inheritdoc />
-    /// <remarks>A region is 127 squares of 512 units on a side; the camera sees across all of it.</remarks>
-    public double ViewDistance => 96_000;
+    public double ViewDistance => _tuning[MightAndMagic7Tuning.ViewDistance];
 
     /// <summary>Reads every place's scene from content, or null when content carries none.</summary>
     /// <param name="catalog">The selected content.</param>
     /// <param name="world">The session's live world, read when a door is asked about.</param>
     /// <param name="clock">The session's one clock, read when the light is asked about.</param>
-    internal static MightAndMagic7Scene? Read(ContentCatalog? catalog, Func<SessionWorld?> world, GameClock clock)
+    /// <param name="tuning">The selected tuning, which holds the view's and the light's adjustable values.</param>
+    internal static MightAndMagic7Scene? Read(ContentCatalog? catalog, Func<SessionWorld?> world, GameClock clock, TuningProfile tuning)
     {
         if (catalog is null) return null;
         Dictionary<string, string> textures = new(StringComparer.Ordinal);
@@ -80,7 +74,7 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
             textures[entry.Id] = $"{pack.Directory}/{entry.Payload.GetProperty("path").GetString()}";
         }
 
-        MightAndMagic7Scene scene = new(world, clock);
+        MightAndMagic7Scene scene = new(world, clock, tuning);
         foreach ((LoadedPack pack, _, ContentEntry entry) in catalog.Entries(RenderDefinitionKind))
         {
             JsonElement payload = entry.Payload;
@@ -144,13 +138,13 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
         if (!outdoors)
         {
             // Interiors: a dim even fill and the light the party carries, which reaches a room but not a long hall.
-            return new SceneLighting(new Vector3(1f, 0.95f, 0.85f), 0.45f, null, Vector3.Zero, 0f, new Vector3(0f, 0f, 0f),
-                (new Vector3(1f, 0.85f, 0.6f), 1.6f, 2400f));
+            return new SceneLighting(new Vector3(1f, 0.95f, 0.85f), Light(MightAndMagic7Tuning.LightInteriorAmbient), null, Vector3.Zero, 0f,
+                new Vector3(0f, 0f, 0f), Carried());
         }
 
-        // Outdoors the sun climbs from the calendar's dawn to its noon and sets at its dusk, in the east-west plane;
-        // the quarter-minute it is read at is the light's whole resolution, so the Engine's light changes at most
-        // that often.
+        // Outdoors the sun climbs from the calendar's dawn to its noon and sets at its dusk, in the east-west plane. Its
+        // height and its arc are read in coarse steps, so the answer — and the Engine's lights — change a few dozen
+        // times a day rather than every game minute.
         GameDate now = _clock.Now;
         double minutes = (now.Hour * 60) + now.Minute;
         double dawn = (_clock.Daylight.Dawn.Hour * 60) + _clock.Daylight.Dawn.Minute;
@@ -158,16 +152,23 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
         double day = Math.Clamp((minutes - dawn) / (dusk - dawn), 0, 1);
         double height = minutes < dawn || minutes >= dusk ? 0 : Math.Sin(day * Math.PI);
         float level = (float)Math.Round(height * 20) / 20f;
-        Vector3? direction = level <= 0 ? null : Vector3.Normalize(new Vector3((float)Math.Cos(day * Math.PI), -Math.Max(level, 0.15f), 0.35f));
+        double arc = Math.Round(day * 40) / 40;
+        Vector3? direction = level <= 0 ? null : Vector3.Normalize(new Vector3((float)Math.Cos(arc * Math.PI), -Math.Max(level, 0.15f), 0.35f));
         Vector3 sky = Vector3.Lerp(night, new Vector3(0.62f, 0.72f, 0.86f), level);
         return new SceneLighting(
             Vector3.Lerp(new Vector3(0.5f, 0.55f, 0.8f), Vector3.One, level),
-            0.25f + (0.55f * Math.Min(1f, level * 1.5f)),
+            float.Lerp(Light(MightAndMagic7Tuning.LightNightAmbient), Light(MightAndMagic7Tuning.LightDayAmbient), Math.Min(1f, level * 1.5f)),
             direction,
             new Vector3(1f, 0.96f, 0.88f),
-            1.4f * level,
+            Light(MightAndMagic7Tuning.LightSun) * level,
             sky,
-            level <= 0 ? (new Vector3(1f, 0.85f, 0.6f), 1.2f, 2400f) : null,
+            level <= 0 ? Carried() : null,
             SkyVisible: level > 0);
     }
+
+    private float Light(TuningHandle handle) => (float)_tuning[handle];
+
+    /// <summary>The light the party carries: a warm light of the tuned strength and reach.</summary>
+    private (Vector3 Colour, float Intensity, float Range) Carried() =>
+        (new Vector3(1f, 0.85f, 0.6f), Light(MightAndMagic7Tuning.LightCarried), Light(MightAndMagic7Tuning.LightCarriedRange));
 }

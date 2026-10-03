@@ -116,7 +116,15 @@ internal static class MightAndMagic7Movement
     /// its centre while a pose says where the party stands; it is derived here rather than written twice
     /// so the two values cannot drift apart.
     /// </remarks>
-    internal static readonly PlaceSpace Space = PlaceSpace.HeightIsThird(Facing, RadiansAtZeroFacing, BodyHeight / 2);
+    internal static readonly PlaceSpace Space = PlaceSpace.HeightIsThird(Facing, RadiansAtZeroFacing, BodyHeight / 2, EyeLevel);
+
+    /// <summary>
+    /// How far above the feet the party looks from: the donor's default <c>eyeLevel</c> (OpenEnroth
+    /// <c>src/Engine/Party.h:281</c>, read from <c>PartyEyeLevel</c> at <c>src/Engine/Party.cpp:64</c>). The drawn world is
+    /// seen from it; a use's reach stays measured from the body centre, the interaction contract the elevated-container
+    /// reading pinned (docs/evidence/elevation-reach.md), so the reticle and the eye share a heading and differ in height.
+    /// </summary>
+    internal const double EyeLevel = 160;
 
     /// <summary>
     /// How the collision scene is chunked and what size its voxels are, in place units.

@@ -11,25 +11,7 @@ public sealed record PlaceCollisionLayout(CollisionMesh Static, IReadOnlyList<Co
     /// <summary>Builds the partition offline from decoded source geometry.</summary>
     public static PlaceCollisionLayout From(DecodedMap map)
     {
-        Dictionary<int, CollisionCorner> moved = [];
-        if (map is IndoorMap indoor)
-        {
-            foreach (MapDoor door in indoor.Doors.Where(door => door.InUse))
-            {
-                if (door.VertexIds.Count != door.XOffsets.Count || door.VertexIds.Count != door.YOffsets.Count || door.VertexIds.Count != door.ZOffsets.Count)
-                    throw new InvalidOperationException($"Door {door.Index} has {door.VertexIds.Count} moved vertices but incomplete rest coordinates; its collision cannot be reconstructed.");
-                // Source direction is signed 16.16. Normalize it here, not in the runtime kit.
-                double[] travel = [door.Direction.X * door.MoveLength / 65536d,
-                    door.Direction.Z * door.MoveLength / 65536d, -door.Direction.Y * door.MoveLength / 65536d];
-                for (int index = 0; index < door.VertexIds.Count; index++)
-                {
-                    double[] rest = [door.XOffsets[index], door.ZOffsets[index], -door.YOffsets[index]];
-                    if (!moved.TryAdd(door.VertexIds[index], new CollisionCorner(rest, door.Index, travel)))
-                        throw new InvalidOperationException($"Door {door.Index} shares moved vertex {door.VertexIds[index]} with another door; their travel cannot be assigned silently.");
-                }
-            }
-        }
-
+        Dictionary<int, CollisionCorner> moved = DoorCorners(map);
         CollisionMesh ground = new();
         List<CollisionFace> faces = [];
         if (map is OutdoorMap outdoor)
@@ -58,6 +40,35 @@ public sealed record PlaceCollisionLayout(CollisionMesh Static, IReadOnlyList<Co
                 faces.Add(new CollisionFace(face.CogNumber, (face.Attributes & 0x20000000) != 0, corners, triangles, face.EventId, faceIndex));
         }
         return new PlaceCollisionLayout(ground, faces);
+    }
+
+    /// <summary>
+    /// Every vertex a level's doors move, by the level's vertex id: its rest position and its door's full travel, both
+    /// in Engine axes. The one reading of a door's corners, which the collision and the render geometry both take.
+    /// </summary>
+    public static Dictionary<int, CollisionCorner> DoorCorners(DecodedMap map)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        Dictionary<int, CollisionCorner> moved = [];
+        if (map is IndoorMap indoor)
+        {
+            foreach (MapDoor door in indoor.Doors.Where(door => door.InUse))
+            {
+                if (door.VertexIds.Count != door.XOffsets.Count || door.VertexIds.Count != door.YOffsets.Count || door.VertexIds.Count != door.ZOffsets.Count)
+                    throw new InvalidOperationException($"Door {door.Index} has {door.VertexIds.Count} moved vertices but incomplete rest coordinates; its collision cannot be reconstructed.");
+                // Source direction is signed 16.16. Normalize it here, not in the runtime kit.
+                double[] travel = [door.Direction.X * door.MoveLength / 65536d,
+                    door.Direction.Z * door.MoveLength / 65536d, -door.Direction.Y * door.MoveLength / 65536d];
+                for (int index = 0; index < door.VertexIds.Count; index++)
+                {
+                    double[] rest = [door.XOffsets[index], door.ZOffsets[index], -door.YOffsets[index]];
+                    if (!moved.TryAdd(door.VertexIds[index], new CollisionCorner(rest, door.Index, travel)))
+                        throw new InvalidOperationException($"Door {door.Index} shares moved vertex {door.VertexIds[index]} with another door; their travel cannot be assigned silently.");
+                }
+            }
+        }
+
+        return moved;
     }
 }
 

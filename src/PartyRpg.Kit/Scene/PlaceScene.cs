@@ -63,9 +63,6 @@ public sealed record SceneLighting(
 /// <summary>A game's answers about how its world is seen: where the eye is, how a place is lit, and which doors stand closed.</summary>
 public interface ISceneRule
 {
-    /// <summary>Where the party's eye is relative to its pose, in place units and facing units.</summary>
-    PartyViewOffsets Eye { get; }
-
     /// <summary>The camera's vertical field of view in degrees.</summary>
     double FieldOfViewDegrees { get; }
 

@@ -51,9 +51,6 @@ public sealed class FileContentSource : IContentSource
     /// <inheritdoc />
     public string ReadText(string relativePath) => File.ReadAllText(Resolve(relativePath), Encoding.UTF8);
 
-    /// <inheritdoc />
-    public ReadOnlyMemory<byte> ReadBytes(string relativePath) => File.ReadAllBytes(Resolve(relativePath));
-
     private string Resolve(string relativePath)
     {
         ArgumentNullException.ThrowIfNull(relativePath);

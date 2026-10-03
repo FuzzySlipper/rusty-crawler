@@ -23,8 +23,8 @@ public sealed record WorldViewReport(PlaceId Place, int Triangles, int Materials
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Nothing here decides anything.</b> The place is the world's, the eye is the party's pose through
-/// <see cref="PartyView.Derive"/>, the doors are the interaction ledger's as the game's rule reads them, and the light is
+/// <b>Nothing here decides anything.</b> The place is the world's, the eye is the party's pose at the movement space's
+/// <see cref="PlaceSpace.EyeHeight"/> along the heading the reticle aims by, the doors are the interaction ledger's as the game's rule reads them, and the light is
 /// the game's answer for the place at the current hour. The view keeps the Engine resources those answers need and
 /// publishes them once per admitted update; it holds no clock, no camera state of its own and no copy of the world.
 /// </para>
@@ -37,7 +37,7 @@ public sealed record WorldViewReport(PlaceId Place, int Triangles, int Materials
 /// <para>
 /// <b>Axes.</b> The scene's content is already in the Engine's axes; the eye is converted through the same
 /// <see cref="PlaceSpace"/> movement walks in, so the camera stands where the collision says the party stands, and it
-/// looks along the heading that space gives the party's facing.
+/// looks along the heading that space gives the party's facing, which the Engine's derived camera basis reads directly.
 /// </para>
 /// </remarks>
 public sealed class WorldView : IWorldPresenter
@@ -116,7 +116,7 @@ public sealed class WorldView : IWorldPresenter
             Light(loaded);
         }
 
-        Aim(party.DeriveView(_rule.Eye));
+        Aim(party.PlacePose);
         if (changed) Publish();
     }
 
@@ -153,9 +153,16 @@ public sealed class WorldView : IWorldPresenter
             return true;
         }
 
-        Loaded loaded = new(scene, ReadMesh(scene.MeshPath));
+        // A place whose content cannot be drawn — its mesh absent or malformed, a group naming a material the scene
+        // does not list, a part the Engine refuses — is said once and drawn as nothing, as a place with no scene is:
+        // content that is wrong must not fault the update the party walked into it in.
+        Loaded? loaded = null;
         try
         {
+            RenderMesh mesh = ReadMesh(scene.MeshPath);
+            if (mesh.Parts.SelectMany(part => part.Groups).FirstOrDefault(group => group.Material >= scene.Materials.Count) is { Count: > 0 } stray)
+                throw new InvalidDataException($"'{scene.MeshPath}' draws material {stray.Material}, and the scene lists {scene.Materials.Count}.");
+            loaded = new Loaded(scene, mesh);
             foreach (SceneMaterial material in scene.Materials) loaded.Materials.Add(Material(material));
             foreach (RenderMeshPart part in loaded.Mesh.Parts)
             {
@@ -163,10 +170,12 @@ public sealed class WorldView : IWorldPresenter
                 loaded.Parts.Add(Part(loaded, part, closed));
             }
         }
-        catch
+        catch (Exception refused) when (refused is EngineCallException or InvalidDataException)
         {
-            loaded.Dispose();
-            throw;
+            loaded?.Dispose();
+            Note($"Place '{place}' cannot be drawn, so nothing is drawn there: {refused.Message}");
+            Report = null;
+            return true;
         }
 
         _loaded = loaded;
@@ -361,21 +370,18 @@ public sealed class WorldView : IWorldPresenter
     }
 
     /// <summary>Puts the camera at the party's eye, looking along its facing, and carries its light with it.</summary>
-    private void Aim(PartyView view)
+    private void Aim(PlacePose pose)
     {
-        Vector3 eye = _space.GroundPosition(new PlacePose(view.X, view.Y, view.Z, view.Yaw, view.Pitch));
-        double heading = _space.FacingRadians(view.Yaw);
-        double pitch = view.Pitch * _space.RadiansPerFacingUnit;
-        Vector3 forward = Vector3.Normalize(new Vector3(
-            (float)(Math.Sin(heading) * Math.Cos(pitch)),
-            (float)Math.Sin(pitch),
-            (float)(-Math.Cos(heading) * Math.Cos(pitch))));
-        Vector3 right = Vector3.Normalize(Vector3.Cross(forward, Vector3.UnitY));
-        Vector3 up = Vector3.Cross(right, forward);
+        Vector3 eye = _space.EyePosition(pose);
+        double heading = _space.FacingRadians(pose.Yaw);
+        double pitch = _space.PitchRadians(pose.Pitch);
+
+        // The Engine derives the basis from the pose: yaw zero looks along -z and grows toward +x, which is the heading
+        // the movement's space gives the party's facing, and a positive pitch looks up.
         CameraDescriptor descriptor = new(
             new CameraPose(eye, pitch * 180d / Math.PI, heading * 180d / Math.PI),
-            CameraBasisMode.Explicit,
-            new CameraBasis(forward, right, up),
+            CameraBasisMode.Derived,
+            default,
             new CameraProjection(CameraProjectionKind.Perspective, _rule.FieldOfViewDegrees, 0d, 8d, _rule.ViewDistance),
             FullViewport);
         if (_camera is null)
