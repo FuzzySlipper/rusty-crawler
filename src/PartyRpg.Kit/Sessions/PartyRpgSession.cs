@@ -55,6 +55,7 @@ public sealed class PartyRpgSession : IGameSession
     private readonly HashSet<string> _contracts;
     private readonly ControlKeys _keys;
     private readonly Scene.IWorldPresenter? _view;
+    private readonly Presentation.PortraitImages? _portraits;
     private CreationDriver? _creation;
     private bool _accepted;
     private SessionMode _mode = SessionMode.Starting;
@@ -128,6 +129,7 @@ public sealed class PartyRpgSession : IGameSession
         _saves = new SaveRequests(composition.Title, saving, controls.Save, _resumed);
         owners.Bind(rules ?? SessionRules.None, records);
         _view = rules?.View;
+        _portraits = rules?.Portraits;
         _acts = new SessionActs(owners, controls);
         _fight = new CombatDriver(owners, controls.Movement, controls.Combat);
         _contracts = Contracts(controls);
@@ -581,6 +583,7 @@ public sealed class PartyRpgSession : IGameSession
         _mode = SessionMode.Stopped;
         Publish();
         _view?.Dispose();
+        _portraits?.Dispose();
         LiveWorld?.Dispose();
         Party?.Dispose();
         _saves.Store?.Dispose();
@@ -662,7 +665,7 @@ public sealed class PartyRpgSession : IGameSession
             _world,
             MovementSnapshot.From(LiveWorld?.Movement.Last, LiveWorld?.Mover?.MayFly == true, FootingSnapshot.From(LiveWorld?.Ground(), Party)),
             ClockSnapshot.From(Clock),
-            _readings.Party(Party, party, _owners.Rules.Standing, _owners.Rules.Conversation as IFollowerConversationRule),
+            _readings.Party(Party, party, _owners.Rules.Standing, _owners.Rules.Conversation as IFollowerConversationRule, _portraits),
             // While a party is being made the flow is the screen's subject; once one is played, the members shown
             // are the party's own, whether it was created in this run or resumed.
             _creation is { } creation

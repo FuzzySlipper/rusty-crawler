@@ -287,6 +287,11 @@ public sealed class ProjectionContractTests
             Awards: [new AwardSnapshot("promotion:rogue", "promotion", "Rogue", "Thief")])
         {
             Debts = [new PartyDebt("fine", 350)],
+            Roster =
+            [
+                new PartyMemberSnapshot("1", "Roderick", "Knight", "human-man", "/__rusty/product/runtime/ui-images/1", 40, 40, 0, 0, string.Empty, true),
+                new PartyMemberSnapshot("2", "Aelina", "Sorcerer", "elf-woman", string.Empty, 0, 24, 15, 20, "Unconscious", false),
+            ],
         },
         new CreationSnapshot(
             Active: false, Accepted: true, HasDefault: true, MemberIndex: 0, MemberCount: 2, Step: string.Empty,

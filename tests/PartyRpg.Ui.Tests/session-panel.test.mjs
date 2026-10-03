@@ -141,6 +141,8 @@ function party(overrides = {}) {
     hitPointsMax: 40,
     spellPoints: 10,
     spellPointsMax: 10,
+    // The members as the adventure frame shows them; a case that draws portraits states its own.
+    roster: [],
     ...overrides,
   };
 }

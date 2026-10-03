@@ -11,6 +11,7 @@ What is published here is text only: no game data, no screenshots, no saves, and
 
 | Record | What it shows |
 | --- | --- |
+| [`adventure-frame.md`](adventure-frame.md) | The four members' faces, pools, purse and controls along the bottom of the drawn world, books opened by their keys over it and closed with Escape, and the fight's panel beside the world. |
 | [`world-events.md`](world-events.md) | Map events change how a place looks in place: a manor urn taken from its mantel and an ore vein mined to plain rock with ordinary use, both still so after save and resume; interior decorations resolved by name and drawn. |
 | [`world-interaction.md`](world-interaction.md) | A lever's door part moved in place and kept after resume; a struck townswoman flinches, bursts red, falls and lies as a body; the audit of event steps that change a place's look. |
 | [`world-objects.md`](world-objects.md) | Townspeople, trees and a campfire drawn as the original's sprites in the new game; the reticle's speaker is the drawn person; a body lies where a peasant fell and after save and resume; a staged barrow's creatures move. |

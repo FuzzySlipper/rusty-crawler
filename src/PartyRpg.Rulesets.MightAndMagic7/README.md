@@ -942,6 +942,13 @@ repeat-payment refusal, unrelated kills, partial return and five earned wins rea
 promotion/topic readers. The [arena reading](../../docs/evidence/arena-bouts.md) distinguishes focused
 checks from live acceptance.
 
+`MightAndMagic7Portraits` is this game's portrait meaning: each creation portrait is drawn with the first installed
+face set of its race and sex, in the donor's face order (OpenEnroth `src/Engine/mm7_data.cpp:50-55`, races by face at
+OpenEnroth `src/Engine/Objects/Character.cpp:2779-2791`, men before women by the voice table at `:2808-2834`), and a
+person's portrait with the interface image of its own name; which face of a group is ours. The session grants the
+members' faces through `PortraitImages` for the adventure frame; people's portraits are read the same way but drawn by
+no screen yet (the conversation screen, #9224).
+
 `MightAndMagic7Scene` is this game's scene meaning: a place is drawn from its imported `place-render` entry (the mesh
 beside the world pack, one material per entry naming a `texture` of the media pack, `terrain`/`water` opaque and
 `face`/`sky` cut out at palette zero, a `sky` face lighting itself), its doors by the collision layout's `door-<index>`

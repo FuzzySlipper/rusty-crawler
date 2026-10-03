@@ -23,7 +23,9 @@ its own:
 | `progression.ts`, `promotion.ts`, `skills.ts`, `magic.ts` + `spellbook.ts`, `alchemy.ts` | Levels, ranks, skills, the spellbook and the magic the pack carries, and mixing. |
 | `equipment.ts` | What each member wears, named working powers and permanent gifts, the pack's wearable and usable things, and ordinary Equip, Take off and Use controls; the product judges every action. |
 | `quests.ts`, `journal.ts`, `map.ts` | The quests book, the other four books, and the automap. |
-| `styles.ts` | The stylesheet. |
+| `hud.ts` | The adventure frame's persistent parts: the four portraits with the face the product granted, pools at the percentage it published, conditions and the fight's own readiness, a click selecting the member; the purse, larder and clock; the adventure controls and the book buttons; the place, automap, running effects and companions down the right; and the line saying what the party faces and what was last said. |
+| `frame.ts` | The screens over the world: the books a player opens (Character `I`, Spellbook `L`, Journal `J`, Map `V`, Rest), the contextual screens the product holds open, the keyboard handed to a book and back to the world, and the diagnostic panel (`` ` ``) holding every fact and session control. |
+| `styles.ts` | The stylesheet, laid out for the supported desktop viewport of 1280×720 and wider. |
 
 Boundary rules:
 
@@ -39,7 +41,12 @@ Boundary rules:
 - A projection field this companion reads and does not find is a broken contract, not a quiet session: it is named
   in the panel's problem list (`data-problems` on the panel), and the block it belongs to is read as unknown. The
   fixtures the companion suite mounts are the product's own output, so a renamed C# field fails a test.
-- The only thing kept between projections is what a section with controls last drew (`redrawGuard` in `dom.ts`).
+- What is kept between projections is presentation, and nothing else. The frame's screens (`frame.ts`): which book a
+  player has open — a button or its key opens it, the same again or Escape closes it, a contextual screen the product
+  opens closes it — whether the diagnostic panel shows, and whether a setup guidance has already opened it; none is
+  saved and none asks the product for anything. A contextual screen — creation, a conversation, a counter — is the
+  product's and shows exactly while the product holds it open. And what a section with controls last drew
+  (`redrawGuard` in `dom.ts`).
   A running session's projection changes every admitted update, because its simulation time and step count move,
   so an unchanged block still arrives many times a second; a section rebuilt on each would replace the button under
   the pointer between its press and release and reset a picker a player has open. The guard compares the whole
@@ -68,10 +75,11 @@ holding, price arithmetic or eligibility in the companion. Counters without an o
 
 ## Player-facing acceptance
 
-The current all-sections panel is a mechanism-inspection surface. Its controls and contract tests
-remain useful, but it does not satisfy the game-feature landing rule in the repository's
-[AGENTS.md](../../AGENTS.md). Adding another row, command, button or collapsible section to that
-scrolling panel is not an ordinary feature implementation.
+The adventure frame (`hud.ts`, `frame.ts`) is the player's surface: the world with the party's portraits, purse and
+controls, and the books and contextual screens over it. Until their own screens land (#9221–#9226), the books hold the
+existing sections unchanged; those sections and the diagnostic panel are a mechanism-inspection surface that does not
+satisfy the game-feature landing rule in the repository's [AGENTS.md](../../AGENTS.md). Adding another row, command,
+button or collapsible section to them is not an ordinary feature implementation.
 
 The product must instead present a persistent adventure HUD and recognizable contextual screens
 or visible world controls, following [the interface design](../../docs/gameplay-design.md#311-interface-surfaces--match-information-architecture--ours-presentation).

@@ -5,21 +5,131 @@
  */
 export const STYLES = `
 .crawler-session {
+  /* The frame covers the viewport and lets the world through: only its own parts take the pointer. */
   position: fixed;
-  top: 0.75rem;
-  left: 0.75rem;
-  min-width: 15rem;
-  max-width: 24rem;
-  /* The creation screen is taller than a short viewport, and a panel that runs off the bottom would put
-     the flow's own controls where nobody can reach them. */
-  max-height: calc(100vh - 1.5rem);
-  overflow-y: auto;
-  padding: 0.6rem 0.75rem;
-  border: 1px solid rgba(210, 196, 158, 0.35);
-  border-radius: 0.35rem;
-  background: rgba(18, 16, 14, 0.82);
+  inset: 0;
+  pointer-events: none;
   color: #e8e0cc;
   font: 13px/1.45 system-ui, sans-serif;
+}
+.crawler-session > * { pointer-events: auto; }
+.crawler-session [hidden] { display: none !important; }
+.crawler-session h2 { margin: 0; font-size: 1rem; letter-spacing: 0.03em; color: #f0dca0; }
+
+/* The bottom bar: four portraits, the purse and clock, the adventure controls and the books. */
+.crawler-hud {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 8.4rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 7.5rem 12rem 12rem;
+  gap: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  box-sizing: border-box;
+  background: linear-gradient(#2a241b, #16130f);
+  border-top: 2px solid #8a7446;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.5);
+}
+.crawler-roster { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.45rem; min-width: 0; }
+.crawler-session .crawler-member {
+  position: relative;
+  display: grid;
+  grid-template-columns: 4.1rem minmax(0, 1fr);
+  grid-template-rows: auto auto auto 1fr;
+  column-gap: 0.4rem;
+  align-items: start;
+  width: auto;
+  height: 100%;
+  padding: 0.25rem;
+  text-align: left;
+  border: 2px solid #4b4030;
+  border-radius: 0.2rem;
+  background: rgba(10, 9, 7, 0.8);
+  overflow: hidden;
+}
+.crawler-session .crawler-member[data-selected='yes'] { border-color: #e2b060; box-shadow: 0 0 6px rgba(226, 176, 96, 0.6); }
+.crawler-session .crawler-member[data-state='down'] { filter: grayscale(0.9) brightness(0.6); }
+.crawler-member-face, .crawler-member-initial {
+  grid-row: 1 / span 4;
+  width: 4.1rem; height: 4.75rem;
+  object-fit: cover;
+  image-rendering: pixelated;
+  border: 1px solid #000;
+  background: #222;
+}
+.crawler-member-initial { display: grid; place-items: center; font-size: 1.8rem; color: #8d8a7a; }
+.crawler-member-name { font-weight: 600; color: #f0e4c4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.crawler-bar { height: 0.45rem; margin-top: 0.25rem; background: #000; border: 1px solid #3a3226; }
+.crawler-bar-fill { height: 100%; background: #3fae4b; }
+.crawler-bar-spell .crawler-bar-fill { background: #3f6fd1; }
+.crawler-member-state { align-self: end; font-size: 0.68rem; color: #d6a76a; line-height: 1.2; overflow: hidden; }
+.crawler-member[data-state='recovering'] .crawler-member-state { color: #9fb6d6; }
+.crawler-purse { display: flex; flex-direction: column; justify-content: center; gap: 0.15rem; font-variant-numeric: tabular-nums; }
+.crawler-coins { color: #f2cf5b; font-weight: 600; }
+.crawler-food { color: #c9d48a; }
+.crawler-date, .crawler-time { color: #b9ad8c; font-size: 0.78rem; }
+.crawler-hud-actions, .crawler-books { display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: minmax(0, 1fr); gap: 0.2rem; }
+.crawler-session .crawler-hud-actions button, .crawler-session .crawler-books button { padding: 0.1rem 0.3rem; font-size: 0.72rem; }
+.crawler-session .crawler-hud-book[data-open='yes'] { border-color: #e2b060; background: rgba(96, 78, 50, 0.95); }
+.crawler-session .crawler-hud-diagnostics { color: #8d8a7a; }
+
+/* The right column: where the party is, the automap, and what is running on it. */
+.crawler-hud-side {
+  position: absolute;
+  top: 0.6rem; right: 0.6rem;
+  width: 12rem;
+  max-height: calc(100vh - 10rem);
+  overflow-y: auto;
+  padding: 0.4rem;
+  background: rgba(14, 12, 10, 0.78);
+  border: 1px solid #5a4b31;
+  border-radius: 0.25rem;
+}
+.crawler-hud-place { margin: 0 0 0.3rem; color: #f0dca0; font-weight: 600; text-align: center; }
+.crawler-minimap .crawler-step-head, .crawler-minimap .crawler-map-state, .crawler-minimap .crawler-map-detection { display: none; }
+.crawler-minimap .crawler-map-drawing { width: 100%; height: auto; aspect-ratio: 1; background: #0c0a08; }
+.crawler-hud-effects { margin: 0.35rem 0 0; padding: 0; list-style: none; font-size: 0.72rem; }
+.crawler-effect { color: #9fc7e6; }
+.crawler-hud-side .crawler-followers { margin-top: 0.35rem; font-size: 0.72rem; }
+
+/* The line along the top: what the party faces and what the last thing it did said. */
+.crawler-hud-message { position: absolute; top: 0.6rem; left: 50%; transform: translateX(-50%); max-width: 34rem; text-align: center; pointer-events: none; }
+.crawler-hud-message p { margin: 0 0 0.25rem; padding: 0.2rem 0.6rem; background: rgba(10, 9, 7, 0.72); border-radius: 0.2rem; }
+.crawler-facing { color: #f0e4c4; }
+.crawler-said { color: #e8c98a; font-size: 0.82rem; }
+
+/* The fight, beside the world while the party is in one. */
+.crawler-fight { position: absolute; top: 0.6rem; left: 0.6rem; width: 19rem; max-height: calc(100vh - 10rem); overflow-y: auto; }
+.crawler-fight > .crawler-combat { padding: 0.45rem 0.6rem; background: rgba(18, 16, 14, 0.86); border: 1px solid #5a4b31; border-radius: 0.25rem; }
+
+/* A screen over the world: a book the player opened, or what the product put in front of the party. */
+.crawler-screens { position: absolute; inset: 0.6rem 13.4rem 9rem 0.6rem; pointer-events: none; }
+.crawler-session[data-screen='creation'] .crawler-screens { inset: 0.6rem; }
+.crawler-screen {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  pointer-events: auto;
+  background: linear-gradient(#2b241a, #1b1711);
+  border: 2px solid #8a7446;
+  border-radius: 0.3rem;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6);
+}
+.crawler-screen-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.4rem 0.7rem; border-bottom: 1px solid #5a4b31; }
+.crawler-session .crawler-screen-close { width: auto; }
+.crawler-screen-body { flex: 1; overflow-y: auto; padding: 0.5rem 0.8rem; columns: 2 22rem; column-gap: 1.2rem; }
+.crawler-screen-body > section { break-inside: avoid-column; margin-bottom: 0.6rem; }
+.crawler-screen[data-screen='map'] .crawler-screen-body, .crawler-screen[data-screen='creation'] .crawler-screen-body,
+.crawler-screen[data-screen='conversation'] .crawler-screen-body, .crawler-screen[data-screen='service'] .crawler-screen-body { columns: auto; }
+.crawler-screen[data-screen='map'] .crawler-map-drawing { display: block; height: calc(100vh - 17rem); width: auto; margin: 0 auto; aspect-ratio: 1; background: #0c0a08; }
+
+/* The diagnostic panel: every fact and control the product publishes, kept out of the player's way. */
+.crawler-diagnostics {
+  position: absolute; top: 0.6rem; left: 0.6rem; bottom: 9rem;
+  width: 24rem; overflow-y: auto;
+  padding: 0.6rem 0.75rem;
+  background: rgba(18, 16, 14, 0.92);
+  border: 1px solid rgba(210, 196, 158, 0.35);
+  border-radius: 0.35rem;
 }
 .crawler-session h1 { margin: 0 0 0.15rem; font-size: 1rem; letter-spacing: 0.02em; }
 .crawler-session .crawler-ruleset { margin: 0 0 0.25rem; color: #b9ad8c; font-size: 0.78rem; }

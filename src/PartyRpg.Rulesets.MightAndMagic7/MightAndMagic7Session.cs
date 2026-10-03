@@ -394,6 +394,11 @@ internal sealed class MightAndMagic7Session : IGameSession
             Equipment = figure,
             ItemUses = itemMagic,
 
+            // The portraits the panel draws members with are the installed faces, granted to the panel through the
+            // Engine once each.
+            Portraits = context.Engine is { } portraitEngine
+                ? new PortraitImages(portraitEngine, MightAndMagic7Portraits.Read(Declared(context.Content)).PathOf)
+                : null,
             // The world is drawn from the content this game reads it from, by the same door state the collision and
             // the interactions read, under this game's light at the clock's hour. Nothing is drawn for a session over
             // content that carries no scenes, or a session with no engine.

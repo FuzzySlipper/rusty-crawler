@@ -10,7 +10,10 @@
  * would be hiding the game's rules.
  *
  * This module only composes the panel: each block is read by its own module and drawn by its own section, and every
- * reader and every section is a named export the companion suite can call on its own.
+ * reader and every section is a named export the companion suite can call on its own. The adventure frame places
+ * them: the party's portraits, purse and controls along the bottom (`hud.ts`), the automap and what is running down
+ * the right, the fight beside the world, each feature in the screen a player opens for it or the product shows for it
+ * (`frame.ts`), and the facts and controls a developer reads in a diagnostic panel kept out of the way.
  */
 
 import { mountAlchemy } from './alchemy.js';
@@ -22,6 +25,8 @@ import { mountCreation } from './creation.js';
 import { mountDetails } from './details.js';
 import { element, type Host } from './dom.js';
 import { mountEquipment } from './equipment.js';
+import { mountFrame } from './frame.js';
+import { mountHud, type Hud } from './hud.js';
 import { mountJournal } from './journal.js';
 import { mountMap } from './map.js';
 import { mountProgression } from './progression.js';
@@ -113,32 +118,37 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   const problems = element('ul', 'crawler-problems');
   problems.hidden = true;
 
-  // The screens a player acts on come before the long list of facts: while a party is being made its choices are
-  // what a player acts on, and a counter's shelves, a conversation, and a fight are the same.
-  panel.append(
-    ...details.top,
-    creation.element,
-    conversation.element,
-    service.element,
-    rest.element,
-    combat.element,
-    progression.element,
-    promotion.element,
-    skills.element,
-    spellbook.element,
-    alchemy.element,
-    equipment.element,
-    details.awards,
-    map.element,
-    journal.element,
-    ...details.bottom,
-    problems,
-  );
+  // The frame: the screens over the world, the bar along the bottom, and the column down the right. Each feature's
+  // section lives in the screen a player opens for it, or the one the product shows while it is in front of the party.
+  let marked: Hud | null = null;
+  const frame = mountFrame(panel, context, (screen) => marked?.mark(screen));
+  const hud = mountHud(host, { open: (screen) => frame.open(screen), toggleDiagnostics: () => frame.toggleDiagnostics() });
+  marked = hud;
+  frame.body('creation').append(creation.element);
+  frame.body('conversation').append(conversation.element);
+  frame.body('service').append(service.element);
+  frame.body('rest').append(rest.element);
+  frame.body('character').append(equipment.element, skills.element, progression.element, promotion.element);
+  frame.body('spellbook').append(spellbook.element, alchemy.element);
+  frame.body('journal').append(journal.element, details.awards);
+  frame.body('map').append(map.element);
+
+  // The fight stays beside the world, where the party is fighting it.
+  const fight = element('div', 'crawler-fight');
+  fight.append(combat.element);
+
+  // The facts and controls a developer reads: kept, complete and current, but out of the player's way.
+  frame.diagnostics.append(...details.top, ...details.bottom, problems);
+  hud.side.append(details.companions);
+  panel.append(hud.message, fight, hud.side, frame.element, hud.bar, frame.diagnostics);
   root.append(style, panel);
 
   const render = (snapshot: SnapshotView): void => {
     const { controls } = snapshot;
     details.render(snapshot);
+    hud.render(snapshot);
+    // The fight's panel stands beside the world while something is fighting the party, and only then.
+    fight.hidden = !snapshot.combat.engaged;
     creation.render({
       creation: snapshot.creation,
       resumed: snapshot.save.resumed,
@@ -180,6 +190,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     // its runtime is rebound — and the panel says so rather than presenting the last one as current.
     if (projection === null) {
       panel.dataset.projection = 'none';
+      frame.clear();
       return;
     }
 
@@ -196,7 +207,10 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
         return item;
       }),
     );
-    if (reading.snapshot !== null) render(reading.snapshot);
+    if (reading.snapshot !== null) {
+      render(reading.snapshot);
+      frame.render(reading.snapshot);
+    }
   };
 
   // The Engine delivers the current envelope before `subscribe` returns, so a panel mounted after the product has
@@ -206,6 +220,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   return {
     dispose(): void {
       unsubscribe?.();
+      frame.dispose();
       panel.remove();
       style.remove();
     },

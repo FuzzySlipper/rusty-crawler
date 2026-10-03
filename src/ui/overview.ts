@@ -128,6 +128,28 @@ export interface DebtView {
   readonly coins: number;
 }
 
+/** One member as the adventure frame shows them: who they are, their face, their pools and whether they are selected. */
+export interface RosterMemberView {
+  /** The member's identity, which selecting them and every per-member block names them by. */
+  readonly member: string;
+  readonly name: string;
+  /** The class the member plays, as content names it. */
+  readonly class: string;
+  readonly portrait: string;
+  /** Where the Engine serves the portrait's image, empty when none is drawn. */
+  readonly portraitImage: string;
+  readonly hitPoints: number;
+  readonly hitPointsMax: number;
+  readonly spellPoints: number;
+  readonly spellPointsMax: number;
+  /** How full the member's hit points are, a whole percentage the product worked out, which a bar is drawn at. */
+  readonly hitPointsPercent: number;
+  readonly spellPointsPercent: number;
+  /** The conditions acting on the member, in the product's own words, empty when none act. */
+  readonly conditions: string;
+  readonly selected: boolean;
+}
+
 /** The party's own accounts and standing. `present` is false when the session holds no party. */
 export interface PartyView {
   readonly present: boolean;
@@ -163,6 +185,8 @@ export interface PartyView {
   readonly hitPointsMax: number;
   readonly spellPoints: number;
   readonly spellPointsMax: number;
+  /** The members in roster order. */
+  readonly roster: readonly RosterMemberView[];
 }
 
 /**
@@ -347,6 +371,21 @@ export function readParty(f: Fields): PartyView {
     hitPointsMax: f.number('hitPointsMax'),
     spellPoints: f.number('spellPoints'),
     spellPointsMax: f.number('spellPointsMax'),
+    roster: f.list('roster', (member) => ({
+      member: member.text('member'),
+      name: member.text('name'),
+      class: member.text('class'),
+      portrait: member.text('portrait'),
+      portraitImage: member.text('portraitImage'),
+      hitPoints: member.number('hitPoints'),
+      hitPointsMax: member.number('hitPointsMax'),
+      spellPoints: member.number('spellPoints'),
+      spellPointsMax: member.number('spellPointsMax'),
+      hitPointsPercent: member.number('hitPointsPercent'),
+      spellPointsPercent: member.number('spellPointsPercent'),
+      conditions: member.text('conditions'),
+      selected: member.flag('selected'),
+    })),
   };
 }
 

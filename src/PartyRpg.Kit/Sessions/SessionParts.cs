@@ -94,6 +94,12 @@ public sealed record SessionRules
     /// party after every admitted update once a world exists, and releases it with itself.
     /// </summary>
     public Scene.IWorldPresenter? View { get; init; }
+
+    /// <summary>
+    /// The images the game's portraits are drawn with in the panel, or null for a session that grants none. The session
+    /// releases it with itself.
+    /// </summary>
+    public Presentation.PortraitImages? Portraits { get; init; }
 }
 
 /// <summary>A game's answers about growth, and the ladder of ranks it states.</summary>

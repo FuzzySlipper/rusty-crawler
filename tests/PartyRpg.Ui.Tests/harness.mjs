@@ -161,11 +161,12 @@ export function harness() {
       );
     },
     panel: () => root.querySelector('.crawler-session'),
-    // The session's own action button is a direct child of the panel: the creation screen's buttons live inside
-    // their own section, and a case that clicks 'the button' means the session's.
-    button: () => root.querySelector('.crawler-session > button'),
-    saveButton: () => root.querySelector('.crawler-session > button.crawler-save'),
-    useButton: () => root.querySelector('.crawler-session > button.crawler-use'),
+    // The session's own action buttons are direct children of the diagnostic panel, where the frame keeps every
+    // control the product publishes: the creation screen's buttons live inside their own section, and a case that
+    // clicks 'the button' means the session's.
+    button: () => root.querySelector('.crawler-diagnostics > button'),
+    saveButton: () => root.querySelector('.crawler-diagnostics > button.crawler-save'),
+    useButton: () => root.querySelector('.crawler-diagnostics > button.crawler-use'),
     /** The problems the panel named reading the last projection, as it printed them. */
     problems: () => [...(root.querySelectorAll('.crawler-problems li') ?? [])].map((item) => item.textContent),
     get unsubscribed() {

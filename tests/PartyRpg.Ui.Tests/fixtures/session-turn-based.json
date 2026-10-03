@@ -59,6 +59,38 @@
       }
     ],
     "followers": [],
+    "roster": [
+      {
+        "member": "1",
+        "name": "Roderick",
+        "class": "Knight",
+        "portrait": "human-man",
+        "portraitImage": "/__rusty/product/runtime/ui-images/1",
+        "hitPoints": 40,
+        "hitPointsMax": 40,
+        "spellPoints": 0,
+        "spellPointsMax": 0,
+        "hitPointsPercent": 100,
+        "spellPointsPercent": 0,
+        "conditions": "",
+        "selected": true
+      },
+      {
+        "member": "2",
+        "name": "Aelina",
+        "class": "Sorcerer",
+        "portrait": "elf-woman",
+        "portraitImage": "",
+        "hitPoints": 0,
+        "hitPointsMax": 24,
+        "spellPoints": 15,
+        "spellPointsMax": 20,
+        "hitPointsPercent": 0,
+        "spellPointsPercent": 75,
+        "conditions": "Unconscious",
+        "selected": false
+      }
+    ],
     "debts": [
       {
         "account": "fine",

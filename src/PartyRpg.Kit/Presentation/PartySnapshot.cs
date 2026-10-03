@@ -15,6 +15,56 @@ public sealed record FollowerSnapshot(string Id, string Name, string Portrait, s
         ("talkAction", builder.String(ConversationActions.Follower)));
 }
 
+/// <summary>One member of the party as the adventure frame shows them: who they are, their face and their pools.</summary>
+/// <param name="Member">The member's identity, which selecting them and every per-member block names them by.</param>
+/// <param name="Name">What the member is called.</param>
+/// <param name="Class">The class the member plays, as content names it.</param>
+/// <param name="Portrait">The portrait the member was made with, empty when it carries none.</param>
+/// <param name="PortraitImage">The URL the Engine serves that portrait's image at, empty when none is drawn.</param>
+/// <param name="HitPoints">What the member has left to lose.</param>
+/// <param name="HitPointsMax">What the member could have.</param>
+/// <param name="SpellPoints">What the member has left to cast with.</param>
+/// <param name="SpellPointsMax">What the member could have.</param>
+/// <param name="Conditions">The conditions acting on the member, in the order they carry them, empty when none act.</param>
+/// <param name="Selected">Whether the member is the one an ordinary order addresses.</param>
+public sealed record PartyMemberSnapshot(
+    string Member,
+    string Name,
+    string Class,
+    string Portrait,
+    string PortraitImage,
+    int HitPoints,
+    int HitPointsMax,
+    int SpellPoints,
+    int SpellPointsMax,
+    string Conditions,
+    bool Selected)
+{
+    /// <summary>How full the member's hit points are, a whole percentage from 0 to 100, which a bar is drawn at.</summary>
+    public int HitPointsPercent => Percent(HitPoints, HitPointsMax);
+
+    /// <summary>How full the member's spell points are, a whole percentage from 0 to 100.</summary>
+    public int SpellPointsPercent => Percent(SpellPoints, SpellPointsMax);
+
+    /// <summary>A pool's fullness as a whole percentage, nothing below empty and nothing for a pool with no measure.</summary>
+    private static int Percent(int current, int maximum) => maximum <= 0 ? 0 : Math.Clamp(current * 100 / maximum, 0, 100);
+
+    internal uint Write(UiValueBuilder builder) => builder.Object(
+        ("member", builder.String(Member)),
+        ("name", builder.String(Name)),
+        ("class", builder.String(Class)),
+        ("portrait", builder.String(Portrait)),
+        ("portraitImage", builder.String(PortraitImage)),
+        ("hitPoints", builder.Number(HitPoints)),
+        ("hitPointsMax", builder.Number(HitPointsMax)),
+        ("spellPoints", builder.Number(SpellPoints)),
+        ("spellPointsMax", builder.Number(SpellPointsMax)),
+        ("hitPointsPercent", builder.Number(HitPointsPercent)),
+        ("spellPointsPercent", builder.Number(SpellPointsPercent)),
+        ("conditions", builder.String(Conditions)),
+        ("selected", builder.Boolean(Selected)));
+}
+
 /// <summary>One thing the party has accomplished, as the panel shows it.</summary>
 /// <remarks>
 /// The row is the reading a game gave of one party-carried record: what it is called, which family the game
@@ -121,6 +171,9 @@ public sealed record PartySnapshot(
     /// <summary>The companions actually travelling with the party, in join order.</summary>
     public IReadOnlyList<FollowerSnapshot> Followers { get; init; } = [];
 
+    /// <summary>The members, in roster order, each with their face, pools, conditions and whether they are selected.</summary>
+    public IReadOnlyList<PartyMemberSnapshot> Roster { get; init; } = [];
+
     /// <summary>The party of a session that holds none.</summary>
     public static PartySnapshot None => new(false, 0, 0, 0, string.Empty, 0, 0, string.Empty, []);
 
@@ -132,7 +185,9 @@ public sealed record PartySnapshot(
     /// layer's reading of a threshold it does not own.
     /// </param>
     /// <returns>The party's accounts and standing, or the not-known value.</returns>
-    public static PartySnapshot From(PartyEntity? party, IStandingRule? standing = null, IFollowerConversationRule? followers = null)
+    /// <param name="portraits">The images portraits are drawn with, or null for a session that grants none.</param>
+    public static PartySnapshot From(PartyEntity? party, IStandingRule? standing = null, IFollowerConversationRule? followers = null,
+        PortraitImages? portraits = null)
     {
         if (party is null) return None;
         int hitPoints = 0;
@@ -186,8 +241,27 @@ public sealed record PartySnapshot(
                 return new FollowerSnapshot(follower.Definition.Value, person?.Name ?? follower.Definition.Value,
                     person?.Portrait ?? string.Empty, follower.Kind == FollowerKind.Hired ? "hired" : "story", person is not null);
             })],
+            Roster = [.. party.Members.Select(member =>
+            {
+                string portrait = member.Profile.Portrait?.Value ?? string.Empty;
+                return new PartyMemberSnapshot(
+                    member.Id.ToString(),
+                    member.Profile.Name,
+                    member.Profile.Class.Value,
+                    portrait,
+                    portraits?.Url(portrait) ?? string.Empty,
+                    member.Resources.HitPoints.Current,
+                    member.Resources.HitPoints.Maximum,
+                    member.Resources.SpellPoints.Current,
+                    member.Resources.SpellPoints.Maximum,
+                    string.Join(", ", member.Conditions.Active.Select(Describe)),
+                    party.Roster.SelectedMember == member.Id);
+            })],
         };
     }
+
+    private static string Describe(ActiveCondition condition) =>
+        condition.Severity > 0 ? $"{condition.Condition} ({condition.Severity})" : condition.Condition.ToString();
 
     /// <summary>
     /// Describes the conditions acting on the party, one entry per condition however many members carry it.
@@ -206,9 +280,7 @@ public sealed record PartySnapshot(
             foreach (ActiveCondition condition in member.Conditions.Active)
             {
                 if (!seen.Add(condition.Condition)) continue;
-                acting.Add(condition.Severity > 0
-                    ? $"{condition.Condition} ({condition.Severity})"
-                    : condition.Condition.ToString());
+                acting.Add(Describe(condition));
             }
         }
 
@@ -259,6 +331,8 @@ public sealed record PartySnapshot(
             // What the party owes, one row per account: the account is the game's own word for it, and the coins
             // are what a counter that collects it would take.
             ("followers", builder.Array([.. Followers.Select(follower => follower.Write(builder))])),
+            // Each member as the adventure frame shows them, in roster order: face, pools, conditions, selection.
+            ("roster", builder.Array([.. Roster.Select(member => member.Write(builder))])),
             ("debts", builder.Array([.. Debts.Select(debt => builder.Object(
                 ("account", builder.String(debt.Account)),
                 ("coins", builder.Number(debt.Coins))))])));

@@ -199,7 +199,21 @@ public sealed class RecordingUiService : IUiService
 
     public void PublishProjection(UiProjection projection) => _projections.Add(projection);
 
-    /// <summary>The product opens no UI images; a test that reaches this has found a new dependency.</summary>
-    public UiImage OpenImage(UiImageRequest request) =>
-        throw new NotSupportedException("The product opens no UI images, so the recording UI service does not provide them.");
+    private ulong _nextImage = 1;
+    private readonly List<UiImageRequest> _images = [];
+    private readonly HashSet<ulong> _released = [];
+
+    /// <summary>Every image granted to the panel, in order.</summary>
+    public IReadOnlyList<UiImageRequest> Images => _images;
+
+    /// <summary>The handles of the granted images that have been released.</summary>
+    public IReadOnlySet<ulong> ReleasedImages => _released;
+
+    /// <summary>Grants an image under the next handle and records the request; releasing it is recorded too.</summary>
+    public UiImage OpenImage(UiImageRequest request)
+    {
+        _images.Add(request);
+        ulong handle = _nextImage++;
+        return new UiImage(new UiImageHandle(handle), () => _released.Add(handle));
+    }
 }

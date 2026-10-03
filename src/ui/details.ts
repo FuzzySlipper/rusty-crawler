@@ -63,6 +63,8 @@ export interface Details {
   readonly bottom: readonly HTMLElement[];
   /** The accomplishments section, which the panel places among the other sections. */
   readonly awards: HTMLElement;
+  /** The companions travelling with the party and the talk each offers, which the frame keeps in view. */
+  readonly companions: HTMLElement;
   render(snapshot: SnapshotView): void;
 }
 
@@ -379,8 +381,9 @@ export function mountDetails(host: Host): Details {
 
   return {
     top: [title, ruleset, bundle, place, setup],
-    bottom: [details, companions, action, saveButton, useButton, saveResult, useResult, useResidue, hint],
+    bottom: [details, action, saveButton, useButton, saveResult, useResult, useResidue, hint],
     awards,
+    companions,
     render,
   };
 }

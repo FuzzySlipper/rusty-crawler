@@ -53,14 +53,16 @@ internal sealed class ProjectionReadings
     /// <param name="party">The party, when the session has one.</param>
     /// <param name="stamp">The party's change stamp, read once for the whole projection.</param>
     /// <param name="standing">The game's reading of the party's standing, which reads the party alone.</param>
-    public PartySnapshot Party(PartyEntity? party, long stamp, IStandingRule? standing, IFollowerConversationRule? followers) =>
-        Read(ref _party, new PartyKey(party, stamp), () => PartySnapshot.From(party, standing, followers));
+    /// <param name="portraits">The images the members' portraits are drawn with, which a composition does not change.</param>
+    public PartySnapshot Party(PartyEntity? party, long stamp, IStandingRule? standing, IFollowerConversationRule? followers,
+        PortraitImages? portraits = null) =>
+        Read(ref _party, new PartyKey(party, stamp, party?.Roster.SelectedMember), () => PartySnapshot.From(party, standing, followers, portraits));
 
     /// <summary>The members a played party was made with, which the creation block shows once creation is over.</summary>
     /// <param name="party">The party, when the session has one.</param>
     /// <param name="stamp">The party's change stamp.</param>
     public CreationSnapshot Members(PartyEntity? party, long stamp) =>
-        Read(ref _members, new PartyKey(party, stamp), () => CreationSnapshot.OfParty(party));
+        Read(ref _members, new PartyKey(party, stamp, null), () => CreationSnapshot.OfParty(party));
 
     /// <summary>The skills block: every member's skills, ceilings and what a raise would cost, and the last raise.</summary>
     /// <param name="progression">The progression owner, when the session has one.</param>
@@ -214,7 +216,8 @@ internal sealed class ProjectionReadings
         public override int GetHashCode() => _rows.Count;
     }
 
-    private readonly record struct PartyKey(PartyEntity? Party, long Stamp);
+    /// <summary>A party reading's key: the party, its change stamp, and the member selected, which no stamp moves.</summary>
+    private readonly record struct PartyKey(PartyEntity? Party, long Stamp, PartyMemberId? Selected);
 
     private readonly record struct ProgressionKey(PartyProgression? Owner, long Stamp, long Party);
 
