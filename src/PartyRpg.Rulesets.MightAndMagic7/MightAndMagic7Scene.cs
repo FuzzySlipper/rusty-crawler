@@ -385,7 +385,7 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
         {
             // Interiors: a dim even fill and the light the party carries, which reaches a room but not a long hall.
             return new SceneLighting(new Vector3(1f, 0.95f, 0.85f), Light(MightAndMagic7Tuning.LightInteriorAmbient), null, Vector3.Zero, 0f,
-                new Vector3(0f, 0f, 0f), Carried());
+                new Vector3(0f, 0f, 0f), Carried(), Fog: Fog(MightAndMagic7Tuning.ViewInteriorFogStart, MightAndMagic7Tuning.ViewInteriorFogEnd));
         }
 
         // Outdoors the sun climbs from the calendar's dawn to its noon and sets at its dusk, in the east-west plane. Its
@@ -409,7 +409,19 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
             Light(MightAndMagic7Tuning.LightSun) * level,
             sky,
             level <= 0 ? Carried() : null,
-            SkyVisible: level > 0);
+            SkyVisible: level > 0,
+            Fog: Fog(MightAndMagic7Tuning.ViewFogStart, MightAndMagic7Tuning.ViewFogEnd));
+    }
+
+    /// <summary>
+    /// A distance fade between two tuned distances, ending no farther than the camera sees and starting before it ends.
+    /// Ours: the donor fades distance only under foggy weather (OpenEnroth <c>src/Engine/Graphics/Renderer/OpenGLRenderer.cpp:1626-1652</c>)
+    /// and otherwise ends the world at its far clip, which reads as a hard edge here.
+    /// </summary>
+    private (float Start, float End) Fog(TuningHandle start, TuningHandle end)
+    {
+        float last = Math.Min(Light(end), (float)_tuning[MightAndMagic7Tuning.ViewDistance]);
+        return (Math.Min(Light(start), last * 0.99f), last);
     }
 
     private float Light(TuningHandle handle) => (float)_tuning[handle];

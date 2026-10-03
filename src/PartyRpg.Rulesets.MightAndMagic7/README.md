@@ -944,7 +944,7 @@ names and read exactly as `MightAndMagic7Geometry` reads them (the place's door 
 `MightAndMagic7Interaction.DoorState`), and its sky outdoors only. The eye is the donor's default 160 units above the
 feet (OpenEnroth `src/Engine/Party.h:281`). Light is ours: a sun that rises at the calendar's dawn and sets at its dusk,
 a dim blue night under a clear dark sky with the party's light, and a dim interior lit by the light the party carries
-(no inverse-square falloff at this unit scale). The [world rendering reading](../../docs/evidence/world-rendering.md)
+(no inverse-square falloff at this unit scale). Distance fades into the sky's colour outdoors and into darkness indoors between tuned distances (`view.fog-start`/`view.fog-end`, `view.interior-fog-start`/`view.interior-fog-end`), never past the view distance; ours, since the donor fades only in foggy weather (OpenEnroth `src/Engine/Graphics/Renderer/OpenGLRenderer.cpp:1626-1652`). The [world rendering reading](../../docs/evidence/world-rendering.md)
 records the ordinary new game drawn outdoors and an interior entered and left.
 
 What stands in a place is drawn from the same scene reading (`MightAndMagic7Scene.Objects`): each decoration by its

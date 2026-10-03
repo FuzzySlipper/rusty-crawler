@@ -59,6 +59,10 @@ public sealed class WorldViewTests
             Assert.Equal(0d, camera.Pose.PitchDegrees, 6);
             Assert.Equal(new Vector3(100, 160, -200), camera.Pose.Position);
 
+            // Distance fades into the background colour between the rule's two distances.
+            FogRequest fog = (FogRequest)Assert.Single(cameras.CallsTo(nameof(ICameraViewService.SetFog)))[0]!;
+            Assert.Equal((FogMode.Linear, 2_000f, 9_000f), (fog.Mode, fog.Start, fog.End));
+
             // Nothing changed, so nothing is rebuilt or republished; the camera follows the party every update.
             view.Present(party, 0);
             Assert.Equal(2, graphics.Calls.CallsTo(nameof(IGraphicsService.CreateMeshResource)).Count);
@@ -245,7 +249,7 @@ public sealed class WorldViewTests
         public double ViewDistance => 10_000;
 
         public SceneLighting Lighting(PlaceId place, bool outdoors) =>
-            new(Vector3.One, 0.5f, null, Vector3.One, 0f, Vector3.Zero);
+            new(Vector3.One, 0.5f, null, Vector3.One, 0f, Vector3.Zero, Fog: (2_000f, 9_000f));
 
         public bool IsClosed(PlaceId place, string door) => Closed && door == "door-4";
 

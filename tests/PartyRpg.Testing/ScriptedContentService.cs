@@ -28,6 +28,8 @@ public sealed class ScriptedContentService : IContentService
     }
 
     /// <inheritdoc />
+    public void PackContainer(ContentContainerPackRequest request) => throw Unsupported();
+
     public PortableAsset LoadPortableAsset(PortableAssetLoadRequest request) => throw Unsupported();
 
     /// <inheritdoc />

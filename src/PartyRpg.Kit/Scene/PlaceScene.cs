@@ -54,6 +54,8 @@ public interface IPlaceSceneSource
 /// <param name="Background">The colour behind everything where no sky is drawn, and the colour distance fades into.</param>
 /// <param name="Carried">The light the party carries, as a colour, with its strength and reach, or null for none.</param>
 /// <param name="SkyVisible">Whether a place's sky panorama shows now; when it does not, the background colour does.</param>
+/// <param name="Fog">How far from the eye distance starts to fade into the background colour and where it has wholly
+/// faded, in place units, or null for no fade.</param>
 public sealed record SceneLighting(
     Vector3 Ambient,
     float AmbientIntensity,
@@ -62,7 +64,8 @@ public sealed record SceneLighting(
     float SunIntensity,
     Vector3 Background,
     (Vector3 Colour, float Intensity, float Range)? Carried = null,
-    bool SkyVisible = true);
+    bool SkyVisible = true,
+    (float Start, float End)? Fog = null);
 
 /// <summary>A game's answers about how its world is seen: where the eye is, how a place is lit, and which doors stand closed.</summary>
 public interface ISceneRule

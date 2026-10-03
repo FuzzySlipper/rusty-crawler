@@ -247,13 +247,13 @@ public sealed class WorldView : IWorldPresenter
         return Graphics.CreateMaterial(new MaterialRequest(
             colour,
             texture is null ? default : new RenderResourceReference(texture),
-            Roughness: 1f,
-            TextureTint: white,
-            EmissionColor: material.Emissive ? Vector3.One : Vector3.Zero,
-            EmissionIntensity: material.Emissive ? 1f : 0f,
-            DoubleSided: true,
-            material.Alpha == SceneAlpha.Cutout ? MaterialAlphaMode.Mask : MaterialAlphaMode.Opaque,
-            AlphaCutoff: 0.5f));
+            roughness: 1f,
+            textureTint: white,
+            emissionColor: material.Emissive ? Vector3.One : Vector3.Zero,
+            emissionIntensity: material.Emissive ? 1f : 0f,
+            doubleSided: true,
+            alphaMode: material.Alpha == SceneAlpha.Cutout ? MaterialAlphaMode.Mask : MaterialAlphaMode.Opaque,
+            alphaCutoff: 0.5f));
     }
 
     /// <summary>Reads a place's mesh document whole through the Engine's content service.</summary>
@@ -437,6 +437,10 @@ public sealed class WorldView : IWorldPresenter
             Cameras.ClearSkyBackground(new ClearSkyBackgroundRequest(0));
             Cameras.SetBackgroundColor(new SetBackgroundColorRequest(new Color(lighting.Background.X, lighting.Background.Y, lighting.Background.Z, 1f)));
         }
+        // Distance fades linearly into the background colour, which the Engine never fogs, so far geometry meets it.
+        Cameras.SetFog(lighting.Fog is { } fog
+            ? new FogRequest(FogMode.Linear, new Color(lighting.Background.X, lighting.Background.Y, lighting.Background.Z, 1f), fog.Start, fog.End, 0f)
+            : new FogRequest(FogMode.Off, default, 0f, 0f, 0f));
         _ambient = Replace(_ambient, 1, new LightDescriptor(LightKind.Ambient, lighting.Ambient, lighting.AmbientIntensity, true,
             Vector3.Zero, -Vector3.UnitY, false, 0f, 0f, 0f, 0f, LightShadowIntent.Disabled));
         _sun = Replace(_sun, 2, new LightDescriptor(LightKind.Directional, lighting.Sun, lighting.SunIntensity, lighting.SunDirection is not null,

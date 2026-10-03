@@ -51,6 +51,8 @@ discovery. Falls on that route cost hit points (movement's own rule).
 
 People, creatures, objects and bodies are drawn by #9218 ([reading](world-objects.md)); interaction and combat
 changes are #9219's ([reading](world-interaction.md)), whose audit routed the event steps that change a place's look
-to #9254. Distance fog and tone mapping are not in the pinned Engine pair's camera service, so
-none is applied. The door faces keep their texture coordinates as the door moves (the donor slides them). No GPU
+to #9254. Since the Engine pair moved forward, distance fades linearly into the background colour through
+`CameraView.SetFog`. This is ours: the donor fades only in foggy weather. The fade runs from `view.fog-start` to
+`view.fog-end` outdoors and to black indoors (`29-distance-fade-sea.png`: the sea's far edge fades into a pale horizon).
+Tone mapping stays off, so the frames read as before. The door faces keep their texture coordinates as the door moves (the donor slides them). No GPU
 timing or frame-rate claim follows from these captures.

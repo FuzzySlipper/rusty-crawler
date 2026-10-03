@@ -134,6 +134,8 @@ public sealed class ScriptedSpatialService : ISpatialService
     /// <inheritdoc />
     public SpatialContentArtifactReadout ReadContentArtifact(SpatialContentArtifactReadRequest request) => throw Unsupported();
 
+    public SpatialContentArtifactResidencyReceipt ApplyContentArtifactResidency(SpatialContentArtifactResidencyRequest request) => throw Unsupported();
+
     /// <inheritdoc />
     public NavigationReplaceReceipt ReplaceNavigation(NavigationReplaceRequest request) => throw Unsupported();
 

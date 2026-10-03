@@ -198,4 +198,8 @@ public sealed class RecordingUiService : IUiService
     }
 
     public void PublishProjection(UiProjection projection) => _projections.Add(projection);
+
+    /// <summary>The product opens no UI images; a test that reaches this has found a new dependency.</summary>
+    public UiImage OpenImage(UiImageRequest request) =>
+        throw new NotSupportedException("The product opens no UI images, so the recording UI service does not provide them.");
 }

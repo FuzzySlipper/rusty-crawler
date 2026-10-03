@@ -499,6 +499,9 @@ public sealed class ProductLifecycleTests
             return new UiStream(new UiStreamHandle(_nextHandle++), () => Released++);
         }
 
+        public UiImage OpenImage(UiImageRequest request) =>
+            throw new NotSupportedException("The product opens no UI images.");
+
         public void PublishProjection(UiProjection projection) => _projections.Add(projection);
     }
 

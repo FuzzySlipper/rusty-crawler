@@ -48,6 +48,7 @@ public sealed class ScenePolicyTests
         Assert.NotNull(morning.SunDirection);
         Assert.True(morning.SkyVisible);
         Assert.Null(morning.Carried);
+        Assert.Equal((24_000f, 90_000f), morning.Fog);
 
         clock.Advance(GameDuration.FromHours(17));
         SceneLighting night = scene.Lighting(new PlaceId("1"), outdoors: true);
@@ -61,6 +62,7 @@ public sealed class ScenePolicyTests
         SceneLighting indoors = scene.Lighting(new PlaceId("2"), outdoors: false);
         Assert.Null(indoors.SunDirection);
         Assert.NotNull(indoors.Carried);
+        Assert.Equal((3_000f, 14_000f), indoors.Fog);
     }
 
     [Fact]

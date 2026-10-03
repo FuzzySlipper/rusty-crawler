@@ -101,6 +101,18 @@ internal static class MightAndMagic7Tuning
     /// <summary>How far the camera sees, in place units (ours: across a whole 127-square region).</summary>
     internal static readonly TuningHandle ViewDistance = new("view.distance", 96_000, 4_000, 200_000, "how far the camera sees, in place units");
     /// <summary>The fill light that reaches every outdoor surface at noon (ours, like every light value).</summary>
+    /// <summary>Where outdoor distance starts to fade into the sky's colour (ours: the donor fades only in foggy weather).</summary>
+    internal static readonly TuningHandle ViewFogStart = new("view.fog-start", 24_000, 0, 200_000, "how far outdoors distance starts to fade into the sky's colour, in place units");
+
+    /// <summary>Where outdoor distance has wholly faded; never beyond what the camera sees.</summary>
+    internal static readonly TuningHandle ViewFogEnd = new("view.fog-end", 90_000, 100, 200_000, "how far outdoors distance has wholly faded, in place units");
+
+    /// <summary>Where interior distance starts to fade into darkness.</summary>
+    internal static readonly TuningHandle ViewInteriorFogStart = new("view.interior-fog-start", 3_000, 0, 200_000, "how far indoors distance starts to fade into darkness, in place units");
+
+    /// <summary>Where interior distance has wholly faded into darkness.</summary>
+    internal static readonly TuningHandle ViewInteriorFogEnd = new("view.interior-fog-end", 14_000, 100, 200_000, "how far indoors distance has wholly faded into darkness, in place units");
+
     internal static readonly TuningHandle LightDayAmbient = new("light.day-ambient", 0.8, 0, 4, "the outdoor fill light at full day", Whole: false);
     /// <summary>The fill light outdoors at night.</summary>
     internal static readonly TuningHandle LightNightAmbient = new("light.night-ambient", 0.25, 0, 4, "the outdoor fill light at night", Whole: false);
@@ -115,7 +127,7 @@ internal static class MightAndMagic7Tuning
 
     internal static readonly IReadOnlyList<TuningHandle> Handles =
     [
-        ViewFieldOfView, ViewDistance, LightDayAmbient, LightNightAmbient, LightSun, LightInteriorAmbient, LightCarried, LightCarriedRange,
+        ViewFieldOfView, ViewDistance, ViewFogStart, ViewFogEnd, ViewInteriorFogStart, ViewInteriorFogEnd, LightDayAmbient, LightNightAmbient, LightSun, LightInteriorAmbient, LightCarried, LightCarriedRange,
         HiredLimit,
         ArenaKnightOpponents, ArenaKnightGold,
         EnchantChancePerRank, EnchantWeaponValue, EnchantEquipmentValue, EnchantMasterLow, EnchantGrandMasterLow, EnchantValuePerStrength,
