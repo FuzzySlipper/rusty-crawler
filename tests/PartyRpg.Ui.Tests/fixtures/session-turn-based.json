@@ -1004,6 +1004,7 @@
         "name": "The Elven Treasury",
         "state": "accepted",
         "giver": "npc-43",
+        "giverName": "Lord Godwinson",
         "note": "Raid the Elven Treasury and return.",
         "residue": "the treasury is the castle\u0027s own event program, which this build does not run",
         "objectives": [

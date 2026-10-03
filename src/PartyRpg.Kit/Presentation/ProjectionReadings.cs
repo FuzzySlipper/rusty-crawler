@@ -137,8 +137,8 @@ internal sealed class ProjectionReadings
     /// <param name="quests">The quest owner, when the session has one.</param>
     /// <param name="party">The party's change stamp.</param>
     /// <param name="clock">The session's clock, when it has one.</param>
-    public QuestSnapshot Quests(PartyQuests? quests, long party, GameClock? clock) =>
-        Read(ref _quests, new QuestsKey(quests, quests?.Stamp ?? 0, party, Hour(clock)), () => QuestSnapshot.From(quests));
+    public QuestSnapshot Quests(PartyQuests? quests, long party, GameClock? clock, IGameNames? names = null) =>
+        Read(ref _quests, new QuestsKey(quests, quests?.Stamp ?? 0, party, Hour(clock)), () => QuestSnapshot.From(quests, names));
 
     /// <summary>The journal block: its books, each read from the owner that fills it.</summary>
     /// <remarks>

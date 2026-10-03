@@ -119,9 +119,9 @@ export const STYLES = `
 .crawler-screen-body { flex: 1; overflow-y: auto; padding: 0.5rem 0.8rem; columns: 2 22rem; column-gap: 1.2rem; }
 .crawler-screen-body > section { break-inside: avoid-column; margin-bottom: 0.6rem; }
 .crawler-screen[data-screen='map'] .crawler-screen-body, .crawler-screen[data-screen='creation'] .crawler-screen-body,
-.crawler-screen[data-screen='character'] .crawler-screen-body, .crawler-screen[data-screen='spellbook'] .crawler-screen-body,
+.crawler-screen[data-screen='character'] .crawler-screen-body, .crawler-screen[data-screen='spellbook'] .crawler-screen-body, .crawler-screen[data-screen='journal'] .crawler-screen-body,
 .crawler-screen[data-screen='conversation'] .crawler-screen-body, .crawler-screen[data-screen='service'] .crawler-screen-body { columns: auto; }
-.crawler-screen[data-screen='map'] .crawler-map-drawing { display: block; height: calc(100vh - 17rem); width: auto; margin: 0 auto; aspect-ratio: 1; background: #0c0a08; }
+.crawler-screen[data-screen='map'] .crawler-map-drawing { display: block; height: calc(100vh - 21rem); width: auto; margin: 0 auto; aspect-ratio: 1; background: #0c0a08; }
 
 /* The diagnostic panel: every fact and control the product publishes, kept out of the player's way. */
 .crawler-diagnostics {
@@ -496,5 +496,29 @@ export const STYLES = `
 .crawler-counter-notice { margin: 0 0 0.4rem; padding: 0.4rem 0.6rem; border-left: 2px solid #8a7446; color: #e8dcc0; }
 .crawler-counter-outcome, .crawler-dialogue-outcome { margin: 0.3rem 0; padding: 0.3rem 0.5rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.85rem; }
 :is(.crawler-counter-outcome, .crawler-dialogue-outcome)[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.9); color: #e8c8b0; }
+/* The journal: a page per book. */
+.crawler-journal-standing { margin: 0 0 0.4rem; color: #b9ad8c; font-size: 0.85rem; }
+.crawler-journal-page { display: grid; gap: 0.5rem; }
+.crawler-journal-quest { padding: 0.5rem 0.7rem; border: 1px solid #5a4b31; background: rgba(0, 0, 0, 0.3); }
+.crawler-journal-quest-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+.crawler-journal-quest-state { color: #d6a76a; font-size: 0.8rem; text-transform: capitalize; }
+.crawler-journal-quest[data-state='completed'] .crawler-journal-quest-state, .crawler-journal-quest[data-state='turned-in'] .crawler-journal-quest-state { color: #8fc27a; }
+.crawler-journal-quest-note { margin: 0.3rem 0; color: #e8dcc0; }
+.crawler-journal-objectives { margin: 0.2rem 0; padding-left: 1.2rem; }
+.crawler-journal-objectives li[data-met='true'] { color: #8fc27a; }
+.crawler-journal-objectives li[data-met='true']::marker { content: '✓ '; }
+.crawler-journal-ready { color: #8fc27a; }
+.crawler-journal-residue { color: #9d927a; font-size: 0.8rem; font-style: italic; }
+.crawler-journal-rows { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.2rem; }
+.crawler-journal-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 0.8rem; padding: 0.25rem 0.4rem; border-bottom: 1px solid rgba(210, 196, 158, 0.12); }
+.crawler-journal-row[data-marked='true'] .crawler-journal-row-label::before { content: '✓ '; color: #8fc27a; }
+.crawler-journal-row-detail, .crawler-journal-row-state { color: #b9ad8c; font-size: 0.82rem; }
+.crawler-session .crawler-journal-open-map { width: auto; justify-self: start; }
+/* The automap book: zoom inside a scrolling frame. */
+.crawler-map-zoom { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem; }
+.crawler-map-zoom button { width: auto; min-width: 2rem; }
+.crawler-screen[data-screen='map'] .crawler-map-frame { overflow: auto; max-height: calc(100vh - 21rem); }
+.crawler-screen[data-screen='map'] .crawler-map-frame[data-zoom='2'] .crawler-map-drawing { height: calc((100vh - 21rem) * 2); }
+.crawler-screen[data-screen='map'] .crawler-map-frame[data-zoom='4'] .crawler-map-drawing { height: calc((100vh - 21rem) * 4); }
 @media (max-width: 900px) { .crawler-inventory { grid-template-columns: minmax(0, 1fr); } }
 `;

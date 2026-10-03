@@ -30,6 +30,10 @@ public interface IGameNames
     /// <param name="definition">The item definition to name.</param>
     /// <returns>The name, or empty when the game states none.</returns>
     string ItemName(ItemDefinitionId definition);
+
+    /// <summary>What a person the world names by identity is called, or empty when the game names nobody by it.</summary>
+    /// <param name="person">The person's identity, as quests and conversations carry it.</param>
+    string PersonName(string person) => string.Empty;
 }
 
 /// <summary>Reads a game's names, falling back to the kit's own numbers when a game states none.</summary>
@@ -41,6 +45,13 @@ public static class GameNames
     /// <returns>The word or the number a person reads.</returns>
     public static string Tier(IGameNames? names, SkillTier tier) =>
         names?.TierName(tier) ?? tier.Value.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>What a person is called, or their identity when the game names nobody by it.</summary>
+    /// <param name="names">The game's names, or null when the session composes none.</param>
+    /// <param name="person">The person's identity.</param>
+    /// <returns>The name or the identity a person reads.</returns>
+    public static string Person(IGameNames? names, string person) =>
+        names?.PersonName(person) is { Length: > 0 } called ? called : person;
 
     /// <summary>What an item is called, or its identity when nothing names it.</summary>
     /// <param name="names">The game's names, or null when the session composes none.</param>

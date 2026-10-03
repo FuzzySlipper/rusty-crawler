@@ -102,9 +102,6 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// <summary>The placement kind a person standing in a place stands under.</summary>
     internal const string PersonPlacementKind = "person";
 
-    /// <summary>The definition kind a person's own entry is declared under.</summary>
-    internal const string PersonDefinitionKind = "person";
-
     /// <summary>The placement field that names the people standing at a placement.</summary>
     internal const string PeopleField = "people";
 
@@ -416,7 +413,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     internal const string RollScope = "mm7.combat.initial-recovery";
 
     private readonly Dictionary<int, MonsterFacts> _monsters;
-    private readonly Dictionary<string, string> _people;
+    private readonly MightAndMagic7Names _people;
     private readonly MonsterFacts? _person;
     private readonly IRandomService? _random;
     private readonly MightAndMagic7Spells? _spells;
@@ -430,7 +427,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
 
     private MightAndMagic7Combat(
         Dictionary<int, MonsterFacts> monsters,
-        Dictionary<string, string> people,
+        MightAndMagic7Names people,
         MonsterFacts? person,
         IRandomService? random,
         MightAndMagic7Spells? spells,
@@ -583,10 +580,11 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
         Func<PlaceId, int, bool>? hostileGroups = null,
         Func<MightAndMagic7ItemMagic?>? itemMagic = null)
     {
-        if (catalog is null) return new MightAndMagic7Combat([], [], null, random, spells, party, memberEffects, figure: null, clock, MightAndMagic7Hostility.Empty) { HostileGroups = hostileGroups, _itemMagic = itemMagic ?? (() => null) };
+        if (catalog is null) return new MightAndMagic7Combat([], MightAndMagic7Names.Unnamed, null, random, spells, party, memberEffects, figure: null, clock, MightAndMagic7Hostility.Empty) { HostileGroups = hostileGroups, _itemMagic = itemMagic ?? (() => null) };
         List<ContentValidationIssue> issues = [];
         Dictionary<int, MonsterFacts> monsters = ReadMonsters(catalog, spells ?? MightAndMagic7Spells.Read(catalog), issues);
-        Dictionary<string, string> people = ReadPeople(catalog);
+        // A person's name is the people table's, read by the one owner of this game's names.
+        MightAndMagic7Names people = MightAndMagic7Names.Read(catalog);
         ValidateCreatures(catalog, monsters, issues);
 
         if (issues.Count > 0)
@@ -2373,19 +2371,6 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     }
 
 
-    /// <summary>Reads the people the packs carry, by the identity a placement names them under.</summary>
-    private static Dictionary<string, string> ReadPeople(ContentCatalog catalog)
-    {
-        Dictionary<string, string> people = new(StringComparer.Ordinal);
-        foreach ((_, _, ContentEntry entry) in catalog.Entries(PersonDefinitionKind))
-        {
-            string name = entry.GetString(NameField);
-            if (name.Length > 0) people[entry.Id] = name;
-        }
-
-        return people;
-    }
-
     /// <summary>Judges every creature the content places against the monster rows this game carries.</summary>
     private static void ValidateCreatures(
         ContentCatalog catalog,
@@ -2523,7 +2508,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
             string id = person.ValueKind == JsonValueKind.String
                 ? person.GetString() ?? string.Empty
                 : ContentEntry.ReadString(person, "id");
-            if (id.Length > 0 && _people.TryGetValue(id, out string? name)) return name;
+            if (id.Length > 0 && _people.PersonName(id) is { Length: > 0 } name) return name;
         }
 
         return null;

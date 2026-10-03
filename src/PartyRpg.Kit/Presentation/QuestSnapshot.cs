@@ -46,6 +46,9 @@ public sealed record QuestJournalSnapshot(
     IReadOnlyList<QuestObjectiveSnapshot> Objectives,
     bool CanTurnIn)
 {
+    /// <summary>What the giver is called, in the game's words.</summary>
+    public string GiverName { get; init; } = string.Empty;
+
     /// <summary>Writes one errand the party stands with.</summary>
     /// <param name="builder">The projection being built.</param>
     /// <returns>The row's node.</returns>
@@ -55,6 +58,7 @@ public sealed record QuestJournalSnapshot(
             ("name", builder.String(Name)),
             ("state", builder.String(State)),
             ("giver", builder.String(Giver)),
+            ("giverName", builder.String(GiverName)),
             ("note", builder.String(Note)),
             ("residue", builder.String(Residue)),
             ("objectives", builder.Array([.. Objectives.Select(objective => objective.Write(builder))])),
@@ -121,7 +125,8 @@ public sealed record QuestSnapshot(
     /// <summary>Reads the quest owner into the panel's own value.</summary>
     /// <param name="quests">The owner, or null when the session holds none.</param>
     /// <returns>What the journal holds today, and what the last errand did.</returns>
-    public static QuestSnapshot From(PartyQuests? quests)
+    /// <param name="names">The game's names, which say what a giver is called.</param>
+    public static QuestSnapshot From(PartyQuests? quests, IGameNames? names = null)
     {
         if (quests is null) return None;
 
@@ -147,7 +152,10 @@ public sealed record QuestSnapshot(
                 reading.Definition.Note,
                 reading.Definition.Residue,
                 objectives,
-                reading.CanTurnIn));
+                reading.CanTurnIn)
+            {
+                GiverName = GameNames.Person(names, reading.Definition.Giver),
+            });
         }
 
         QuestResult? last = quests.Last;

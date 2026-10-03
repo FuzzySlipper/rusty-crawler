@@ -25,6 +25,8 @@ export interface QuestJournalView {
   readonly name: string;
   readonly state: string;
   readonly giver: string;
+  /** What the giver is called, in the game's words. */
+  readonly giverName: string;
   readonly note: string;
   /** What the errand asks for that this game does not judge. */
   readonly residue: string;
@@ -61,6 +63,7 @@ export function readQuests(f: Fields): QuestsView {
       name: quest.text('name'),
       state: quest.text('state'),
       giver: quest.text('giver'),
+      giverName: quest.text('giverName'),
       note: quest.text('note'),
       residue: quest.text('residue'),
       objectives: quest.list('objectives', (objective) => ({
@@ -142,7 +145,7 @@ export function mountQuests(host: Host): QuestsSection {
         block.dataset.giver = quest.giver;
         block.dataset.canTurnIn = String(quest.canTurnIn);
         const label = element('span', 'crawler-row-label');
-        label.textContent = `${quest.name} · ${quest.state} · given by ${quest.giver}`;
+        label.textContent = `${quest.name} · ${quest.state} · given by ${quest.giverName}`;
         block.append(label);
         if (quest.note !== '') {
           const note = element('div', 'crawler-quest-note');

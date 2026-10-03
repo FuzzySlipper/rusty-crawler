@@ -1139,7 +1139,7 @@ function quests(overrides = {}) {
         quest: '35',
         name: 'The Elven Treasury',
         state: 'accepted',
-        giver: 'npc-43',
+        giver: 'npc-43', giverName: 'npc-43',
         note: 'Raid the Elven Treasury at Castle Navan and return to Frederick Org.',
         residue: 'the treasury is the castle\'s own event program, which this build does not run',
         objectives: [

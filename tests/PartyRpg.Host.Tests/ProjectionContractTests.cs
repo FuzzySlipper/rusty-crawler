@@ -519,7 +519,7 @@ public sealed class ProjectionContractTests
                     "35", "The Elven Treasury", "accepted", "npc-43", "Raid the Elven Treasury and return.",
                     "the treasury is the castle's own event program, which this build does not run",
                     [new QuestObjectiveSnapshot("reach-0", "Reach Castle Navan", 0, 1, false), new QuestObjectiveSnapshot("kill-1", "Slay the guards", 1, 3, false)],
-                    false),
+                    false) { GiverName = "Lord Godwinson" },
             ],
             "turn-in",
             "refused",

@@ -330,7 +330,7 @@ public sealed class JournalTests
         Assert.Equal("1168-01-01", calendar.Rows[0].Detail);
 
         JournalBookSnapshot history = books.Books[4];
-        Assert.Equal("1 entries", history.State);
+        Assert.Equal("1 entry", history.State);
         JournalRowSnapshot line = Assert.Single(history.Rows);
         Assert.Equal("Entered the keep", line.Label);
         Assert.Equal("1168-01-01 09:00", line.Detail);

@@ -16,18 +16,23 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// ladder reads as its number rather than as a word this game does not have.
 /// </para>
 /// <para>
-/// An item's name is its content entry's own. A potion's row names it first, because the potion table is
+/// An item's name is its content entry's own, as is a person's in the people table. A potion's row names it first, because the potion table is
 /// the one that states what a mixture makes; every other item is named by the item table's row.
 /// </para>
 /// </remarks>
 internal sealed class MightAndMagic7Names : IGameNames
 {
     private readonly Dictionary<ItemDefinitionId, string> _items;
+    private readonly Dictionary<string, string> _people;
 
-    private MightAndMagic7Names(Dictionary<ItemDefinitionId, string> items) => _items = items;
+    private MightAndMagic7Names(Dictionary<ItemDefinitionId, string> items, Dictionary<string, string> people)
+    {
+        _items = items;
+        _people = people;
+    }
 
-    /// <summary>A reading of no content: rungs still have their words, and no item has a name.</summary>
-    internal static MightAndMagic7Names Unnamed { get; } = new([]);
+    /// <summary>A reading of no content: rungs still have their words, and no item or person has a name.</summary>
+    internal static MightAndMagic7Names Unnamed { get; } = new([], []);
 
     /// <summary>Reads every item name the content declares.</summary>
     /// <param name="catalog">The loaded content, or null when the product carries none.</param>
@@ -48,7 +53,15 @@ internal sealed class MightAndMagic7Names : IGameNames
             if (entry.Id.Length > 0 && name.Length > 0) items.TryAdd(new ItemDefinitionId(entry.Id), name);
         }
 
-        return new MightAndMagic7Names(items);
+        // The people table names everyone the world gives an identity: a quest's giver, a conversation's speaker.
+        Dictionary<string, string> people = new(StringComparer.Ordinal);
+        foreach ((_, _, ContentEntry entry) in catalog.Entries(MightAndMagic7Conversation.PersonDefinitionKind))
+        {
+            string name = entry.GetString("name").Trim();
+            if (entry.Id.Length > 0 && name.Length > 0) people.TryAdd(entry.Id, name);
+        }
+
+        return new MightAndMagic7Names(items, people);
     }
 
     /// <summary>What one rung of a skill's ladder is called in this game.</summary>
@@ -66,6 +79,9 @@ internal sealed class MightAndMagic7Names : IGameNames
 
     /// <inheritdoc />
     public string TierName(SkillTier tier) => Tier(tier);
+
+    /// <inheritdoc />
+    public string PersonName(string person) => _people.TryGetValue(person, out string? name) ? name : string.Empty;
 
     /// <inheritdoc />
     public string ItemName(ItemDefinitionId definition) =>

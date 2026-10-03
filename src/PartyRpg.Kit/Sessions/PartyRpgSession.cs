@@ -685,7 +685,7 @@ public sealed class PartyRpgSession : IGameSession
             _readings.Skills(Progression, party, _owners.Rules.Names),
             _readings.Magic(_owners.Casting, party, _world),
             _readings.Alchemy(_owners.Mixing, party, _owners.Rules.Alchemy?.Kinds),
-            _readings.Quests(Quests, party, Clock),
+            _readings.Quests(Quests, party, Clock, _owners.Rules.Names),
             _readings.Journal(Journal, Quests, LiveWorld, Clock, Knowledge, Maps),
             _readings.Map(Maps, LiveWorld, _owners.Rules.Magic?.Running),
             _keys,

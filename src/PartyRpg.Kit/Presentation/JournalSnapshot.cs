@@ -269,7 +269,7 @@ public sealed record JournalSnapshot(bool Available, IReadOnlyList<JournalBookSn
                 false));
         }
 
-        string state = rows.Count == 0 ? words.Empty : string.Create(CultureInfo.InvariantCulture, $"{rows.Count} entries");
+        string state = rows.Count == 0 ? words.Empty : string.Create(CultureInfo.InvariantCulture, $"{rows.Count} {(rows.Count == 1 ? "entry" : "entries")}");
         return new JournalBookSnapshot("history", words.Title, true, state, rows);
     }
 

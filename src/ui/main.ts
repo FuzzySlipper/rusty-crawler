@@ -31,6 +31,7 @@ import { mountEquipment } from './equipment.js';
 import { mountFrame } from './frame.js';
 import { mountHud, type Hud } from './hud.js';
 import { mountJournal } from './journal.js';
+import { mountJournalBook } from './journal-book.js';
 import { mountMagicBook } from './magic-book.js';
 import { mountMap } from './map.js';
 import { mountProgression } from './progression.js';
@@ -116,7 +117,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   const magicBook = mountMagicBook(host, alchemy.element);
   const equipment = mountEquipment(host);
   const character = mountCharacter(host, details.awards);
-  const map = mountMap(host);
+  const map = mountMap(host, true);
   const journal = mountJournal(host);
   const quests = mountQuests(host);
   journal.hold(quests.element);
@@ -131,6 +132,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   let marked: Hud | null = null;
   const frame = mountFrame(panel, context, (screen) => marked?.mark(screen));
   const hud = mountHud(host, { open: (screen) => frame.open(screen), toggleDiagnostics: () => frame.toggleDiagnostics() });
+  const journalBook = mountJournalBook(host, () => frame.open('map'));
   marked = hud;
   frame.body('creation').append(creation.element);
   frame.body('conversation').append(dialogue.element);
@@ -138,7 +140,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   frame.body('rest').append(rest.element);
   frame.body('character').append(character.element);
   frame.body('spellbook').append(magicBook.element);
-  frame.body('journal').append(journal.element);
+  frame.body('journal').append(journalBook.element);
   frame.body('map').append(map.element);
 
   // The fight stays beside the world, where the party is fighting it.
@@ -147,7 +149,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
 
   // The facts and controls a developer reads: kept, complete and current, but out of the player's way.
   // The rows the character book draws from are kept here whole as well, every member at once.
-  frame.diagnostics.append(...details.top, ...details.bottom, equipment.element, skills.element, progression.element, promotion.element, spellbook.element, conversation.element, service.element, problems);
+  frame.diagnostics.append(...details.top, ...details.bottom, equipment.element, skills.element, progression.element, promotion.element, spellbook.element, conversation.element, service.element, journal.element, problems);
   hud.side.append(details.companions);
   panel.append(hud.message, fight, hud.side, frame.element, hud.bar, frame.diagnostics);
   root.append(style, panel);
@@ -200,6 +202,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     // The books first, so the quests book's own title and state sentence are the product's words, and then the
     // quests book draws its errands underneath them.
     journal.render(snapshot.journal);
+    journalBook.render({ journal: snapshot.journal, quests: snapshot.quests });
     quests.render(
       { quests: snapshot.quests, book: snapshot.journal.books.find((book) => book.kind === 'quests') },
       journal.element,

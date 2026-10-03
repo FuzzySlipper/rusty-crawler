@@ -8,7 +8,7 @@
  */
 
 import type { Fields } from './reader.js';
-import { element, section, SVG_NAMESPACE, type Host, type Section } from './dom.js';
+import { button, element, section, SVG_NAMESPACE, type Host, type Section } from './dom.js';
 
 /** One rectangle of the drawing: a run of squares the automap fills with one colour. */
 export interface MapCellView {
@@ -109,8 +109,14 @@ export function readMap(f: Fields): MapView {
   };
 }
 
-/** Mounts the automap. */
-export function mountMap(host: Host): Section<MapView> {
+/** The zoom steps the automap book offers, as how many times the drawing is drawn larger. */
+const ZOOMS = ['1', '2', '4'] as const;
+
+/**
+ * Mounts the automap.
+ * @param zoomable Whether the drawing offers zoom, which the map book does and the adventure frame's small map does not.
+ */
+export function mountMap(host: Host, zoomable = false): Section<MapView> {
   const { panel } = host;
   const map = section('crawler-map');
   const mapHead = element('p', 'crawler-step-head');
@@ -127,7 +133,37 @@ export function mountMap(host: Host): Section<MapView> {
   const party = document.createElementNS(SVG_NAMESPACE, 'polygon');
   party.setAttribute('class', 'crawler-map-party');
   drawing.append(cells, marks, party);
-  map.append(mapHead, state, detection, drawing);
+  // The drawing sits in a frame that scrolls when it is drawn larger; zooming scrolls the party's marker into view.
+  const frame = element('div', 'crawler-map-frame');
+  frame.append(drawing);
+  let zoom: (typeof ZOOMS)[number] = '1';
+  frame.dataset.zoom = zoom;
+  const controls = element('div', 'crawler-map-zoom');
+  const centre = (): void => {
+    if (typeof party.scrollIntoView === 'function') party.scrollIntoView({ block: 'center', inline: 'center' });
+  };
+  const step = (by: -1 | 1): void => {
+    const at = ZOOMS.indexOf(zoom);
+    const next = ZOOMS[Math.min(ZOOMS.length - 1, Math.max(0, at + by))];
+    if (next === undefined) return;
+    zoom = next;
+    frame.dataset.zoom = zoom;
+    zoomLabel.textContent = `×${zoom}`;
+    centre();
+  };
+  const zoomOut = button('−', 'crawler-map-zoom-out');
+  zoomOut.title = 'Zoom out';
+  zoomOut.addEventListener('click', () => step(-1));
+  const zoomLabel = element('span', 'crawler-map-zoom-level');
+  zoomLabel.textContent = '×1';
+  const zoomIn = button('+', 'crawler-map-zoom-in');
+  zoomIn.title = 'Zoom in';
+  zoomIn.addEventListener('click', () => step(1));
+  const find = button('Find the party', 'crawler-map-find');
+  find.addEventListener('click', centre);
+  controls.append(zoomOut, zoomLabel, zoomIn, find);
+  controls.hidden = !zoomable;
+  map.append(mapHead, state, detection, controls, frame);
 
   const render = (view: MapView): void => {
     panel.dataset.map = !view.available ? 'none' : view.mapped ? 'present' : 'unmapped';

@@ -950,7 +950,8 @@ OpenEnroth `src/Engine/Objects/Character.cpp:2779-2791`, men before women by the
 person's portrait with the interface image of its own name; which face of a group is ours. The session grants the
 members' faces through `ContentImages` for the adventure frame; people's portraits are read the same way but drawn by
 no screen yet (the conversation screen, #9224). Items are drawn with the icon their table row names as `picture`,
-from the same installed icons, and a person from the people table with the `npc` icon of their portrait number. A house
+from the same installed icons, and a person from the people table with the `npc` icon of their portrait number in three digits, and `MightAndMagic7Names` names
+that person (a quest's giver) by the table's own name. A house
 keeper has no imported face yet (#9292).
 
 `MightAndMagic7ItemReadings` reads an item for the inventory page: the table's type as a word (a weapon by its skill
