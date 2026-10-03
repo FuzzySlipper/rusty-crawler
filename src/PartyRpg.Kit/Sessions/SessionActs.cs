@@ -315,6 +315,13 @@ internal sealed class SessionActs(SessionOwners owners, SessionControls controls
     public void Equip(ActionInbox input, bool allowed)
     {
         if (_equip is null || owners.Outfitting is not { } outfitting) return;
+        foreach (var request in _equip.ReadUses(input))
+        {
+            if (!allowed) { Report.Refused("item", "item-use-screen-open", "Close the current screen before using a pack item."); continue; }
+            if (owners.ItemUses is not { } uses) { Report.Refused("item", "item-use-unowned", "This session supplies no ordinary item-use policy."); continue; }
+            ItemUseResult used = uses.Use(request.Member, request.Item);
+            Report.Report(used.Applied, "item", used.Code, used.Message);
+        }
         foreach (EquipRequest request in _equip.Read(input))
         {
             if (!allowed)

@@ -388,6 +388,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             Knowledge = knowledge,
             Map = automap is null || mapSource is null ? null : new MapRules(automap, mapSource),
             Equipment = figure,
+            ItemUses = itemMagic,
         };
 
         Owners = owners;

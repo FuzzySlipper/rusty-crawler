@@ -1231,7 +1231,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     {
         int divisor = 1;
         if (attacker.Member is null && target.Member is { } member && kind == AttackKind.Ranged &&
-            Buffed(member, SpellEffectIds.Shield) > 0)
+            (Buffed(member, SpellEffectIds.Shield) > 0 || _itemMagic()?.ShieldsMissiles(member) == true))
         {
             divisor *= ShieldDivisor;
         }
@@ -1479,6 +1479,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
         ArgumentNullException.ThrowIfNull(member);
         int points = 0;
         points += LeatherResistance(member, kind);
+        points += _itemMagic()?.WornResistance(member, kind) ?? 0;
         points += Buffed(member, SpellEffectIds.Resistance(kind));
         points += MightAndMagic7BaseResistance.Of(member, kind);
         if (MightAndMagic7BaseResistance.IsLich(member)) points = Math.Min(points, MightAndMagic7BaseResistance.LichCeiling);

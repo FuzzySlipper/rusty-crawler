@@ -110,8 +110,8 @@ internal sealed class ProjectionReadings
     /// <summary>The equipment block: what every member wears, what in the pack could be worn, and the last change.</summary>
     /// <param name="outfitting">The outfitting owner, when the session has one.</param>
     /// <param name="party">The party's change stamp: the figures and the pack the rows are read from.</param>
-    public EquipmentSnapshot Equipment(PartyOutfitting? outfitting, long party) =>
-        Read(ref _equipment, new EquipmentKey(outfitting, outfitting?.Stamp ?? 0, party), () => EquipmentSnapshot.From(outfitting));
+    public EquipmentSnapshot Equipment(PartyOutfitting? outfitting, long party, PartyItemUse? uses = null) =>
+        Read(ref _equipment, new EquipmentKey(outfitting, outfitting?.Stamp ?? 0, party, uses, uses?.Stamp ?? 0), () => EquipmentSnapshot.From(outfitting, uses));
 
     /// <summary>The quests block: every errand with its objectives, and the last outcome.</summary>
     /// <remarks>
@@ -231,7 +231,7 @@ internal sealed class ProjectionReadings
 
     private readonly record struct AlchemyKey(PotionMixing? Owner, long Stamp, long Party);
 
-    private readonly record struct EquipmentKey(PartyOutfitting? Owner, long Stamp, long Party);
+    private readonly record struct EquipmentKey(PartyOutfitting? Owner, long Stamp, long Party, PartyItemUse? Uses, long UseStamp);
 
     private readonly record struct QuestsKey(PartyQuests? Owner, long Stamp, long Party, (int, int, int, int) Hour);
 

@@ -23,6 +23,7 @@ export interface EquipmentMemberView {
   readonly member: string;
   readonly name: string;
   readonly worn: readonly EquipmentWornView[];
+  readonly powers: string;
 }
 
 /** One thing in the pack the figure has a place for, with the places it is shaped for. */
@@ -55,11 +56,14 @@ export interface EquipmentView {
   readonly items: readonly EquipmentItemView[];
   /** Whether the product would take a change now, which is when the Equip and Take off controls are offered. */
   readonly canEquip: boolean;
+  readonly uses: readonly { readonly item: string; readonly name: string; readonly action: string }[];
+  readonly useOutcome: { readonly outcome: string; readonly code: string; readonly message: string };
   readonly outcome: EquipmentOutcomeView;
 }
 
 export function readEquipment(f: Fields): EquipmentView {
   const outcome = f.object('outcome');
+  const used = f.object('useOutcome');
   return {
     available: f.flag('available'),
     slots: f.words('slots'),
@@ -67,6 +71,7 @@ export function readEquipment(f: Fields): EquipmentView {
       index: entry.number('index'),
       member: entry.text('member'),
       name: entry.text('name'),
+      powers: entry.text('powers'),
       worn: entry.list('worn', (worn) => ({
         slot: worn.text('slot'),
         item: worn.text('item'),
@@ -81,6 +86,8 @@ export function readEquipment(f: Fields): EquipmentView {
       slots: item.words('slots'),
     })),
     canEquip: f.flag('canEquip'),
+    uses: f.list('uses', (item) => ({ item: item.text('item'), name: item.text('name'), action: item.text('action') })),
+    useOutcome: { outcome: used.text('outcome'), code: used.text('code'), message: used.text('message') },
     outcome: {
       outcome: outcome.text('outcome'),
       code: outcome.text('code'),
@@ -104,7 +111,9 @@ export function mountEquipment(host: Host): Section<EquipmentView> {
   const figures = element('div', 'crawler-equipment-figures');
   const pack = element('div', 'crawler-equipment-pack');
   const outcome = result('crawler-equipment-result');
-  equipment.append(head('Equipment'), state, figures, pack, outcome);
+  const uses = element('div', 'crawler-item-uses');
+  const used = result('crawler-item-use-result');
+  equipment.append(head('Equipment and items'), state, figures, pack, outcome, uses, used);
   const changed = redrawGuard();
 
   const render = (view: EquipmentView): void => {
@@ -118,6 +127,7 @@ export function mountEquipment(host: Host): Section<EquipmentView> {
         : `${view.items.length} thing${plural(view.items.length)} in the pack to wear`;
     report(outcome, view.outcome.outcome, view.outcome.code, view.outcome.message);
     outcome.dataset.slot = view.outcome.slot;
+    report(used, view.useOutcome.outcome, view.useOutcome.code, view.useOutcome.message);
     if (!changed(view)) return;
 
     // Each member's figure, slot by slot as the product listed them; taking a thing off names the member and the slot.
@@ -128,6 +138,7 @@ export function mountEquipment(host: Host): Section<EquipmentView> {
         const name = element('span', 'crawler-row-label');
         name.textContent = member.worn.length === 0 ? `${member.name} wears nothing` : member.name;
         figure.append(name);
+        if (member.powers) { const powers = element('p', 'crawler-item-powers'); powers.textContent = member.powers; figure.append(powers); }
         for (const worn of member.worn) {
           const row = element('div', 'crawler-equipment-worn');
           row.dataset.slot = worn.slot;
@@ -147,6 +158,15 @@ export function mountEquipment(host: Host): Section<EquipmentView> {
 
     // Who wears it is the player's choice; whether they may is the product's answer when Equip is pressed.
     const wearers = view.members.map((member) => ({ value: String(member.index), text: member.name }));
+    uses.replaceChildren(...view.uses.map((item) => {
+      const row = element('div', 'crawler-item-use');
+      row.dataset.item = item.item;
+      const label = element('span', 'crawler-row-label'); label.textContent = item.name;
+      const member = picker('crawler-item-use-member', wearers);
+      const use = button(item.action, 'crawler-item-use-button'); use.disabled = !view.canEquip;
+      use.addEventListener('click', () => claim(ACTIONS.useItem, { member: Number(member.value), item: item.item }));
+      row.append(label, member, use); return row;
+    }));
     pack.replaceChildren(
       ...view.items.map((item) => {
         const row = element('div', 'crawler-equipment-item');

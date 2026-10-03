@@ -677,7 +677,7 @@ public sealed class PartyRpgSession : IGameSession
             _readings.Journal(Journal, Quests, LiveWorld, Clock, Knowledge, Maps),
             _readings.Map(Maps, LiveWorld, _owners.Rules.Magic?.Running),
             _keys,
-            _readings.Equipment(_owners.Outfitting, party));
+            _readings.Equipment(_owners.Outfitting, party, _owners.ItemUses));
     }
 
     /// <summary>Reads this session into the product's one current save schema, without writing anything.</summary>

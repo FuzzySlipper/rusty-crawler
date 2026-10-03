@@ -85,6 +85,9 @@ public sealed record SessionRules
 
     /// <summary>The game's figure: the places a character wears things in, and which an item may go to.</summary>
     public IEquipmentFigure? Equipment { get; init; }
+
+    /// <summary>The game's ordinary uses of carried items that are not spells.</summary>
+    public IItemUseRule? ItemUses { get; init; }
 }
 
 /// <summary>A game's answers about growth, and the ladder of ranks it states.</summary>

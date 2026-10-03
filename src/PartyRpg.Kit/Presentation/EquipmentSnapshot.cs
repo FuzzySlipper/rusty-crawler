@@ -25,7 +25,7 @@ public sealed record EquipmentWornSnapshot(string Slot, string Item, string Defi
 /// <param name="Member">The member's durable identity.</param>
 /// <param name="Name">What the member is called.</param>
 /// <param name="Worn">The occupied slots, in the order the game's figure lists its slots.</param>
-public sealed record EquipmentMemberSnapshot(int Index, string Member, string Name, IReadOnlyList<EquipmentWornSnapshot> Worn)
+public sealed record EquipmentMemberSnapshot(int Index, string Member, string Name, IReadOnlyList<EquipmentWornSnapshot> Worn, string Powers = "")
 {
     /// <summary>Writes one member's figure.</summary>
     /// <param name="builder">The projection being built.</param>
@@ -35,7 +35,8 @@ public sealed record EquipmentMemberSnapshot(int Index, string Member, string Na
             ("index", builder.Number(Index)),
             ("member", builder.String(Member)),
             ("name", builder.String(Name)),
-            ("worn", builder.Array([.. Worn.Select(worn => worn.Write(builder))])));
+            ("worn", builder.Array([.. Worn.Select(worn => worn.Write(builder))])),
+            ("powers", builder.String(Powers)));
 }
 
 /// <summary>One thing in the shared pack that the game's figure has a place for.</summary>
@@ -76,6 +77,11 @@ public sealed record EquipmentSnapshot(
     IReadOnlyList<EquipmentItemSnapshot> Items,
     OutfittingResult? Outcome)
 {
+    /// <summary>The pack's actual non-spell item actions.</summary>
+    public IReadOnlyList<EquipmentUseSnapshot> Uses { get; init; } = [];
+    /// <summary>The last ordinary item-use answer.</summary>
+    public ItemUseResult? UseOutcome { get; init; }
+
     /// <summary>The equipment of a session that holds no figure.</summary>
     public static EquipmentSnapshot None => new(false, [], [], [], null);
 
@@ -86,7 +92,7 @@ public sealed record EquipmentSnapshot(
     /// <summary>Reads the figure screen out of the equipment owner, or nothing when the session holds none.</summary>
     /// <param name="outfitting">The session's equipment owner, or null when it composes none.</param>
     /// <returns>What the figure screen shows.</returns>
-    public static EquipmentSnapshot From(PartyOutfitting? outfitting)
+    public static EquipmentSnapshot From(PartyOutfitting? outfitting, PartyItemUse? itemUses = null)
     {
         if (outfitting is not { } owner) return None;
         IReadOnlyList<EquipmentSlot> slots = owner.Figure.Slots;
@@ -101,15 +107,15 @@ public sealed record EquipmentSnapshot(
             // does not list still shows, after them, rather than an item the member wears going unseen.
             foreach (EquipmentSlot slot in slots)
             {
-                if (member.Equipment.ItemIn(slot) is { } item) worn.Add(Worn(owner, slot, item));
+                if (member.Equipment.ItemIn(slot) is { } item) worn.Add(Worn(owner, slot, item, itemUses));
             }
 
             foreach (EquippedItem equipped in member.Equipment.Items)
             {
-                if (!slots.Contains(equipped.Slot)) worn.Add(Worn(owner, equipped.Slot, equipped.Item));
+                if (!slots.Contains(equipped.Slot)) worn.Add(Worn(owner, equipped.Slot, equipped.Item, itemUses));
             }
 
-            members.Add(new EquipmentMemberSnapshot(index, member.Id.ToString(), member.Profile.Name, worn));
+            members.Add(new EquipmentMemberSnapshot(index, member.Id.ToString(), member.Profile.Name, worn, itemUses?.Rule.Describe(member) ?? ""));
         }
 
         List<EquipmentItemSnapshot> items = [];
@@ -120,11 +126,17 @@ public sealed record EquipmentSnapshot(
             items.Add(new EquipmentItemSnapshot(
                 item.Id.ToString(),
                 item.Definition.Value,
-                ItemName(owner, item),
+                ItemName(owner, item, itemUses),
                 [.. shaped.Select(slot => slot.Value)]));
         }
 
-        return new EquipmentSnapshot(true, [.. slots.Select(slot => slot.Value)], members, items, owner.Last);
+        return new EquipmentSnapshot(true, [.. slots.Select(slot => slot.Value)], members, items, owner.Last)
+        {
+            Uses = itemUses is null ? [] : [.. owner.Party.Inventory.Items
+                .Where(item => itemUses.Rule.ActionOf(item) is not null)
+                .Select(item => new EquipmentUseSnapshot(item.Id.ToString(), itemUses.Rule.Describe(item), itemUses.Rule.ActionOf(item)!))],
+            UseOutcome = itemUses?.Last,
+        };
     }
 
     /// <summary>Writes the equipment block: each member's figure, the pack's wearable things, and the last change.</summary>
@@ -138,6 +150,9 @@ public sealed record EquipmentSnapshot(
             ("slots", builder.Array([.. Slots.Select(builder.String)])),
             ("members", builder.Array([.. Members.Select(member => member.Write(builder))])),
             ("items", builder.Array([.. Items.Select(item => item.Write(builder))])),
+            ("uses", builder.Array([.. Uses.Select(item => builder.Object(("item", builder.String(item.Item)), ("name", builder.String(item.Name)), ("action", builder.String(item.Action))))])),
+            ("useOutcome", builder.Object(("outcome", builder.String(UseOutcome is null ? "" : UseOutcome.Applied ? "used" : "refused")),
+                ("code", builder.String(UseOutcome?.Code ?? "")), ("message", builder.String(UseOutcome?.Message ?? "")))) ,
             // A change is made on a member, so one is offered while there is somebody to wear it.
             ("canEquip", builder.Boolean(Members.Count > 0)),
             ("outcome", builder.Object(
@@ -153,10 +168,14 @@ public sealed record EquipmentSnapshot(
                 ("displacedName", builder.String(last.DisplacedName)))));
     }
 
-    private static string ItemName(PartyOutfitting owner, ItemInstance item) => owner.NameOf(item.Definition) +
+    private static string ItemName(PartyOutfitting owner, ItemInstance item, PartyItemUse? uses = null) => owner.NameOf(item.Definition) +
+        (uses?.Rule.Describe(item) is { Length: > 0 } powers ? $" — {powers}" : string.Empty) +
         (item.State.Enchantment is { } property ? $" — {property.Property} {property.Strength}" : string.Empty) +
         (item.State.IsHardened ? " — hardened" : string.Empty);
 
-    private static EquipmentWornSnapshot Worn(PartyOutfitting owner, EquipmentSlot slot, ItemInstance item) =>
-        new(slot.Value, item.Id.ToString(), item.Definition.Value, ItemName(owner, item));
+    private static EquipmentWornSnapshot Worn(PartyOutfitting owner, EquipmentSlot slot, ItemInstance item, PartyItemUse? uses = null) =>
+        new(slot.Value, item.Id.ToString(), item.Definition.Value, ItemName(owner, item, uses));
 }
+
+/// <summary>An ordinary item action offered by the compiled game policy.</summary>
+public sealed record EquipmentUseSnapshot(string Item, string Name, string Action);

@@ -71,6 +71,7 @@ export const ACTIONS = {
   // A change of equipment names the member and the thing put on, or the member and the slot emptied.
   equip: 'party.equip',
   unequip: 'party.unequip',
+  useItem: 'party.item.use',
 } as const;
 
 /** Asks the product for one action on its payload contract, with whatever the action carries. */

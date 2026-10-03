@@ -108,6 +108,9 @@ public sealed class SessionOwners
     /// <summary>The one way a player changes what a member wears.</summary>
     public PartyOutfitting? Outfitting { get; private set; }
 
+    /// <summary>The ordinary uses of actual carried items.</summary>
+    public PartyItemUse? ItemUses { get; private set; }
+
     /// <summary>The owners that set deadlines on the clock, which a save and the deadline report ask about.</summary>
     internal IReadOnlyList<IDeadlineOwner> DeadlineOwners => _deadlineOwners;
 
@@ -234,6 +237,9 @@ public sealed class SessionOwners
         {
             Mixing = new PotionMixing(mixers, alchemy.Mixtures, alchemy.Rule, Knowledge, rules.Names);
         }
+
+        if (ItemUses is null && rules.ItemUses is { } uses && Party is { } holders)
+            ItemUses = new PartyItemUse(holders, uses);
 
         // What a member wears is the party's own state on either composition path, so the owner a player changes
         // it through is composed over whichever party the session ends up playing.

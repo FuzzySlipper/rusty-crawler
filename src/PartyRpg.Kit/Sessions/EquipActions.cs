@@ -42,6 +42,9 @@ public static class EquipActions
 
     /// <summary>Takes what a member's slot holds back into the shared pack.</summary>
     public const string Unequip = "party.unequip";
+
+    /// <summary>Uses a real pack item on a member through the game's item policy.</summary>
+    public const string UseItem = "party.item.use";
 }
 
 /// <summary>One change a screen asked for: put an item on a member, or take a slot's item off.</summary>
@@ -74,6 +77,12 @@ public sealed class EquipInput
     /// because neither says what to change.
     /// </summary>
     /// <param name="inbox">The update's input.</param>
+    /// <summary>The non-spell item uses this update carried on the inventory screen's contract.</summary>
+    public IReadOnlyList<(int Member, ItemInstanceId Item)> ReadUses(ActionInbox inbox) =>
+        [.. inbox.Take(_actionContract, name => name == EquipActions.UseItem)
+            .Where(action => action.Identity("item") is not null)
+            .Select(action => (action.Int("member") ?? 0, new ItemInstanceId(action.Identity("item")!.Value)))];
+
     public IReadOnlyList<EquipRequest> Read(ActionInbox inbox)
     {
         ArgumentNullException.ThrowIfNull(inbox);

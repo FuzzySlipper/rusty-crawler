@@ -3,6 +3,7 @@ using PartyRpg.Kit;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Magic;
+using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Time;
@@ -19,7 +20,7 @@ internal enum ItemMagicShape { Enchant, Recharge, Harden, Fire, Frost, Poison, S
 /// src/GUI/UI/UIPopup.cpp:2182-2254. Selection of a permanent bonus and its combat magnitude are this game's
 /// approximation, not a reproduction of the original weighted enchantment tables.
 /// </remarks>
-internal sealed class MightAndMagic7ItemMagic
+internal sealed class MightAndMagic7ItemMagic : IItemUseRule
 {
     private readonly Dictionary<ItemDefinitionId, ItemFacts> _items = [];
     private readonly MightAndMagic7Spells _spells;
@@ -46,10 +47,23 @@ internal sealed class MightAndMagic7ItemMagic
     internal IReadOnlyList<SpellAim> Aims() => _party() is { } party
         ? [.. party.Items.Select(item => new SpellAim(item.Id.ToString(), Describe(item), "item"))] : [];
 
-    internal string Describe(ItemInstance item) =>
+    public string Describe(ItemInstance item) =>
         $"{(_items.TryGetValue(item.Definition, out ItemFacts facts) ? facts.Name : item.Definition.Value)} ({item.Id})" +
         (Active(item) is { } property ? $" — {property.Property} {property.Strength}" : string.Empty) +
-        (item.State.IsHardened ? " — hardened" : string.Empty);
+        (item.State.IsHardened ? " — hardened" : string.Empty) +
+        (PowerText(item) is { Length: > 0 } powers ? $" — {powers}" : string.Empty);
+
+    public string Describe(PartyMember member)
+    {
+        List<string> terms = [.. member.Resistances.Scores.Select(score => $"permanent {score.Kind.Value} resistance {score.Points}")];
+        foreach (string property in new[] { "Might", "Speed", "Luck" })
+            if (WornBonus(member, property) is not 0 and int bonus) terms.Add($"worn {property} {bonus:+0;-0}");
+        foreach (DamageKindId kind in new[] { MightAndMagic7Damage.Fire, MightAndMagic7Damage.Air, MightAndMagic7Damage.Water,
+            MightAndMagic7Damage.Earth, MightAndMagic7Damage.Mind, MightAndMagic7Damage.Body })
+            if (WornResistance(member, kind) is not 0 and int bonus) terms.Add($"worn {kind.Value} resistance {bonus:+0;-0}");
+        if (ShieldsMissiles(member)) terms.Add("hostile missile damage halved");
+        return string.Join("; ", terms);
+    }
 
     internal Refusal? Judge(SpellApplication application, ItemMagicShape shape)
     {
@@ -206,7 +220,69 @@ internal sealed class MightAndMagic7ItemMagic
 
     internal int WornBonus(PartyMember member, string property) => member.Equipment.Items
         .Where(worn => worn.Item.State.Damage == 0)
-        .Sum(worn => Active(worn.Item) is { } enchantment && enchantment.Property == property ? enchantment.Strength : 0);
+        .Sum(worn => (Active(worn.Item) is { } enchantment && enchantment.Property == property ? enchantment.Strength : 0)
+            + FixedBonus(worn.Item, property));
+
+    internal int WornResistance(PartyMember member, DamageKindId kind) => member.Equipment.Items
+        .Where(worn => worn.Item.State.Damage == 0).Sum(worn => FixedBonus(worn.Item, "resistance:" + kind.Value));
+
+    internal bool ShieldsMissiles(PartyMember member) => member.Equipment.Items.Any(worn =>
+        worn.Item.State.Damage == 0 && IsFixed(worn.Item) && worn.Item.Definition.Value == "531");
+
+    // Exact fixed identities from ItemEnums.h; values from Item.cpp PopulateArtifactBonusMap.
+    // These selected rows are the repertoire, not a claim that every artifact power is compiled.
+    private bool IsFixed(ItemInstance item) => _items.TryGetValue(item.Definition, out ItemFacts facts) && Special(facts);
+    private int FixedBonus(ItemInstance item, string property)
+    {
+        if (!IsFixed(item)) return 0;
+        return (item.Definition.Value, property) switch
+        {
+            ("500", "Speed") => 40,
+            ("501", "Might") => 40,
+            ("506", "resistance:Fire") => 50,
+            ("525", "Speed" or "Luck") => 50,
+            ("525", "resistance:Fire" or "resistance:Air" or "resistance:Water" or "resistance:Earth" or "resistance:Mind" or "resistance:Body") => -15,
+            _ => 0,
+        };
+    }
+
+    private string PowerText(ItemInstance item) => item.Definition.Value == "616"
+        ? "Use: one permanent elemental, mind or body resistance gift; consumed; approximate"
+        : !IsFixed(item) ? "" : item.Definition.Value switch
+        {
+            "500" => "fixed Speed +40",
+            "501" => "fixed Might +40",
+            "506" => "fixed Fire resistance +50",
+            "525" => "fixed Speed/Luck +50; Fire/Air/Water/Earth/Mind/Body resistance -15",
+            "531" => "halves hostile missiles; other fixed powers are not compiled",
+            _ => "fixed special powers are not compiled",
+        };
+
+    public string? ActionOf(ItemInstance item) => item.Definition.Value == "616" && _items.ContainsKey(item.Definition) ? "Use" : null;
+
+    public ItemUseResult Use(PartyEntity party, PartyMember member, ItemInstance item)
+    {
+        if (!MightAndMagic7Conditions.CanAct(member))
+            return ItemUseResult.Refused(new("item-use-member-incapable", $"{member.Profile.Name} must recover before using the lamp."));
+        if (item.State.Damage > 0)
+            return ItemUseResult.Refused(new("item-use-broken", "Repair the Genie Lamp before using it."));
+        if (_clock is null || _random is null)
+            return ItemUseResult.Refused(new("item-use-owner-absent", "The Genie Lamp needs the session clock and keyed rolls."));
+        if (party.JudgeItemRemoval(item.Id) is { } kept) return ItemUseResult.Refused(kept);
+        DamageKindId[] kinds = [MightAndMagic7Damage.Fire, MightAndMagic7Damage.Air, MightAndMagic7Damage.Water,
+            MightAndMagic7Damage.Earth, MightAndMagic7Damage.Mind, MightAndMagic7Damage.Body];
+        // Our explicit adaptation always takes the donor's December resistance branch, without its calendar curses.
+        KeyedRolls rolls = new(_random, MightAndMagic7Loot.RollSeed, "mm7.items.lamp", item.Id.ToString());
+        DamageKindId kind = kinds[rolls.Pick(kinds.Length)];
+        int value = _clock.Calendar.WeekOfMonth(_clock.Now);
+        int before = member.Resistances.Of(kind);
+        if ((long)before + value > int.MaxValue)
+            return ItemUseResult.Refused(new("item-use-resistance-full", "This permanent resistance cannot be raised further."));
+        ItemRemoval removed = party.ConsumeItem(item.Id);
+        if (!removed.Removed) return ItemUseResult.Refused(removed.Refusal!);
+        member.Resistances.Set(kind, before + value);
+        return new(true, "item-use-applied", $"{member.Profile.Name} uses the Genie Lamp: permanent {kind.Value} resistance +{value}, now {before + value}; the lamp is consumed.");
+    }
 
     private IEnumerable<ItemInstance> WeaponsOf(PartyMember member, AttackKind kind)
     {
