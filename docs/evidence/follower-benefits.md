@@ -6,4 +6,8 @@ Checked references: OpenEnroth `src/Engine/Objects/NPCEnums.h:27-90`, `Character
 
 This is the selected passive repertoire listed in the owning README. Distinct professions stack; duplicate people of a profession contribute once. These readings apply to actual joined hired/story presence in this product. Mastery remains purchased: a bonus does not grant a skill or a tier. Other original profession actions and bonuses are named uncompiled, including Scholar identification, Gypsy food/reputation and Burglar Stealing/reputation. No exhaustive profession fidelity is claimed, and existing fees and found-gold shares remain unchanged.
 
-Composed checks exercise ordinary conversation joins/dismissals, actual Luck and damage-plan resistance, identity/current-save restoration, real progression awards, actual service quote changes, and container trap guards. The DOM contract carries named benefits beside actual companion rows. Full gate, three lanes and bounded live hire/dismiss acceptance are pending.
+Composed checks exercise ordinary conversation joins/dismissals, actual Luck and damage-plan resistance, identity/current-save restoration, real progression awards, actual service quote changes, and container trap guards. The DOM contract carries named benefits beside actual companion rows.
+
+The focused ruleset checks passed 25 cases, the UI suite passed 72, and the projection fixture check passed. All three source review lanes approved the submitted behavior and its ownership. The full verification gate passed: Architecture 21, Kit 775, Host 86, ruleset 411 and import 191, with no failed or skipped cases. Import inventory, map decoding, deterministic pack emission and CoreCLR staging also passed. NativeAOT was not run.
+
+Bounded live hire/dismiss evidence and observer cleanup are still pending. These source and semantic checks do not establish that live acceptance.
