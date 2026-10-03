@@ -192,6 +192,24 @@ public sealed record LookLists(IReadOnlyList<MonsterLook> Monsters, IReadOnlyLis
         return new LookLists(creatures, decor, loose);
     }
 
+    /// <summary>
+    /// The decoration-list row a map decoration's name is: the first row from one whose name matches it without regard to
+    /// case, or row zero for none. A level stores a row beside each name, but the donor discards it and resolves every
+    /// decoration by its name when the map loads (OpenEnroth <c>src/Engine/Snapshots/CompositeSnapshots.cpp:282-286</c>
+    /// and <c>:570-574</c>, <c>src/Engine/Tables/DecorationTable.cpp:13-22</c>); an interior's stored rows are all zero.
+    /// </summary>
+    /// <param name="name">The decoration's name as the map stores it.</param>
+    public int DecorationRow(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return 0;
+        foreach (DecorationLook decoration in Decorations)
+        {
+            if (decoration.Index >= 1 && string.Equals(decoration.Name, name, StringComparison.OrdinalIgnoreCase)) return decoration.Index;
+        }
+
+        return 0;
+    }
+
     private delegate void Reader(int index, ReadOnlySpan<byte> record);
 
     private static void Records(byte[] bytes, int size, string name, Reader read)

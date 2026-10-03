@@ -39,5 +39,7 @@ balance; the fight panel reports the party down.
 Creatures choose between their standing and walking groups from their own movement; attack and hit groups and the
 blow bursts are #9219's ([world interaction reading](world-interaction.md)); fidget groups are not driven. Ordinary-play motion was harder to frame than the staged burst: the
 attacked town's people flee, and chasing one walked the party off the dock into water, where the water rule drowned
-two members — movement's rule, recorded rather than worked around. Decorations that events hide or change, and
-sprite-swap event steps, are routed by #9219's audit to #9254.
+two members — movement's rule, recorded rather than worked around. Decorations that events hide or change are drawn since #9254 ([event reading](world-events.md)). That work also
+found that **no interior decoration was drawn** in these captures: the importer wrote an interior's stored rows, all
+zero, where the donor resolves every decoration by name. The rows are now resolved by name, and 3,309 interior
+decorations (torches, fires, urns) carry a drawn look.

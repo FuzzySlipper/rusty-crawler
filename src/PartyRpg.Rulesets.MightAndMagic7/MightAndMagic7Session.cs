@@ -266,6 +266,8 @@ internal sealed class MightAndMagic7Session : IGameSession
         // through the owners that keep what each step names. The knowledge owner is read through a call because
         // the session composes it after the world, and a temporary resistance a well leaves is the same running
         // effect a ward is, so it goes into the ledger the fight reads resistances from.
+        // What the place's events change about how it looks is read from the same render entries and looks the scene draws.
+        MightAndMagic7Switches switches = MightAndMagic7Switches.Read(Declared(context.Content));
         MightAndMagic7Fixtures fixtures = new(
             MightAndMagic7MapEvents.Read(Declared(context.Content)),
             () => owners.Knowledge,
@@ -282,7 +284,9 @@ internal sealed class MightAndMagic7Session : IGameSession
             row => conversation?.HasGreeting(row) == true,
             place => owners.World is { } live && live.Population.Place == place ? live.Population : null,
             person => conversation?.StartingOf(person) ?? [],
-            conversation?.Followers);
+            conversation?.Followers,
+            switches,
+            place => owners.World?.Interactions.ValuesOf(place));
         events = fixtures;
 
         // This game's journal policy is read once, here, over the loot reading that knows which item rows the

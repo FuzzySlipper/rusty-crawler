@@ -79,11 +79,14 @@ internal sealed record MapEventStep(
     /// <summary>The event a topic step makes a person's slot raise, zero for none.</summary>
     internal int Raises { get; init; }
 
-    /// <summary>The group of creatures a flag step names.</summary>
+    /// <summary>The group of creatures or faces a flag step names; the face or decoration cog a texture or sprite step names.</summary>
     internal int Group { get; init; }
 
-    /// <summary>Whether a flag step sets its bit rather than clearing it.</summary>
+    /// <summary>Whether a flag step sets its bit rather than clearing it; whether a sprite step shows its decorations.</summary>
     internal bool On { get; init; }
+
+    /// <summary>The bitmap a texture step gives, or the decoration-list name a sprite step gives; empty for none.</summary>
+    internal string Name { get; init; } = string.Empty;
 
     /// <summary>The travel link a move to another place takes, by its entry id in the place graph, or empty.</summary>
     internal string Link { get; init; } = string.Empty;
@@ -518,6 +521,7 @@ internal sealed class MightAndMagic7MapEvents
                 Flag = ContentEntry.ReadDouble(element, "flag") is { } flag ? (long)flag : 0,
                 Raises = Whole(element, "raises"),
                 Group = Whole(element, "group"),
+                Name = ContentEntry.ReadString(element, "name"),
                 On = element.TryGetProperty("on", out JsonElement on) && on.ValueKind == JsonValueKind.True,
                 Link = ContentEntry.ReadId(element, "link"),
                 Travel = ContentEntry.ReadString(element, "travel"),

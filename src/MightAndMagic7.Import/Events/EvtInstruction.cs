@@ -413,6 +413,65 @@ public readonly record struct EvtInstruction(ushort EventId, byte Step, byte Opc
         return true;
     }
 
+    /// <summary>Reads which face cog a texture step retextures and with which bitmap, when this instruction is one.</summary>
+    /// <remarks>A 32-bit cog, then a NUL-terminated bitmap name (OpenEnroth <c>src/Engine/Evt/EvtInstruction.cpp:962-965</c>).</remarks>
+    /// <param name="cog">The face cog.</param>
+    /// <param name="texture">The bitmap's name.</param>
+    public bool TryReadSetTexture(out int cog, out string texture)
+    {
+        cog = 0;
+        texture = string.Empty;
+        if (Opcode != EvtOpcodes.SetTexture || Operands.Length < 4) return false;
+        ReadOnlySpan<byte> operands = Operands.Span;
+        cog = BinaryPrimitives.ReadInt32LittleEndian(operands);
+        texture = Terminated(operands[4..]);
+        return true;
+    }
+
+    /// <summary>Reads which decoration cog a sprite step shows or hides and the look it gives, when this instruction is one.</summary>
+    /// <remarks>
+    /// A 32-bit cog, a one-byte flag and a NUL-terminated decoration name (OpenEnroth
+    /// <c>src/Engine/Evt/EvtInstruction.cpp:973-977</c>). The flag reads the other way from its name: nonzero shows the
+    /// decorations and zero hides them (<c>src/Engine/Engine.cpp:992-1006</c>). An empty name or <c>0</c> keeps their look.
+    /// </remarks>
+    /// <param name="cog">The decoration cog.</param>
+    /// <param name="shows">Whether the decorations are shown rather than hidden.</param>
+    /// <param name="decoration">The decoration-list name they take, or empty to keep their own.</param>
+    public bool TryReadSetSprite(out int cog, out bool shows, out string decoration)
+    {
+        cog = 0;
+        shows = false;
+        decoration = string.Empty;
+        if (Opcode != EvtOpcodes.SetSprite || Operands.Length < 5) return false;
+        ReadOnlySpan<byte> operands = Operands.Span;
+        cog = BinaryPrimitives.ReadInt32LittleEndian(operands);
+        shows = operands[4] != 0;
+        decoration = Terminated(operands[5..]);
+        if (decoration == "0") decoration = string.Empty;
+        return true;
+    }
+
+    /// <summary>Reads which interior light a light step turns on or off, when this instruction is one.</summary>
+    /// <remarks>A 32-bit index into the level's lights, then a one-byte enable (OpenEnroth <c>src/Engine/Evt/EvtInstruction.cpp:1076-1079</c>).</remarks>
+    /// <param name="light">The light's index.</param>
+    /// <param name="on">Whether it is turned on.</param>
+    public bool TryReadToggleIndoorLight(out int light, out bool on)
+    {
+        light = 0;
+        on = false;
+        if (Opcode != EvtOpcodes.ToggleIndoorLight || Operands.Length < 5) return false;
+        ReadOnlySpan<byte> operands = Operands.Span;
+        light = BinaryPrimitives.ReadInt32LittleEndian(operands);
+        on = operands[4] != 0;
+        return true;
+    }
+
+    private static string Terminated(ReadOnlySpan<byte> text)
+    {
+        int end = text.IndexOf((byte)0);
+        return System.Text.Encoding.Latin1.GetString(end < 0 ? text : text[..end]);
+    }
+
     /// <summary>Reads a timer trigger's period, when this instruction is one.</summary>
     /// <remarks>
     /// Three one-byte flags — yearly, monthly, weekly — then the hour, minute and second of a daily timer and

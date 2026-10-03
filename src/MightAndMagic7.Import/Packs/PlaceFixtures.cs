@@ -102,13 +102,19 @@ public sealed record PlaceEventStep(int Step, string Op)
     /// <summary>The event a topic step makes the person's topic raise.</summary>
     public int? Raises { get; init; }
 
-    /// <summary>The face group or creature group a flag step names.</summary>
+    /// <summary>The face group or creature group a flag step names; the face or decoration cog a texture or sprite step names.</summary>
     public int? Group { get; init; }
+
+    /// <summary>The bitmap a texture step gives its faces, or the decoration-list name a sprite step gives its decorations.</summary>
+    public string? Name { get; init; }
+
+    /// <summary>The interior light a light step turns on or off, by its index in the level's lights.</summary>
+    public int? Light { get; init; }
 
     /// <summary>The attribute bit a flag step sets or clears.</summary>
     public long? Flag { get; init; }
 
-    /// <summary>Whether a flag step sets its bit rather than clearing it.</summary>
+    /// <summary>Whether a flag step sets its bit rather than clearing it; whether a sprite step shows its decorations; whether a light step turns its light on.</summary>
     public bool? On { get; init; }
 
     /// <summary>
@@ -764,6 +770,21 @@ public static class PlaceFixtureEmitter
         if (instruction.TryReadFlagToggle(out FlagToggleInstruction toggle))
         {
             return step with { Group = toggle.Group, Flag = toggle.Flag, On = toggle.On };
+        }
+
+        if (instruction.TryReadSetTexture(out int textured, out string texture))
+        {
+            return step with { Group = textured, Name = texture };
+        }
+
+        if (instruction.TryReadSetSprite(out int decorated, out bool decorationShows, out string decoration))
+        {
+            return step with { Group = decorated, On = decorationShows, Name = decoration };
+        }
+
+        if (instruction.TryReadToggleIndoorLight(out int light, out bool lit))
+        {
+            return step with { Light = light, On = lit };
         }
 
         if (instruction.TryReadTimer(out TimerInstruction timer))

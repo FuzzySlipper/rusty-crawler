@@ -1,5 +1,6 @@
 using MightAndMagic7.Import.Events;
 using MightAndMagic7.Import.Lod;
+using MightAndMagic7.Import.Render;
 using MightAndMagic7.Import.Tables;
 using MightAndMagic7.Import.World;
 using Xunit;
@@ -345,5 +346,40 @@ public sealed class TableAndEventTests
         record[30] = exitPicture;
         name.CopyTo(record, 31);
         return record;
+    }
+
+    [Fact]
+    public void Texture_sprite_and_light_steps_read_their_cog_name_and_switch()
+    {
+        // One record each: size byte, event id, step, opcode, then the operands as the donor lays them out.
+        static byte[] Record(ushort eventId, byte step, byte opcode, byte[] operands) =>
+            [(byte)(4 + operands.Length), (byte)eventId, (byte)(eventId >> 8), step, opcode, .. operands];
+        static byte[] Cog(int value) => BitConverter.GetBytes(value);
+        static byte[] Text(string value) => [.. System.Text.Encoding.Latin1.GetBytes(value), 0];
+        EvtProgram program = EvtProgram.Read("D05.EVT",
+        [
+            .. Record(196, 0, EvtOpcodes.SetTexture, [.. Cog(2), .. Text("cwb1")]),
+            .. Record(150, 0, EvtOpcodes.SetSprite, [.. Cog(51), 1, .. Text("tree37")]),
+            .. Record(151, 0, EvtOpcodes.SetSprite, [.. Cog(52), 0, .. Text("0")]),
+            .. Record(5, 0, EvtOpcodes.ToggleIndoorLight, [.. Cog(1), 0]),
+            .. Record(235, 0, EvtOpcodes.SetFacesBit, [.. Cog(50), .. BitConverter.GetBytes(0x2000u), 1]),
+        ]);
+
+        Assert.True(program.Instructions[0].TryReadSetTexture(out int textured, out string texture));
+        Assert.Equal((2, "cwb1"), (textured, texture));
+        Assert.True(program.Instructions[1].TryReadSetSprite(out int decorated, out bool shows, out string decoration));
+        Assert.Equal((51, true, "tree37"), (decorated, shows, decoration));
+
+        // A zero flag hides the decorations, and the name "0" keeps their own look.
+        Assert.True(program.Instructions[2].TryReadSetSprite(out _, out bool hides, out string kept));
+        Assert.Equal((false, string.Empty), (hides, kept));
+        Assert.True(program.Instructions[3].TryReadToggleIndoorLight(out int light, out bool on));
+        Assert.Equal((1, false), (light, on));
+        Assert.False(program.Instructions[0].TryReadSetSprite(out _, out _, out _));
+
+        // The cogs a place's render keeps apart are the retextured and the hidden ones, with the bitmaps named.
+        PlaceSwitches switches = PlaceSwitches.Of(program);
+        Assert.Equal([2, 50], switches.Cogs.Order());
+        Assert.Equal(["cwb1"], switches.Textures);
     }
 }

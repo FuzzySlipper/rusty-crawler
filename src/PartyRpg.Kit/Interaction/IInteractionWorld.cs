@@ -72,4 +72,10 @@ public interface IInteractionWorld
 
     /// <summary>Whether the target's own surface is visible, respecting intervening collision.</summary>
     bool InSight(Vector3 from, Vector3 to, PlacementContentId target) => InSight(from, to);
+
+    /// <summary>
+    /// Whether the target is visible when collision within <paramref name="tolerance"/> of the point it is looked at does
+    /// not hide it: the reach of its own body, so a thing in a niche is seen by its front.
+    /// </summary>
+    bool InSight(Vector3 from, Vector3 to, PlacementContentId target, float tolerance) => InSight(from, to, target);
 }

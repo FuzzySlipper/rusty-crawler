@@ -69,6 +69,21 @@ public sealed class RenderEmissionTests
     }
 
     [Fact]
+    public void A_door_keeps_a_switched_cogs_face_and_the_cogs_retexture_bitmaps_are_materials()
+    {
+        IndoorMap moving = MapDecoder.DecodeIndoor(
+            LodFixture.Stored("d01.blv", MapDecoderTests.IndoorPayload()), LodFixture.Stored("d01.dlv", MapDecoderTests.IndoorDeltaPayload()));
+        PlaceSwitches switches = new(new HashSet<int> { 9 }, ["swap"]);
+
+        // The fixture's one face is cog 9 and moved by door 0: the door keeps it, and the retexture bitmap is still listed.
+        PlaceRender render = PlaceRender.Emit(7, moving, Tiles, name => name is "Cfb1" or "swap" ? (64, 32) : null, switches);
+        RenderPart part = Assert.Single(render.Parts);
+        Assert.Equal((0, (int?)null, false), (part.Door, part.Switch, part.StartsHidden));
+        Assert.Contains(render.Materials, material => material.Texture == "swap" && material.Resolved);
+
+    }
+
+    [Fact]
     public void The_binary_mesh_states_its_counts_after_its_magic()
     {
         IndoorMap map = MapDecoder.DecodeIndoor(
@@ -81,7 +96,7 @@ public sealed class RenderEmissionTests
         Assert.Equal((uint)render.Vertices, BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(8)));
         Assert.Equal((uint)(render.Triangles * 3), BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(12)));
         Assert.Equal((uint)render.Parts.Count, BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(16)));
-        Assert.Equal(24 + (render.Vertices * 44) + (render.Triangles * 12) + (render.Parts.Count * 28)
+        Assert.Equal(24 + (render.Vertices * 44) + (render.Triangles * 12) + (render.Parts.Count * 36)
             + (render.Parts.Sum(part => part.Groups.Count) * 12), bytes.Length);
     }
 

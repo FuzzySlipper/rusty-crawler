@@ -375,7 +375,10 @@ rather than from a list, with the engine's own reticle selection composed over t
 one `InteractionSelection`, which outlives every world so an inspection registered once reads the focus the
 live world holds, with targeted use off; the Engine query observes distant targets as well as reachable ones,
 with each candidate's own reach still controlling selection and use, so an out-of-reach target is refused by
-name (the [elevated-use reading](../../docs/evidence/elevation-reach.md) records both paths) — one use
+name (the [elevated-use reading](../../docs/evidence/elevation-reach.md) records both paths); a definition's
+`AimHeight` is the height above its feet a candidate is aimed and judged at in place of the body-centre height, and
+its `Radius` is passed as the Engine visibility query's endpoint tolerance, so a thing standing on a shelf or in a
+niche is seen by its front — one use
 workflow that identifies the target, judges each `InteractionRequirement` in the order the ruleset stated
 them, settles what the use costs through the party's one settlement path, asks the ruleset what the use
 produces, applies it against the party's owners, records the `InteractionTargetState` that use left and the
@@ -531,7 +534,7 @@ An instance property is `ItemEnchantment`: the ruleset identity, positive streng
 
 `Scene/` draws the live world. `WorldView` (an `IWorldPresenter` the session holds through `SessionRules.View`,
 handed the party after every admitted update and released with the session) reads a place's `PlaceScene` from an
-`IPlaceSceneSource`: the content path of its `RenderMesh` — the kit's own binary document (`PRMESH01`: positions,
+`IPlaceSceneSource`: the content path of its `RenderMesh` — the kit's own binary document (`PRMESH02`: positions,
 normals, texture coordinates and door travel per vertex, divided into parts drawn independently) — its
 `SceneMaterial`s, its doors' identities and its sky. It reads the mesh and opens images through the Engine content
 service, binds materials and meshes through the safe Graphics API (a door part rebuilt where `ISceneRule.IsClosed`
@@ -544,7 +547,10 @@ when it first draws. `LoadedPack.Directory` lets a ruleset name a file beside a 
 canonical identity — as a cylindrical billboard cut from its `SceneSprite` atlas (an Engine sprite atlas per group,
 opened once and sampled nearest), showing the frame its time selects and the view its facing turns to the eye; a frame
 or view change is set on its sprite, and only an object that moved, appeared, left or changed group republishes. The product disables the Engine's default light rig, so the scene is lit only by those lights.
-Each `SceneBurst` the rule reports (`ISceneRule.Bursts`, empty by default) is emitted once as an Engine particle burst at
+A part may be a switch's (`RenderMeshPart.Switch`, with whether it starts hidden): the view asks `ISceneRule.Switch`
+what a game's events made of it — hidden or shown, and one place material every face draws with — and rebuilds and
+republishes the part when the answer changes, publishing a hidden part as not visible. A material the scene does not
+list is said once and the faces keep their own. Each `SceneBurst` the rule reports (`ISceneRule.Bursts`, empty by default) is emitted once as an Engine particle burst at
 its point; a refused or budget-dropped burst is noted once and changes nothing it marks. `CombatState.RecentBlows`
 keeps the fight's last applied orders, each with a growing serial, for a presentation to read without re-deciding;
 nothing saves it. The view's notes are also published as `scene-note` diagnostics.

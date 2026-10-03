@@ -100,6 +100,15 @@ public static class EvtOpcodes
     /// <summary>Sets or clears an attribute bit on every face of one face group.</summary>
     public const byte SetFacesBit = 23;
 
+    /// <summary>Gives every face of a cog another bitmap (OpenEnroth <c>src/Engine/Evt/EvtEnums.h:21</c>).</summary>
+    public const byte SetTexture = 11;
+
+    /// <summary>Shows or hides every decoration of a cog and may give it another look (<c>EvtEnums.h:23</c>).</summary>
+    public const byte SetSprite = 13;
+
+    /// <summary>Turns one of an interior's lights on or off (<c>EvtEnums.h:41</c>).</summary>
+    public const byte ToggleIndoorLight = 32;
+
     /// <summary>Changes which event one of a person's topics raises.</summary>
     public const byte SetNpcTopic = 39;
 

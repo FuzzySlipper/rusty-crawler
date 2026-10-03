@@ -87,4 +87,18 @@ public sealed record InteractionTargetDefinition
 
     /// <summary>What the use requires, in the order the checks happen.</summary>
     public IReadOnlyList<InteractionRequirement> Requires { get; init; }
+
+    /// <summary>
+    /// How high above its placement's feet the reticle aims at the target and judges it in sight and in reach, in the
+    /// place's own units, in place of the height the place centres a body at. Zero keeps that body-centre height; a thing
+    /// standing on its point, such as an object on a shelf, is aimed at its own middle.
+    /// </summary>
+    public double AimHeight { get; init; }
+
+    /// <summary>
+    /// How far the target's body reaches out from its point, in the place's own units: collision within that distance of
+    /// the point does not hide it (the Engine's endpoint tolerance), so a thing set into a niche or against a wall is seen
+    /// by its front rather than hidden by the stone its point stands in. Zero judges sight to the point itself.
+    /// </summary>
+    public double Radius { get; init; }
 }

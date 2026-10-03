@@ -257,6 +257,25 @@ public sealed class InteractionTests
     }
 
     [Fact]
+    public void A_target_is_aimed_at_its_stated_height_and_seen_through_its_own_body()
+    {
+        // The lever stands on its point; the rule aims at 10 above its feet and lets 30 around that point not hide it.
+        TestRule rule = new();
+        rule.Add("lever", new InteractionTargetDefinition(new InteractionTargetKind("lever"), "A lever", InteractionVerb.Pull, reach: 256, state: "ready")
+        {
+            AimHeight = 10,
+            Radius = 30,
+        });
+        SightMover sight = new();
+        using Hall hall = Hall.Build(rule, Hall.Facing("lever-0"), mover: sight);
+        hall.Interaction.Update();
+
+        Assert.Equal("A lever", hall.Interaction.FocusedTarget!.Definition.Name);
+        (_, System.Numerics.Vector3 to, float tolerance) = sight.Asked.Last(asked => asked.Target.Kind == "lever");
+        Assert.Equal((10f, 30f), (to.Y, tolerance));
+    }
+
+    [Fact]
     public void A_refusal_the_ruleset_states_is_reported_with_its_own_code()
     {
         TestRule rule = new();
@@ -483,6 +502,29 @@ public sealed class InteractionTests
                 ProvisionUnit.Portions,
                 reputation: 0,
                 fame: 0));
+
+    /// <summary>A mover that holds no collision, sees everything, and records what each target was looked at with.</summary>
+    private sealed class SightMover : IPartyMover
+    {
+        internal List<(PlacementContentId Target, System.Numerics.Vector3 To, float Tolerance)> Asked { get; } = [];
+
+        public PlaceGeometryAdmission Enter(PlaceId place) => PlaceGeometryAdmission.Empty(place);
+
+        public MovementOutcome Step(MovementIntent intent, double elapsedSeconds) =>
+            new(PlacePose.Origin, System.Numerics.Vector3.Zero, Grounded: true, default, CharacterBlockFlags.None, default, SurfaceEffect.Ordinary, FallOutcome.None);
+
+        public bool InSight(System.Numerics.Vector3 from, System.Numerics.Vector3 to) => true;
+
+        public bool InSight(System.Numerics.Vector3 from, System.Numerics.Vector3 to, PlacementContentId target, float tolerance)
+        {
+            Asked.Add((target, to, tolerance));
+            return true;
+        }
+
+        public void Dispose()
+        {
+        }
+    }
 
     /// <summary>A mover that holds no collision but reports everything it is asked about as unseen.</summary>
     private sealed class BlindMover : IPartyMover

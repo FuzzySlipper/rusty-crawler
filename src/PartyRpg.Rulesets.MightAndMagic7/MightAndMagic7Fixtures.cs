@@ -187,7 +187,7 @@ internal sealed class MightAndMagic7Fixtures
     /// <summary>The prefix of the name a place keeps whether its events hid one of its groups of creatures under.</summary>
     internal const string HiddenGroupPrefix = "hidden-group:";
 
-    /// <summary>The face bit that hides a face group, which is all a player would see change (<c>src/Engine/Graphics/FaceEnums.h:21</c>).</summary>
+    /// <summary>The face bit that hides a face group (<c>src/Engine/Graphics/FaceEnums.h:21</c>), kept for the drawn world (<see cref="MightAndMagic7Switches"/>).</summary>
     private const long InvisibleFaceBit = 0x0000_2000;
 
     /// <summary>The face bit that lets a party pass through a face group (<c>src/Engine/Graphics/FaceEnums.h:39</c>).</summary>
@@ -203,16 +203,14 @@ internal sealed class MightAndMagic7Fixtures
     /// splash, a corpse sinking and a night's food outdoors (<c>src/Engine/Graphics/Indoor.cpp:1499</c>,
     /// <c>Outdoor.cpp:355-362</c>, <c>:854</c>, <c>:1417</c>, <c>:1617</c>). This build plays no sound and draws no
     /// splash, prices a camp by its place, and reads its imported fluid faces for nothing, so a face group an event
-    /// turns fluid is presentation and is passed over like one made invisible.
+    /// turns fluid is presentation and is passed over.
     /// </remarks>
     private const long FluidFaceBit = 0x0000_0010;
 
     /// <summary>
-    /// The steps that change only what a player sees or hears: a texture, a sprite, a sound, a character's
-    /// portrait reacting, an interior light, a movie. A run passes over them and the event's other steps still run: the
-    /// importer does not yet carry the texture and sprite steps' operands, and the product plays no sound or movie. The
-    /// world-visible ones (texture, sprite, light, and the face-visibility bit) are routed to rusty-crawler#9254 with
-    /// their counts (<c>docs/evidence/world-interaction.md</c>).
+    /// The steps a run passes over, the event's other steps still running: a sound and a movie, which the product does not
+    /// play; a character's portrait reacting, which no screen shows yet; and an interior light, which reaches nothing in the
+    /// shipped levels (<see cref="MightAndMagic7Switches"/>). A texture or a sprite step is kept for the drawn world.
     /// </summary>
     /// <remarks>
     /// The donor's player hangs three effects on a movie's name rather than on a step of the program — the alignment
@@ -223,10 +221,12 @@ internal sealed class MightAndMagic7Fixtures
     /// </remarks>
     internal static readonly IReadOnlySet<string> PresentationSteps = new HashSet<string>(StringComparer.Ordinal)
     {
-        "set-texture", "set-sprite", "play-sound", "character-animation", "toggle-indoor-light", "show-movie",
+        "play-sound", "character-animation", "toggle-indoor-light", "show-movie",
     };
 
     private readonly MightAndMagic7MapEvents _events;
+    private readonly MightAndMagic7Switches _switches;
+    private readonly Func<PlaceId, IReadOnlyDictionary<string, long>?> _kept;
     private readonly Func<PartyKnowledge?> _knowledge;
     private readonly MightAndMagic7SpellEffects? _effects;
     private readonly IRandomService? _random;
@@ -290,8 +290,12 @@ internal sealed class MightAndMagic7Fixtures
         Func<int, bool>? greetings = null,
         Func<PlaceId, PlacePopulation?>? population = null,
         Func<string, IReadOnlyList<int>>? starting = null,
-        MightAndMagic7Followers? followers = null)
+        MightAndMagic7Followers? followers = null,
+        MightAndMagic7Switches? switches = null,
+        Func<PlaceId, IReadOnlyDictionary<string, long>?>? kept = null)
     {
+        _switches = switches ?? MightAndMagic7Switches.None;
+        _kept = kept ?? (_ => null);
         _starting = starting ?? (_ => []);
         _followers = followers;
         _topics = topics ?? (_ => null);
@@ -332,6 +336,9 @@ internal sealed class MightAndMagic7Fixtures
         if (!fixture && !decoration && !trigger) return null;
         if (placement.Source.GetInt32(EventField) is not { } eventId || eventId == 0) return null;
 
+        // A decoration its level or an event has hidden is not there to use, as it is not there to see.
+        if (decoration && MightAndMagic7Switches.IsHidden(placement, _kept(request.Place) ?? new Dictionary<string, long>())) return null;
+
         string label = _events.Find(request.Place, eventId)?.Label ?? string.Empty;
         string name = label.Length > 0
             ? label
@@ -340,13 +347,26 @@ internal sealed class MightAndMagic7Fixtures
                 : "A fixture";
         // A floor trigger is trodden on rather than aimed at: the plates' reaches raise it, and the reticle never
         // offers it.
+        // A decoration stands on its point, often on a shelf, in a niche or against a wall, and is aimed at its middle and
+        // seen by its front, as the donor picks it by its drawn sprite; the row is the one its look and any sprite step give.
+        (int Height, int Radius) size = default;
+        if (decoration)
+        {
+            IReadOnlyDictionary<string, long> values = _kept(request.Place) ?? new Dictionary<string, long>();
+            int row = MightAndMagic7Switches.LookOf(placement, values) ?? placement.Source.GetInt32(DecorationRowField) ?? -1;
+            size = _switches.DecorationSize(row) ?? default;
+        }
+
         return new InteractionTargetDefinition(
             new InteractionTargetKind(TargetKind),
             name,
             trigger ? InteractionVerb.Tread : IsSign(placement) ? InteractionVerb.Read : InteractionVerb.Pull,
             reach,
-            request.State);
+            request.State) { AimHeight = size.Height / 2d, Radius = size.Radius };
     }
+
+    /// <summary>A map decoration's row in the decoration list, as the importer writes it.</summary>
+    private const string DecorationRowField = "descriptionId";
 
     /// <summary>Runs the event a fixture raises and answers with what it did, or why it did nothing.</summary>
     /// <param name="target">The fixture, as described.</param>
@@ -591,6 +611,8 @@ internal sealed class MightAndMagic7Fixtures
                 return "a face group is named by a nonzero number";
             return value is 0 or 1 ? null : "a face group is passable (1) or solid (0)";
         }
+
+        if (_switches.Judge(place, key, value) is { } switched) return switched.Length == 0 ? null : switched;
 
         if (key.StartsWith(CounterPrefix, StringComparison.Ordinal))
         {
@@ -1041,6 +1063,27 @@ internal sealed class MightAndMagic7Fixtures
                             return NotInterpreted(_target, mapEvent, current, string.Create(CultureInfo.InvariantCulture, $"a face bit 0x{current.Flag:X} this game does not read"));
                         if ((current.Flag & PassableFaceBit) != 0 && current.Group != 0)
                             Keep(MightAndMagic7Geometry.PassableKey(current.Group), current.On ? 1 : 0);
+                        if ((current.Flag & InvisibleFaceBit) != 0 && current.Group != 0)
+                            Keep(MightAndMagic7Switches.HiddenKey(current.Group), current.On ? 1 : 0);
+
+                        break;
+                    case "set-texture":
+                        // A cog of zero names no faces, as the donor's own guard reads it; a bitmap the place's render
+                        // entry does not list cannot be drawn, and is refused by name rather than kept as a guess.
+                        if (current.Group == 0 || current.Name.Length == 0) break;
+                        if (_rules._switches.Material(_context.Place, current.Name) is not { } material)
+                            return NotInterpreted(_target, mapEvent, current, $"the bitmap '{current.Name}', which the place's render entry does not list");
+                        Keep(MightAndMagic7Switches.TextureKey(current.Group), material);
+                        break;
+                    case "set-sprite":
+                        if (current.Group == 0) break;
+                        Keep(MightAndMagic7Switches.ShownKey(current.Group), current.On ? 1 : 0);
+                        if (current.Name.Length > 0)
+                        {
+                            if (_rules._switches.Decoration(current.Name) is not { } row)
+                                return NotInterpreted(_target, mapEvent, current, $"the decoration '{current.Name}', which content carries no look for");
+                            Keep(MightAndMagic7Switches.LookKey(current.Group), row);
+                        }
 
                         break;
                     case "give-item":

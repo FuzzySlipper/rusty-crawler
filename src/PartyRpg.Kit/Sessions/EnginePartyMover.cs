@@ -81,6 +81,9 @@ public interface IPartyMover : IDisposable
 
     /// <summary>Whether a target's own surface is visible without seeing through other collision.</summary>
     bool InSight(Vector3 from, Vector3 to, PlacementContentId target) => InSight(from, to);
+
+    /// <summary>Whether a target is visible when collision within a tolerance of its point does not hide it.</summary>
+    bool InSight(Vector3 from, Vector3 to, PlacementContentId target, float tolerance) => InSight(from, to, target);
 }
 
 /// <summary>
@@ -321,6 +324,23 @@ public sealed class EnginePartyMover : IPartyMover
             new SpatialQueryFilter(0, 0),
             ReadOnlyMemory<SpatialEntityCollider>.Empty,
             ReadOnlyMemory<ulong>.Empty) == InteractionVisibility.Visible;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>A target with surfaces of its own is judged by them; any other by the Engine's endpoint tolerance.</remarks>
+    public bool InSight(Vector3 from, Vector3 to, PlacementContentId target, float tolerance)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_targetSurfaces.ContainsKey(target) || tolerance <= 0) return InSight(from, to, target);
+        return InteractionVisibilityQuery.Cast(
+            _spatial,
+            _movement.Session,
+            from,
+            to,
+            new SpatialQueryFilter(0, 0),
+            ReadOnlyMemory<SpatialEntityCollider>.Empty,
+            ReadOnlyMemory<ulong>.Empty,
+            tolerance) == InteractionVisibility.Visible;
     }
 
     /// <inheritdoc />

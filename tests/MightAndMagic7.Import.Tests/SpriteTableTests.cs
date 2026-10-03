@@ -63,6 +63,23 @@ public sealed class SpriteTableTests
         Assert.Throws<LodFormatException>(() => LookLists.Read(monsters[..^1], decorations, objects));
     }
 
+    [Fact]
+    public void A_map_decoration_is_the_first_row_from_one_its_name_matches_without_regard_to_case()
+    {
+        // Rows 0, 1 and 2: the donor never answers row zero by name, and the first later match wins.
+        byte[] decorations = new byte[4 + (3 * 84)];
+        BinaryPrimitives.WriteInt32LittleEndian(decorations, 3);
+        Encoding.ASCII.GetBytes("torch01").CopyTo(decorations, 4);
+        Encoding.ASCII.GetBytes("Torch01").CopyTo(decorations, 4 + 84);
+        Encoding.ASCII.GetBytes("torch01").CopyTo(decorations, 4 + 168);
+        byte[] none = new byte[4];
+        LookLists lists = LookLists.Read(none, decorations, none);
+
+        Assert.Equal(1, lists.DecorationRow("TORCH01"));
+        Assert.Equal(0, lists.DecorationRow("fire01"));
+        Assert.Equal(0, lists.DecorationRow(string.Empty));
+    }
+
     [Theory]
     [InlineData(0, 2, "wlka2", false)]
     [InlineData(SpriteFrame.Image1, 5, "wlka", false)]

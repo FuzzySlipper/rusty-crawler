@@ -1,6 +1,7 @@
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Scene;
+using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
 using PartyRpg.Testing;
@@ -109,6 +110,24 @@ public sealed class ScenePolicyTests
 
         // Once its flinch has run, it stands again.
         Assert.Equal("stand", scene.Objects(place, 5).Single(drawn => drawn.Id == beast).Sprite);
+    }
+
+    [Fact]
+    public void A_switch_is_drawn_as_the_places_ledger_keeps_it_and_as_the_mesh_starts_it_otherwise()
+    {
+        MonsterAiPolicyTests.Fixture fixture = MonsterAiPolicyTests.Fixture.Of();
+        fixture.Fight();
+        SessionWorld world = fixture.Session.World!;
+        MightAndMagic7Scene scene = MightAndMagic7Scene.Read(Content(), () => world, MightAndMagic7Time.Compose(), MightAndMagic7Tuning.Read(null))!;
+
+        Assert.Equal(default, scene.Switch(world.Place, 4));
+        world.Interactions.Keep(world.Place, new Dictionary<string, long>
+        {
+            [MightAndMagic7Switches.HiddenKey(4)] = 1,
+            [MightAndMagic7Switches.TextureKey(4)] = 2,
+        });
+        Assert.Equal(new SceneSwitch(true, 2), scene.Switch(world.Place, 4));
+        Assert.Equal(default, scene.Switch(new PlaceId("elsewhere"), 4));
     }
 
     [Fact]

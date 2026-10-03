@@ -27,9 +27,10 @@ public sealed class WorldViewTests
 
         RenderMesh mesh = RenderMesh.Read(bytes, "place.mesh");
 
-        Assert.Equal(2, mesh.Parts.Count);
+        Assert.Equal(3, mesh.Parts.Count);
         Assert.Null(mesh.Parts[0].Door);
         Assert.Equal(4, mesh.Parts[1].Door);
+        Assert.Equal((null, 7, true), (mesh.Parts[2].Door, mesh.Parts[2].Switch, mesh.Parts[2].StartsHidden));
         Assert.Equal(new RenderMeshGroup(1, 0, 3), Assert.Single(mesh.Parts[1].Groups));
         Assert.Equal(new Vector3(0, 0, 50), mesh.Travel.Span[4]);
         Assert.Equal(2, mesh.Triangles);
@@ -43,9 +44,9 @@ public sealed class WorldViewTests
             rule.Closed = true;
             view.Present(party, 0);
 
-            // Two parts, two meshes; the door part's corners stand at rest plus their travel.
+            // Three parts, three meshes; the door part's corners stand at rest plus their travel.
             IReadOnlyList<object?[]> meshes = graphics.Calls.CallsTo(nameof(IGraphicsService.CreateMeshResource));
-            Assert.Equal(2, meshes.Count);
+            Assert.Equal(3, meshes.Count);
             MeshResourceCreateRequest door = (MeshResourceCreateRequest)meshes[1][0]!;
             Assert.Equal(new Vector3(10, 0, 50), door.Positions.Span[1]);
             Assert.Single(graphics.Snapshots);
@@ -65,9 +66,38 @@ public sealed class WorldViewTests
 
             // Nothing changed, so nothing is rebuilt or republished; the camera follows the party every update.
             view.Present(party, 0);
-            Assert.Equal(2, graphics.Calls.CallsTo(nameof(IGraphicsService.CreateMeshResource)).Count);
+            Assert.Equal(3, graphics.Calls.CallsTo(nameof(IGraphicsService.CreateMeshResource)).Count);
             Assert.Single(graphics.Snapshots);
             Assert.Single(cameras.CallsTo(nameof(ICameraViewService.UpdateCamera)));
+        });
+
+    [Fact]
+    public void A_switch_starts_hidden_and_is_shown_and_retextured_as_the_rule_says()
+        => WithView((view, rule, graphics, _, party) =>
+        {
+            view.Present(party, 0);
+            AppearanceFact[] first = graphics.Snapshots[^1];
+            Assert.Equal(3, first.Count(fact => fact.ObjectId < 1UL << 44));
+            Assert.Single(first, fact => fact.ObjectId < 1UL << 44 && !fact.Visible);
+
+            // Shown with its own materials, it is only republished visible: nothing is rebuilt.
+            int built = graphics.Calls.CallsTo(nameof(IGraphicsService.CreateMeshResource)).Count;
+            rule.Switches[7] = new SceneSwitch(false, null);
+            view.Present(party, 0);
+            Assert.Equal(built, graphics.Calls.CallsTo(nameof(IGraphicsService.CreateMeshResource)).Count);
+            Assert.All(graphics.Snapshots[^1].Where(fact => fact.ObjectId < 1UL << 44), fact => Assert.True(fact.Visible));
+
+            // The rule gives it the place's second material: it is rebuilt drawing that one, and republished shown.
+            rule.Switches[7] = new SceneSwitch(false, 1);
+            view.Present(party, 0);
+            MeshResourceCreateRequest rebuilt = (MeshResourceCreateRequest)graphics.Calls.CallsTo(nameof(IGraphicsService.CreateMeshResource))[^1][0]!;
+            Assert.Equal(1u, Assert.Single(rebuilt.Groups.ToArray()).MaterialSlot);
+            Assert.All(graphics.Snapshots[^1].Where(fact => fact.ObjectId < 1UL << 44), fact => Assert.True(fact.Visible));
+
+            // A material the scene does not list is said once and the faces keep their own.
+            rule.Switches[7] = new SceneSwitch(false, 9);
+            view.Present(party, 0);
+            Assert.Contains(view.Notes, note => note.Contains("names material 9", StringComparison.Ordinal));
         });
 
     [Fact]
@@ -80,8 +110,8 @@ public sealed class WorldViewTests
             view.Present(party, 0);
 
             IReadOnlyList<object?[]> meshes = graphics.Calls.CallsTo(nameof(IGraphicsService.CreateMeshResource));
-            Assert.Equal(3, meshes.Count);
-            Assert.Equal(new Vector3(10, 0, 0), ((MeshResourceCreateRequest)meshes[2][0]!).Positions.Span[1]);
+            Assert.Equal(4, meshes.Count);
+            Assert.Equal(new Vector3(10, 0, 0), ((MeshResourceCreateRequest)meshes[3][0]!).Positions.Span[1]);
             Assert.Equal(2, graphics.Snapshots.Count);
             Assert.Equal(0, view.Report!.ClosedDoors);
         });
@@ -207,24 +237,29 @@ public sealed class WorldViewTests
         test(view, rule, graphics, cameraCalls, party);
     }
 
-    /// <summary>A two-part mesh: one static triangle, and one triangle door 4 moves 50 along the Engine's z when closed.</summary>
+    /// <summary>
+    /// A three-part mesh: one static triangle, one triangle door 4 moves 50 along the Engine's z when closed, and switch 7's
+    /// triangle, which starts hidden.
+    /// </summary>
     private static byte[] Mesh()
     {
         Vector3[] positions = [new(0, 0, 0), new(10, 0, 0), new(0, 10, 0), new(0, 0, 0), new(10, 0, 0), new(0, 10, 0)];
         Vector3[] travel = [default, default, default, default, new(0, 0, 50), default];
-        List<byte> bytes = [.. "PRMESH01"u8.ToArray()];
+        List<byte> bytes = [.. "PRMESH02"u8.ToArray()];
         void U32(uint value) { byte[] b = new byte[4]; BinaryPrimitives.WriteUInt32LittleEndian(b, value); bytes.AddRange(b); }
         void F32(float value) { byte[] b = new byte[4]; BinaryPrimitives.WriteSingleLittleEndian(b, value); bytes.AddRange(b); }
-        U32(6); U32(6); U32(2); U32(2);
+        U32(6); U32(6); U32(3); U32(3);
         foreach (Vector3 p in positions) { F32(p.X); F32(p.Y); F32(p.Z); }
         foreach (Vector3 _ in positions) { F32(0); F32(1); F32(0); }
         foreach (Vector3 _ in positions) { F32(0); F32(0); }
         foreach (Vector3 t in travel) { F32(t.X); F32(t.Y); F32(t.Z); }
         foreach (uint index in new uint[] { 0, 1, 2, 0, 1, 2 }) U32(index);
-        U32(unchecked((uint)-1)); U32(0); U32(3); U32(0); U32(3); U32(0); U32(1);
-        U32(4); U32(3); U32(3); U32(3); U32(3); U32(1); U32(1);
+        U32(unchecked((uint)-1)); U32(unchecked((uint)-1)); U32(0); U32(0); U32(3); U32(0); U32(3); U32(0); U32(1);
+        U32(4); U32(unchecked((uint)-1)); U32(0); U32(3); U32(3); U32(3); U32(3); U32(1); U32(1);
+        U32(unchecked((uint)-1)); U32(7); U32(1); U32(0); U32(3); U32(0); U32(3); U32(2); U32(1);
         U32(0); U32(0); U32(3);
         U32(1); U32(0); U32(3);
+        U32(0); U32(0); U32(3);
         return [.. bytes];
     }
 
@@ -256,6 +291,10 @@ public sealed class WorldViewTests
         public IReadOnlyList<SceneObject> Things { get; set; } = [];
 
         public IReadOnlyList<SceneObject> Objects(PlaceId place, double seconds) => Things;
+
+        public Dictionary<int, SceneSwitch> Switches { get; } = [];
+
+        public SceneSwitch Switch(PlaceId place, int cog) => Switches.GetValueOrDefault(cog);
 
         public List<SceneBurst> Due { get; } = [];
 

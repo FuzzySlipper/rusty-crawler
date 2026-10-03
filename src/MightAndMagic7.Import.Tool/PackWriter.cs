@@ -133,7 +133,7 @@ internal static partial class PackWriter
         // Render geometry reads the same decoded faces and terrain the collision does, on the same axes; its bitmaps are
         // the installation's own, written into the media pack beside it.
         BitmapLibrary? bitmaps = terrain is null ? null : BitmapLibrary.Open(install);
-        IReadOnlyList<PlaceRender> renders = terrain is null ? [] : EmitRenders(maps, terrain, bitmaps!);
+        IReadOnlyList<PlaceRender> renders = terrain is null ? [] : EmitRenders(maps, terrain, bitmaps!, programs, tables);
 
         // The entrances are derived from the same decoded maps the collision is: a place's trigger faces
         // are map data, so an import that decoded no map has none to derive and says so per link.
@@ -174,6 +174,10 @@ internal static partial class PackWriter
             ? PlaceFixtureSummary.Empty
             : PlaceFixtureEmitter.Emit(maps, programs, MapStrings.ReadAll(install), graph, tables);
 
+        // A level's decorations are resolved by name to the decoration list's rows, as the donor does on load.
+        LookLists? decorationLists = maps.Count > 0 && HasLookTables(install) ? LookLists.Read(install) : null;
+        Func<MapDecoration, int>? decorationRow = decorationLists is null ? null : decoration => decorationLists.DecorationRow(decoration.Name);
+
         // Each pack this importer owns is written into an empty directory, so a document an earlier importer
         // wrote and this one does not is not left beside the new ones for the loader to find. Other packs under
         // the same root — a scenario the operator staged — are not this importer's and are left alone.
@@ -198,10 +202,10 @@ internal static partial class PackWriter
             bitmaps);
         ((string, int, int) media, int textures, int skies, int icons, IReadOnlyList<string> missingIcons, int sprites, int looks, IReadOnlyList<string> missingSprites) =
             WriteMedia(provenance, Path.Combine(outputRoot, "mm7-media"), renders, bitmaps, terrain, tables,
-                terrain is null ? null : BitmapLibrary.Open(install, BitmapLibrary.IconArchiveName), terrain is null ? null : install, maps);
+                terrain is null ? null : BitmapLibrary.Open(install, BitmapLibrary.IconArchiveName), terrain is null ? null : install, maps, programs);
         List<(string, int, int)> packs =
         [
-            WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services, people, encounters, creatures, fixtures, globals, terrain),
+            WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services, people, encounters, creatures, fixtures, globals, terrain, decorationRow),
             world,
             media,
         ];
@@ -299,11 +303,12 @@ internal static partial class PackWriter
         PlaceCreatureSummary creatures,
         PlaceFixtureSummary fixtures,
         GlobalEventSummary globals,
-        TerrainTileTable? terrain)
+        TerrainTileTable? terrain,
+        Func<MapDecoration, int>? decorationRow = null)
     {
         List<(string Path, string DocumentId, string Kind, int Entries)> documents =
         [
-            ("places.json", "places", "place", WritePlaces(packDirectory, tables, maps, containers, services, people, encounters, creatures, fixtures, terrain)),
+            ("places.json", "places", "place", WritePlaces(packDirectory, tables, maps, containers, services, people, encounters, creatures, fixtures, terrain, decorationRow)),
             ("place-events.json", "place-events", PlaceEventDefinitionKind, WritePlaceEvents(packDirectory, fixtures)),
             ("global-events.json", "global-events", GlobalEventDefinitionKind, WriteGlobalEvents(packDirectory, globals)),
             ("discoveries.json", "discoveries", DiscoveryDefinitionKind, WriteDiscoveries(packDirectory, tables)),

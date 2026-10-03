@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using MightAndMagic7.Import.Events;
 using MightAndMagic7.Import.Lod;
 using MightAndMagic7.Import.Maps;
 using MightAndMagic7.Import.Media;
@@ -53,7 +54,7 @@ internal static partial class PackWriter
     /// Whether the installation carries the frame table and the three look lists; one that does not (a test's synthetic
     /// archive) writes no looks rather than refusing the media pack.
     /// </summary>
-    private static bool HasLookTables(LodInstall install) =>
+    internal static bool HasLookTables(LodInstall install) =>
         install.ArchiveNames().Contains("Events.lod", StringComparer.OrdinalIgnoreCase)
         && new[] { "dsft.bin", "dmonlist.bin", "ddeclist.bin", "dobjlist.bin" }.All(name => install.Archive("Events.lod").Find(name) is not null);
 
@@ -62,10 +63,11 @@ internal static partial class PackWriter
 
     /// <summary>
     /// Writes every sprite group a look draws, as an atlas, and every look: each monster row's eight animations, each
-    /// decoration the maps place, and each loose object kind.
+    /// decoration the maps place or their events give, and each loose object kind.
     /// </summary>
     private static (int Sprites, int Looks, IReadOnlyList<string> MissingSprites) WriteLooks(
-        string packDirectory, SpriteFrameTable table, LookLists lists, SpriteAtlasBuilder atlases, IReadOnlyDictionary<int, DecodedMap> maps)
+        string packDirectory, SpriteFrameTable table, LookLists lists, SpriteAtlasBuilder atlases, IReadOnlyDictionary<int, DecodedMap> maps,
+        IReadOnlyList<EvtProgram> programs)
     {
         Directory.CreateDirectory(Path.Combine(packDirectory, "sprites"));
         SortedDictionary<int, SpriteAtlasImage?> groups = [];
@@ -77,7 +79,15 @@ internal static partial class PackWriter
         }
 
         string Sprite(int? frame) => frame is { } first && Group(first) is not null ? SpriteId(first) : string.Empty;
-        HashSet<int> placed = [.. maps.Values.SelectMany(map => map.Decorations).Select(decoration => decoration.DescriptionId)];
+        // A decoration is carried when a map places it or an event's sprite step gives it to a placed decoration's cog.
+        HashSet<int> placed = [.. maps.Values.SelectMany(map => map.Decorations).Select(decoration => lists.DecorationRow(decoration.Name))];
+        HashSet<string> given = new(StringComparer.OrdinalIgnoreCase);
+        foreach (EvtInstruction instruction in programs.SelectMany(program => program.Instructions))
+        {
+            if (instruction.TryReadSetSprite(out _, out _, out string name) && name.Length > 0) given.Add(name);
+        }
+
+        placed.UnionWith(lists.Decorations.Where(decoration => given.Contains(decoration.Name)).Select(decoration => decoration.Index));
         List<(string, Action<Utf8JsonWriter>)> looks = [];
         foreach (MonsterLook monster in lists.Monsters)
         {
@@ -186,9 +196,21 @@ internal static partial class PackWriter
     /// <summary>The directory a place's binary mesh is written to inside the world pack.</summary>
     private const string RenderDirectory = "render";
 
-    /// <summary>Builds every place's render geometry over the decoded maps, in place-id order.</summary>
-    private static IReadOnlyList<PlaceRender> EmitRenders(IReadOnlyDictionary<int, DecodedMap> maps, TerrainTileTable tiles, BitmapLibrary bitmaps) =>
-        [.. maps.OrderBy(pair => pair.Key).Select(pair => PlaceRender.Emit(pair.Key, pair.Value, tiles, bitmaps.Size))];
+    /// <summary>
+    /// Builds every place's render geometry over the decoded maps, in place-id order, each with the face cogs its own
+    /// event program switches; a program pairs with its map by the map file's stem, as the containers' do.
+    /// </summary>
+    private static IReadOnlyList<PlaceRender> EmitRenders(IReadOnlyDictionary<int, DecodedMap> maps, TerrainTileTable tiles, BitmapLibrary bitmaps,
+        IReadOnlyList<EvtProgram> programs, Mm7Tables tables)
+    {
+        Dictionary<string, EvtProgram> byStem = new(StringComparer.OrdinalIgnoreCase);
+        foreach (EvtProgram program in programs) byStem.TryAdd(Path.GetFileNameWithoutExtension(program.Name), program);
+        return [.. maps.OrderBy(pair => pair.Key).Select(pair =>
+        {
+            return PlaceRender.Emit(pair.Key, pair.Value, tiles, bitmaps.Size,
+                PlaceSwitches.Of(byStem.GetValueOrDefault(Path.GetFileNameWithoutExtension(pair.Value.FileName))));
+        })];
+    }
 
     /// <summary>The identity a bitmap has in the media pack: its archive entry name, lower-cased.</summary>
     internal static string TextureId(string name) => name.ToLowerInvariant();
@@ -275,7 +297,8 @@ internal static partial class PackWriter
         Mm7Tables tables,
         BitmapLibrary? icons,
         LodInstall? install,
-        IReadOnlyDictionary<int, DecodedMap> maps)
+        IReadOnlyDictionary<int, DecodedMap> maps,
+        IReadOnlyList<EvtProgram> programs)
     {
         SortedDictionary<string, string> textures = new(StringComparer.Ordinal);
         HashSet<string> ground = new(StringComparer.Ordinal);
@@ -355,7 +378,7 @@ internal static partial class PackWriter
         // The looks of what stands in a place, and the sprite groups they draw.
         (int sprites, int looks, IReadOnlyList<string> missingSprites) = install is null || !HasLookTables(install)
             ? (WriteDocument(packDirectory, "sprites.json", "sprites", SpriteDefinitionKind, []), WriteDocument(packDirectory, "looks.json", "looks", LookDefinitionKind, []), [])
-            : WriteLooks(packDirectory, SpriteFrameTable.Read(install), LookLists.Read(install), new SpriteAtlasBuilder(install), maps);
+            : WriteLooks(packDirectory, SpriteFrameTable.Read(install), LookLists.Read(install), new SpriteAtlasBuilder(install), maps, programs);
         WriteManifest(packDirectory, "mm7-media", "definitions", provenance,
             [
                 ("textures.json", "textures", TextureDefinitionKind, []),

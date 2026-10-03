@@ -97,9 +97,20 @@ Owns:
   flip that puts a region's grid in the product's axes, are in
   [`../../docs/research/mm7-map-formats.md`](../../docs/research/mm7-map-formats.md) §9. What the original
   draws instead is coarser here and is marked ours.
+- Map decorations name their decoration-list row by **name**: a level stores a row beside each name, but the donor
+  discards it and resolves the name on load, the first row from one that matches without regard to case
+  (OpenEnroth `src/Engine/Snapshots/CompositeSnapshots.cpp:282-286` and `:570-574`;
+  OpenEnroth `src/Engine/Tables/DecorationTable.cpp:13-22`). An interior's stored rows are all zero, so every decoration's
+  `descriptionId` is written as `LookLists.DecorationRow` of its name when the look tables are present. Event steps
+  carry their operands for the world-visible changes: `set-texture` its cog (`group`) and bitmap (`name`), `set-sprite`
+  its cog, whether it shows (`on`) and its decoration name, `toggle-indoor-light` its light index and switch.
 - Render geometry (`Render/PlaceRender`): one binary mesh per place in `mm7-world/render/<place>.mesh` (the kit's
-  `PRMESH01` document) indexed by `place-render.json`, from the same decoded faces and terrain the collision reads and on
-  the same axes. Portals and invisible faces (`FACE_IsInvisible`) are not drawn; ethereal faces are; a region's terrain
+  `PRMESH02` document) indexed by `place-render.json`, from the same decoded faces and terrain the collision reads and on
+  the same axes. Portals and invisible faces (`FACE_IsInvisible`) are not drawn, except that a face of a cog the map's
+  own events retexture or hide (`PlaceSwitches`: a `set-texture` cog, or a `set-faces-bit` cog on the invisible bit) is
+  kept in a part of its own marked with that cog and whether it starts hidden, and each bitmap a `set-texture` step
+  names is one more of the place's materials (OpenEnroth `src/Engine/Engine.cpp:948-990`); a door keeps its own faces
+  whatever their cog. Ethereal faces are drawn; a region's terrain
   square draws its tile record's bitmap once (OpenEnroth `OpenGLRenderer.cpp`, the terrain pass) and a face its texel
   coordinates plus its delta over its bitmap's size (the model and BSP passes); a door's faces are a part of their own
   carrying the collision layout's per-corner travel. A region's sky is its saved weather's, else the donor's first-visit

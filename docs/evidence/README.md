@@ -11,6 +11,8 @@ What is published here is text only: no game data, no screenshots, no saves, and
 
 | Record | What it shows |
 | --- | --- |
+| [`world-events.md`](world-events.md) | Map events change how a place looks in place: a manor urn taken from its mantel and an ore vein mined to plain rock with ordinary use, both still so after save and resume; interior decorations resolved by name and drawn. |
+| [`world-interaction.md`](world-interaction.md) | A lever's door part moved in place and kept after resume; a struck townswoman flinches, bursts red, falls and lies as a body; the audit of event steps that change a place's look. |
 | [`world-objects.md`](world-objects.md) | Townspeople, trees and a campfire drawn as the original's sprites in the new game; the reticle's speaker is the drawn person; a body lies where a peasant fell and after save and resume; a staged barrow's creatures move. |
 | [`world-rendering.md`](world-rendering.md) | The ordinary new game drawn through the Engine from imported render meshes and media: turning, a signpost stopping the party where it is drawn, night under the party's light, and a staged interior entered and left through its exit. |
 | [`new-game-bundle.md`](new-game-bundle.md) | The default launch opens creation and accepts the party into Emerald Island from the shipped `mm7-new-game` bundle; a checkout without imported packs shows the bundle's setup guidance and offers no creation. |

@@ -91,6 +91,14 @@ public interface ISceneRule
     /// <param name="seconds">The session's admitted time, which an animation is read against.</param>
     IReadOnlyList<SceneObject> Objects(PlaceId place, double seconds);
 
+    /// <summary>
+    /// What a game's events have made of one switch's faces: whether they are hidden and which of the place's materials
+    /// they draw with. Null fields leave the mesh's own answer: hidden as it starts, drawn with its own materials.
+    /// </summary>
+    /// <param name="place">The place.</param>
+    /// <param name="cog">The switch, as the mesh names it.</param>
+    SceneSwitch Switch(PlaceId place, int cog) => default;
+
     /// <summary>The bursts to emit now: what the place's owners resolved since the last time the view asked.</summary>
     /// <param name="place">The place.</param>
     /// <param name="seconds">The session's admitted time.</param>
@@ -180,3 +188,8 @@ public sealed record SceneObject(string Id, string Sprite, PlacePose Feet, doubl
 /// <param name="Speed">How fast its particles fly out from the point, in place units a second, before they fall.</param>
 /// <param name="Label">What it marks, for the Engine's report of the emission.</param>
 public sealed record SceneBurst(PlacePose At, Vector3 Colour, int Count, float Size, float Seconds, float Speed, string Label);
+
+/// <summary>What a game's events have made of one switch's faces.</summary>
+/// <param name="Hidden">Whether they are hidden, or null for the mesh's own starting state.</param>
+/// <param name="Material">The place material every face of the switch draws with, or null for each face's own.</param>
+public readonly record struct SceneSwitch(bool? Hidden, int? Material);

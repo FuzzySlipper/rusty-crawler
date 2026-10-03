@@ -185,11 +185,7 @@ public sealed class WorldView : IWorldPresenter
             }
             loaded = new Loaded(scene, mesh);
             foreach (SceneMaterial material in scene.Materials) loaded.Materials.Add(Material(material));
-            foreach (RenderMeshPart part in loaded.Mesh.Parts)
-            {
-                bool closed = part.Door is { } door && scene.Doors.TryGetValue(door, out string? id) && _rule.IsClosed(place, id);
-                loaded.Parts.Add(Part(loaded, part, closed));
-            }
+            foreach (RenderMeshPart part in loaded.Mesh.Parts) loaded.Parts.Add(Part(loaded, part, StateOf(loaded, part)));
         }
         catch (Exception refused) when (refused is EngineCallException or InvalidDataException)
         {
@@ -207,17 +203,27 @@ public sealed class WorldView : IWorldPresenter
         return true;
     }
 
-    /// <summary>Replaces every door part whose state changed since it was drawn.</summary>
+    /// <summary>Replaces every door or switch part whose state changed since it was drawn.</summary>
     private bool Doors(Loaded loaded)
     {
         bool changed = false;
         for (int index = 0; index < loaded.Parts.Count; index++)
         {
             DrawnPart drawn = loaded.Parts[index];
-            if (drawn.Part.Door is not { } door || !loaded.Scene.Doors.TryGetValue(door, out string? id)) continue;
-            bool closed = _rule.IsClosed(loaded.Scene.Place, id);
-            if (closed == drawn.Closed) continue;
-            DrawnPart replaced = Part(loaded, drawn.Part, closed);
+            if (drawn.Part.Door is null && drawn.Part.Switch is null) continue;
+            PartState state = StateOf(loaded, drawn.Part);
+            if (state == drawn.State) continue;
+            changed = true;
+
+            // Hidden or shown is the published fact's visibility alone; only a door's corners or a switch's material
+            // build a new mesh.
+            if (state with { Hidden = drawn.State.Hidden } == drawn.State)
+            {
+                loaded.Parts[index] = drawn with { State = state };
+                continue;
+            }
+
+            DrawnPart replaced = Part(loaded, drawn.Part, state);
             loaded.Parts[index] = replaced;
             loaded.Retired.Add(drawn);
             changed = true;
@@ -227,13 +233,33 @@ public sealed class WorldView : IWorldPresenter
         return changed;
     }
 
+    /// <summary>
+    /// What the rule makes of a part now: a door part's door closed or open, a switch part's faces hidden or shown and
+    /// the material they draw with. A material the scene does not list is said once and the faces keep their own.
+    /// </summary>
+    private PartState StateOf(Loaded loaded, RenderMeshPart part)
+    {
+        PlaceId place = loaded.Scene.Place;
+        bool closed = part.Door is { } door && loaded.Scene.Doors.TryGetValue(door, out string? id) && _rule.IsClosed(place, id);
+        if (part.Switch is not { } cog) return new PartState(closed, false, null);
+        SceneSwitch switched = _rule.Switch(place, cog);
+        int? material = switched.Material;
+        if (material is { } named && (named < 0 || named >= loaded.Materials.Count))
+        {
+            Note($"Switch {cog} of place '{place}' names material {named}, and the scene lists {loaded.Materials.Count}, so its faces keep their own.");
+            material = null;
+        }
+
+        return new PartState(closed, switched.Hidden ?? part.StartsHidden, material);
+    }
+
     private void Reported(Loaded loaded) => Report = new WorldViewReport(
         loaded.Scene.Place,
         loaded.Mesh.Triangles,
         loaded.Scene.Materials.Count,
         loaded.Scene.Materials.Count(material => material.Texture is null),
         loaded.Parts.Count(part => part.Part.Door is not null),
-        loaded.Parts.Count(part => part.Part.Door is not null && part.Closed),
+        loaded.Parts.Count(part => part.Part.Door is not null && part.State.Closed),
         loaded.Sky);
 
     private Material Material(SceneMaterial material)
@@ -293,12 +319,12 @@ public sealed class WorldView : IWorldPresenter
         return texture;
     }
 
-    /// <summary>Builds one part's mesh, with a door part's corners where its state puts them.</summary>
-    private DrawnPart Part(Loaded loaded, RenderMeshPart part, bool closed)
+    /// <summary>Builds one part's mesh, with a door part's corners where its state puts them and a switch part's material.</summary>
+    private DrawnPart Part(Loaded loaded, RenderMeshPart part, PartState state)
     {
         RenderMesh mesh = loaded.Mesh;
         ReadOnlyMemory<Vector3> positions = mesh.Positions.Slice(part.VertexStart, part.VertexCount);
-        if (closed)
+        if (state.Closed)
         {
             Vector3[] moved = positions.ToArray();
             ReadOnlySpan<Vector3> travel = mesh.Travel.Span.Slice(part.VertexStart, part.VertexCount);
@@ -306,8 +332,10 @@ public sealed class WorldView : IWorldPresenter
             positions = moved;
         }
 
-        MeshGroup[] groups = [.. part.Groups.Select(group => new MeshGroup((uint)group.Material, (uint)group.Start, (uint)group.Count))];
-        MeshMaterialBinding[] bindings = [.. part.Groups.Select(group => group.Material).Distinct()
+        // A retextured switch draws every face with the one material its event names, as the donor gives every face of the
+        // cog the one bitmap; the faces keep their own texture coordinates.
+        MeshGroup[] groups = [.. part.Groups.Select(group => new MeshGroup((uint)(state.Material ?? group.Material), (uint)group.Start, (uint)group.Count))];
+        MeshMaterialBinding[] bindings = [.. part.Groups.Select(group => state.Material ?? group.Material).Distinct()
             .Select(material => new MeshMaterialBinding((uint)material, loaded.Materials[material]))];
         MeshResource resource = Graphics.CreateMeshResource(new MeshResourceCreateRequest(
             positions,
@@ -318,7 +346,7 @@ public sealed class WorldView : IWorldPresenter
             bindings));
         try
         {
-            return new DrawnPart(part, closed, resource, Graphics.CreateMeshAppearance(resource));
+            return new DrawnPart(part, state, resource, Graphics.CreateMeshAppearance(resource));
         }
         catch
         {
@@ -338,7 +366,7 @@ public sealed class WorldView : IWorldPresenter
                 DrawnPart part = loaded.Parts[index];
                 ulong id = part.Part.Door is null && index == 0 ? PlaceObjectId : FirstDoorObjectId + (ulong)index;
                 facts.Add(new AppearanceFact(id, false, 0, new Transform(Vector3.Zero, Quaternion.Identity, Vector3.One),
-                    part.Appearance, Visible: true, RenderLayer.Scene));
+                    part.Appearance, Visible: !part.State.Hidden, RenderLayer.Scene));
             }
         }
 
@@ -696,8 +724,11 @@ public sealed class WorldView : IWorldPresenter
         }
     }
 
-    /// <summary>One part's mesh and the appearance that draws it, in one door state.</summary>
-    private sealed record DrawnPart(RenderMeshPart Part, bool Closed, MeshResource Mesh, Appearance Appearance) : IDisposable
+    /// <summary>A part's state: its door closed, its faces hidden, the material its switch draws with.</summary>
+    private readonly record struct PartState(bool Closed, bool Hidden, int? Material);
+
+    /// <summary>One part's mesh and the appearance that draws it, in one state.</summary>
+    private sealed record DrawnPart(RenderMeshPart Part, PartState State, MeshResource Mesh, Appearance Appearance) : IDisposable
     {
         public void Dispose()
         {

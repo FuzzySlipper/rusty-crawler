@@ -15,7 +15,7 @@ Implemented: `info`, `list`, `report`, `verify`, `maps`, `encounters`, `media`, 
 README). `write` emits three packs — `mm7-tables`, `mm7-world` (with each place's render mesh beside its collision)
 and `mm7-media` (world bitmaps, skies and interface images) — and its summary's `render` block states the places,
 vertices, triangles, door parts, undrawn and untextured faces, textures, skies, icons, and every texture or icon named
-but absent (over the operator's install: 76 places, 872,088 triangles, 784 door parts, 854 textures, 617 icons, no
+but absent (over the operator's install: 76 places, 873,201 triangles, 784 door parts, 857 textures, 617 icons, no
 texture missing, five icon names absent). `encounters` is the read-only half of the monster import: it decodes the maps, reads every actor
 spawn through its map's encounter slots and the monster table, and prints what a write would emit — the
 encounters per place, the records nothing was emitted for with their reason, and the notes the reading

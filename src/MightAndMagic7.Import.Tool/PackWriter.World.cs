@@ -302,7 +302,8 @@ internal static partial class PackWriter
         PlaceEncounterSummary encounters,
         PlaceCreatureSummary creatures,
         PlaceFixtureSummary fixtures,
-        TerrainTileTable? terrain)
+        TerrainTileTable? terrain,
+        Func<MapDecoration, int>? decorationRow = null)
     {
         // A place's fixtures stand where the faces raising their event are, so they are grouped by place and
         // written into that place's own placements beside its containers.
@@ -445,7 +446,8 @@ internal static partial class PackWriter
                         peopleByPlace.GetValueOrDefault(map.Id, []),
                         fixturesByPlace.GetValueOrDefault(map.Id, []),
                         triggersByPlace.GetValueOrDefault(map.Id, []),
-                        residentsByBuilding);
+                        residentsByBuilding,
+                        decorationRow ?? (decoration => decoration.DescriptionId));
                 }
             }));
         }
@@ -502,7 +504,8 @@ internal static partial class PackWriter
         IReadOnlyList<PlacePersonPlacement> people,
         IReadOnlyList<PlaceFixturePlacement> fixtures,
         IReadOnlyList<PlaceFloorTrigger> triggers,
-        IReadOnlyDictionary<int, IReadOnlyList<string>> residentsByBuilding)
+        IReadOnlyDictionary<int, IReadOnlyList<string>> residentsByBuilding,
+        Func<MapDecoration, int> decorationRow)
     {
         List<Placement> placements = [];
         foreach (MapSpawnPoint spawn in map.SpawnPoints)
@@ -576,7 +579,7 @@ internal static partial class PackWriter
             placements.Add(new Placement("decoration", decoration.Index, "decorations", decoration.Position, decoration.YawAngle, null, field =>
             {
                 field.WriteString("name", decoration.Name);
-                field.WriteNumber("descriptionId", decoration.DescriptionId);
+                field.WriteNumber("descriptionId", decorationRow(decoration));
                 field.WriteNumber("flags", decoration.Flags);
                 field.WriteNumber("cog", decoration.Cog);
                 field.WriteNumber("eventId", decoration.EventId);

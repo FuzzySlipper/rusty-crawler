@@ -655,14 +655,19 @@ names — the people of that house's placement in the place (`EvtInterpreter.cpp
 that reaches a move takes it through the one transition path instead (the hostels of Celeste and The Pit, links 38 and
 47); a run that reaches neither keeps the party outside with what it said (`InteractionOutcome.KeptOut`, a shop closed
 while Harmondale is besieged); and a run refused at a step this game does not read opens the house as before, the
-refusal its residue. **Presentation, passed over**: the
-product draws a place's imported geometry but does not yet interpret the steps that change how it looks (their
-operands are not imported; rusty-crawler#9254 receives the texture, sprite, light and face-visibility changes), and plays no
-sound, so `set-texture`, `set-sprite`, `play-sound`, `character-animation`,
-`toggle-indoor-light`, `show-movie` (the three effects the donor's player hangs on a movie's name — the arbiter's
+refusal its residue. **What a place looks like** (`MightAndMagic7Switches`): `set-texture` keeps
+`face-texture:<cog>` (the place material its bitmap is, refused by name when the render entry lists none),
+`set-sprite` keeps `decoration-shown:<cog>` and, when it names one, `decoration-look:<cog>` (the decoration row its
+name is), and a `set-faces-bit` on the invisible bit keeps `face-hidden:<cog>`, all on the place's interaction ledger,
+saved, judged on load and drawn by the scene; a decoration hidden by its level or a step is neither drawn nor offered,
+and a decoration target is aimed at half its look's height and seen by its front (its look's radius), so an urn in a
+niche can be used ([event reading](../../docs/evidence/world-events.md)). **Presentation, passed over**: the product
+plays no sound and shows no portrait reaction or movie, so `play-sound`, `character-animation`,
+`toggle-indoor-light` (every interior light the shipped levels carry has a radius of zero, which the donor's sector
+lighting reads as reaching nothing, `OpenEnroth/src/Engine/Graphics/Lighting.cpp:133-151`), `show-movie` (the three effects the donor's player hangs on a movie's name — the arbiter's
 alignment and the crossing's week of rest, `OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:288-300` — are the
-executable's and are not kept: this build's path is the class a promotion chooses), and a `set-faces-bit` that only hides a face group or makes it fluid change nothing and the
-event's gameplay steps still run — fluid by decision, hiding routed to #9254 for drawing (a fluid face is not water a party drowns in, and its
+executable's and are not kept: this build's path is the class a promotion chooses), and a `set-faces-bit` that only makes a face group fluid changes nothing and the
+event's gameplay steps still run — a decision (a fluid face is not water a party drowns in, and its
 footsteps, splash and sinking corpses are not modelled); a `set-faces-bit` that sets or clears passability
 keeps `face-passable:<group>` on the same interaction ledger and updates collision. Zero is no face group. The variables, each through its owner: `quest-bit` (the
 party record `errand:<bit>` the conversation already reads), `member-bit` (a party record — the donor's is per

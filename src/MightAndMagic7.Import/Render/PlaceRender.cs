@@ -29,12 +29,14 @@ public sealed record RenderMaterial(string Texture, RenderSurface Surface, bool 
 
 /// <summary>One contiguous range of a render mesh: its vertices, its triangles, and the door that moves it, if any.</summary>
 /// <param name="Door">The door's index in the level, which the collision layout writes as <c>door-&lt;index&gt;</c>; null for static geometry.</param>
+/// <param name="Switch">The face cog whose faces a map event hides, shows or retextures, when the part is that cog's; null otherwise.</param>
+/// <param name="StartsHidden">Whether the part's faces start invisible (<c>FACE_IsInvisible</c>), to be shown by an event.</param>
 /// <param name="VertexStart">The part's first vertex.</param>
 /// <param name="VertexCount">How many vertices it has.</param>
 /// <param name="IndexStart">The part's first index; its indices count from its own first vertex.</param>
 /// <param name="IndexCount">How many indices it has.</param>
 /// <param name="Groups">Its material ranges, each an index range within the part.</param>
-public sealed record RenderPart(int? Door, int VertexStart, int VertexCount, int IndexStart, int IndexCount, IReadOnlyList<RenderGroup> Groups);
+public sealed record RenderPart(int? Door, int? Switch, bool StartsHidden, int VertexStart, int VertexCount, int IndexStart, int IndexCount, IReadOnlyList<RenderGroup> Groups);
 
 /// <summary>A range of a part's indices drawn with one material.</summary>
 /// <param name="Material">The material's index in the place's material list.</param>
@@ -70,7 +72,7 @@ public sealed record RenderGroup(int Material, int Start, int Count);
 public sealed class PlaceRender
 {
     /// <summary>The binary mesh document's first eight bytes.</summary>
-    public static ReadOnlySpan<byte> Magic => "PRMESH01"u8;
+    public static ReadOnlySpan<byte> Magic => "PRMESH02"u8;
 
     /// <summary>The sky a region shows on the party's first visit.</summary>
     public const string FirstVisitSky = "plansky3";
@@ -79,7 +81,10 @@ public sealed class PlaceRender
     private const uint PortalAttribute = 0x00000001;
 
     /// <summary>The donor's invisible attribute, <c>FACE_IsInvisible</c>.</summary>
-    private const uint InvisibleAttribute = 0x00002000;
+    private const uint InvisibleAttribute = InvisibleFaceBit;
+
+    /// <summary><c>FACE_IsInvisible</c>, the bit a face-bit event sets to hide a cog's faces (OpenEnroth <c>src/Engine/Graphics/FaceEnums.h:21</c>).</summary>
+    internal const uint InvisibleFaceBit = 0x00002000;
 
     /// <summary>The donor's indoor sky attribute, <c>FACE_INDOOR_SKY</c>.</summary>
     private const uint SkyAttribute = 0x00400000;
@@ -133,8 +138,11 @@ public sealed class PlaceRender
     /// <param name="map">The decoded map.</param>
     /// <param name="tiles">The terrain tile table, which names a region's square bitmaps.</param>
     /// <param name="bitmaps">The size of a bitmap by name, or null when the installation does not hold it.</param>
-    public static PlaceRender Emit(int placeId, DecodedMap map, TerrainTileTable tiles, Func<string, (int Width, int Height)?> bitmaps)
+    /// <param name="switches">The face cogs the place's events hide, show or retexture, and the bitmaps they retexture with.</param>
+    public static PlaceRender Emit(int placeId, DecodedMap map, TerrainTileTable tiles, Func<string, (int Width, int Height)?> bitmaps,
+        PlaceSwitches? switches = null)
     {
+        switches ??= PlaceSwitches.None;
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(tiles);
         ArgumentNullException.ThrowIfNull(bitmaps);
@@ -143,19 +151,32 @@ public sealed class PlaceRender
         Dictionary<int, CollisionCorner> moved = PlaceCollisionLayout.DoorCorners(map);
 
         // Static geometry is the first part; every door that moves a drawn face is a part of its own after it.
+        // A face of a cog an event switches is kept even when it starts invisible, in a part of its own, so the event
+        // can show, hide or retexture it in place; a door's faces stay with their door.
         List<(MapFace Face, int? Door)> faces = [];
         foreach ((int _, MapFace face, int _, string _) in MapFaceList.Flatten(map))
         {
-            if (face.BackSectorId > 0 || (face.Attributes & (PortalAttribute | InvisibleAttribute)) != 0 || face.Vertices.Count < 3)
+            bool switched = face.CogNumber != 0 && switches.Cogs.Contains(face.CogNumber);
+            if (face.BackSectorId > 0 || (face.Attributes & PortalAttribute) != 0 || face.Vertices.Count < 3
+                || ((face.Attributes & InvisibleAttribute) != 0 && !switched))
             {
                 render.UndrawnFaces++;
                 continue;
             }
 
             int? door = face.VertexIds.Select(id => moved.TryGetValue(id, out CollisionCorner? bound) ? bound.Door : null).FirstOrDefault(found => found is not null);
+
+            // A door's part carries no switch, so an invisible face a door moves stays undrawn whatever its cog.
+            if (door is not null && (face.Attributes & InvisibleAttribute) != 0)
+            {
+                render.UndrawnFaces++;
+                continue;
+            }
+
             faces.Add((face, door));
         }
 
+        bool Switched(MapFace face) => face.CogNumber != 0 && switches.Cogs.Contains(face.CogNumber);
         render.BeginPart(null);
         if (map is OutdoorMap outdoor)
         {
@@ -166,7 +187,7 @@ public sealed class PlaceRender
             render.AddTerrain(outdoor, tiles);
         }
 
-        foreach ((MapFace face, _) in faces.Where(entry => entry.Door is null)) render.AddFace(face, null, moved);
+        foreach ((MapFace face, _) in faces.Where(entry => entry.Door is null && !Switched(entry.Face))) render.AddFace(face, null, moved);
         render.EndPart();
         foreach (IGrouping<int, (MapFace Face, int? Door)> door in faces.Where(entry => entry.Door is not null).GroupBy(entry => entry.Door!.Value).OrderBy(group => group.Key))
         {
@@ -175,6 +196,17 @@ public sealed class PlaceRender
             render.EndPart();
         }
 
+        foreach (var cog in faces.Where(entry => entry.Door is null && Switched(entry.Face))
+            .GroupBy(entry => (entry.Face.CogNumber, Hidden: (entry.Face.Attributes & InvisibleAttribute) != 0))
+            .OrderBy(group => group.Key.CogNumber).ThenBy(group => group.Key.Hidden))
+        {
+            render.BeginPart(null, cog.Key.CogNumber, cog.Key.Hidden);
+            foreach ((MapFace face, _) in cog) render.AddFace(face, null, moved);
+            render.EndPart();
+        }
+
+        // The bitmaps an event retextures with are materials of the place too, so a retextured cog draws from the same list.
+        foreach (string texture in switches.Textures) render.Material(texture, RenderSurface.Face);
         return render;
     }
 
@@ -183,11 +215,15 @@ public sealed class PlaceRender
     private int _partVertexStart;
     private int _partIndexStart;
     private int? _partDoor;
+    private int? _partSwitch;
+    private bool _partHidden;
     private readonly Dictionary<int, List<uint>> _partGroups = [];
 
-    private void BeginPart(int? door)
+    private void BeginPart(int? door, int? cog = null, bool hidden = false)
     {
         _partDoor = door;
+        _partSwitch = cog;
+        _partHidden = hidden;
         _partVertexStart = Vertices;
         _partIndexStart = _indices.Count;
         _partGroups.Clear();
@@ -206,11 +242,11 @@ public sealed class PlaceRender
 
         if (Vertices > _partVertexStart)
         {
-            _parts.Add(new RenderPart(_partDoor, _partVertexStart, Vertices - _partVertexStart, _partIndexStart, _indices.Count - _partIndexStart, groups));
+            _parts.Add(new RenderPart(_partDoor, _partSwitch, _partHidden, _partVertexStart, Vertices - _partVertexStart, _partIndexStart, _indices.Count - _partIndexStart, groups));
         }
     }
 
-    private int Material(string texture, RenderSurface surface)
+    internal int Material(string texture, RenderSurface surface)
     {
         string key = texture.ToLowerInvariant();
         if (_materialIndex.TryGetValue((key, surface), out int index)) return index;
@@ -321,14 +357,15 @@ public sealed class PlaceRender
     /// <summary>
     /// Writes the binary mesh: the magic, four counts (vertices, indices, parts, groups), then little-endian f32
     /// positions (3 per vertex), normals (3), texture coordinates (2) and door travel (3), u32 indices, each part as
-    /// (i32 door or -1, u32 vertex start, u32 vertex count, u32 index start, u32 index count, u32 first group,
-    /// u32 group count), and each group as (u32 material, u32 start, u32 count).
+    /// (i32 door or -1, i32 switch cog or -1, u32 flags — bit 0 starts hidden — u32 vertex start, u32 vertex count,
+    /// u32 index start, u32 index count, u32 first group, u32 group count), and each group as (u32 material, u32 start,
+    /// u32 count).
     /// </summary>
     public byte[] ToBytes()
     {
         RenderGroup[] groups = [.. _parts.SelectMany(part => part.Groups)];
         int size = 8 + 16 + (_positions.Count * 4) + (_normals.Count * 4) + (_uvs.Count * 4) + (_travel.Count * 4)
-            + (_indices.Count * 4) + (_parts.Count * 28) + (groups.Length * 12);
+            + (_indices.Count * 4) + (_parts.Count * 36) + (groups.Length * 12);
         byte[] bytes = new byte[size];
         Magic.CopyTo(bytes);
         int at = 8;
@@ -341,12 +378,47 @@ public sealed class PlaceRender
         int firstGroup = 0;
         foreach (RenderPart part in _parts)
         {
-            I32(part.Door ?? -1); U32((uint)part.VertexStart); U32((uint)part.VertexCount);
+            I32(part.Door ?? -1); I32(part.Switch ?? -1); U32(part.StartsHidden ? 1u : 0u); U32((uint)part.VertexStart); U32((uint)part.VertexCount);
             U32((uint)part.IndexStart); U32((uint)part.IndexCount); U32((uint)firstGroup); U32((uint)part.Groups.Count);
             firstGroup += part.Groups.Count;
         }
 
         foreach (RenderGroup group in groups) { U32((uint)group.Material); U32((uint)group.Start); U32((uint)group.Count); }
         return bytes;
+    }
+}
+
+/// <summary>What a place's events change about its faces: the cogs they hide, show or retexture, and the bitmaps they use.</summary>
+/// <param name="Cogs">The face cogs a <c>set-texture</c> step or a <c>set-faces-bit</c> step on the invisible bit names.</param>
+/// <param name="Textures">The bitmaps the place's <c>set-texture</c> steps give.</param>
+public sealed record PlaceSwitches(IReadOnlySet<int> Cogs, IReadOnlyList<string> Textures)
+{
+    /// <summary>A place whose events switch nothing.</summary>
+    public static PlaceSwitches None { get; } = new(new HashSet<int>(), []);
+
+    /// <summary>
+    /// Reads what one map's event program switches: the cog of every texture step, and of every face-bit step whose bit
+    /// is the invisible one (OpenEnroth <c>src/Engine/Engine.cpp:948-990</c>), with the bitmaps the texture steps name.
+    /// </summary>
+    public static PlaceSwitches Of(Events.EvtProgram? program)
+    {
+        if (program is null) return None;
+        HashSet<int> cogs = [];
+        SortedSet<string> textures = new(StringComparer.OrdinalIgnoreCase);
+        foreach (Events.EvtInstruction instruction in program.Instructions)
+        {
+            if (instruction.TryReadSetTexture(out int cog, out string texture) && cog != 0)
+            {
+                cogs.Add(cog);
+                if (texture.Length > 0) textures.Add(texture);
+            }
+            else if (instruction.TryReadFlagToggle(out Events.FlagToggleInstruction toggle) && instruction.Opcode == Events.EvtOpcodes.SetFacesBit
+                && (toggle.Flag & PlaceRender.InvisibleFaceBit) != 0 && toggle.Group != 0)
+            {
+                cogs.Add(toggle.Group);
+            }
+        }
+
+        return new PlaceSwitches(cogs, [.. textures]);
     }
 }

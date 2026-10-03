@@ -54,12 +54,12 @@ The fixture runner passes over steps that only change what a player sees or hear
 
 | Step | Steps | Places | Where it goes |
 | --- | --- | --- | --- |
-| `set-sprite` | 61 | 11 | #9254 (the importer writes no operands yet) |
-| `set-texture` | 50 | 16 | #9254 (the importer writes no operands yet) |
+| `set-sprite` | 61 | 11 | drawn since #9254 ([reading](world-events.md)) |
+| `set-texture` | 50 | 16 | drawn since #9254 ([reading](world-events.md)) |
 | `character-animation` | 44 | 13 | portrait reactions, the HUD's work, not the world view |
-| `set-faces-bit` | 36 | 9 | passable (0x20000000, 19 steps) is kept and collides; invisible (0x2000, 12 steps) is #9254; fluid (0x10, 5 steps) stays a decision |
+| `set-faces-bit` | 36 | 9 | passable (0x20000000, 19 steps) is kept and collides; invisible (0x2000, 12 steps) is drawn since #9254; fluid (0x10, 5 steps) stays a decision |
 | `play-sound` | 7 | 2 | no sound in the product |
-| `toggle-indoor-light` | 7 | 2 | #9254 |
+| `toggle-indoor-light` | 7 | 2 | passed over by decision: every shipped interior light has radius zero (#9254) |
 | `show-movie` | 2 | 1 | no video in the product |
 
 ## Limits

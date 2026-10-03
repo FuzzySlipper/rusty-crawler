@@ -8,9 +8,9 @@ Engine's own frame with the DOM panel beside it — no synthetic or offline rend
 
 ## What the import wrote
 
-`mm7import write` over the operator's install wrote render geometry for all 76 places — 1,696,698 vertices and 872,088
-triangles, 784 door parts, 6,096 faces left undrawn (portals and invisible faces), none untextured — and a media pack
-of 854 world bitmaps, the first-visit sky panorama and 617 interface images. No world bitmap a place names was absent;
+`mm7import write` over the operator's install wrote render geometry for all 76 places — 1,698,677 vertices and 873,201
+triangles, 784 door parts, 5,663 faces left undrawn (portals and invisible faces no event shows), none untextured — and
+a media pack of 857 world bitmaps, the first-visit sky panorama and 617 interface images. No world bitmap a place names was absent;
 five interface names the tables use were (`null`, `axe4`, `lshield3`, `npc116`, `pc2301`), and the summary names them.
 
 ## Ordinary new game, outdoors

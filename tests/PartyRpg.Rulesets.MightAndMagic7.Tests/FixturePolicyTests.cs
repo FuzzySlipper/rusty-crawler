@@ -314,8 +314,8 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
         PlacementDefinition gate = Door(7, stored: 2);
         PlacementDefinition[] placements = [lever, gate];
 
-        // The texture, the sound and a face group hidden are presentation the product does not draw, so the run
-        // passes over them; the toggle moves the closed gate open through the door owner's own word, recorded
+        // A texture step naming no cog and the sound change nothing; the face group hidden is kept for the drawn world;
+        // the toggle moves the closed gate open through the door owner's own word, recorded
         // under the gate's identity, and notifies collision through the same ledger.
         (InteractionOutcome pulled, _) = Use(rule, lever, EmeraldIsle, party, clock, ledger, placements);
         Assert.True(pulled.IsApplied, pulled.Refusal?.Message);
@@ -323,6 +323,7 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
         Assert.Equal(new InteractionTargetChange(gate.Content, MightAndMagic7Interaction.OpenState), Assert.Single(pulled.Changes));
         Assert.Empty(pulled.Residue);
         Assert.Equal(MightAndMagic7Interaction.OpenState, ledger.StateOf(EmeraldIsle, gate.Content).State);
+        Assert.Equal(1, ledger.ValuesOf(EmeraldIsle)[MightAndMagic7Switches.HiddenKey(3)]);
 
         // The gate's own use reads what the lever left: it already stands open.
         InteractionTargetDefinition door = rule.Describe(new InteractionTargetRequest(EmeraldIsle, gate, ledger.StateOf(EmeraldIsle, gate.Content).State))!;
@@ -338,6 +339,89 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
         Assert.True(nowhere.IsApplied);
         Assert.Empty(nowhere.Changes);
         Assert.Contains("Door 7 is not one this place holds", nowhere.Residue, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Texture_sprite_and_face_visibility_steps_are_kept_for_the_drawn_world_and_a_hidden_decoration_is_not_used()
+    {
+        const string events = """
+            {
+              "documentId": "events",
+              "definitionKind": "place-event",
+              "entries": [
+                { "id": "1.400", "place": "1", "event": 400, "label": "Ore Vein", "raised": true,
+                  "steps": [
+                    { "step": 0, "op": "set-texture", "group": 2, "name": "cwb1" },
+                    { "step": 1, "op": "set-faces-bit", "group": 3, "flag": 8192, "on": false },
+                    { "step": 2, "op": "set-sprite", "group": 5, "name": "", "on": false },
+                    { "step": 3, "op": "set-sprite", "group": 6, "name": "tree37", "on": true },
+                    { "step": 4, "op": "toggle-indoor-light", "light": 1, "on": false },
+                    { "step": 5, "op": "exit" } ] },
+                { "id": "1.401", "place": "1", "event": 401, "label": "Odd Vein", "raised": true,
+                  "steps": [ { "step": 0, "op": "set-texture", "group": 2, "name": "nosuch" } ] },
+                { "id": "1.402", "place": "1", "event": 402, "label": "Altar", "raised": true,
+                  "steps": [ { "step": 0, "op": "exit" } ] } ]
+            }
+            """;
+        ContentCatalog catalog = Catalog(events);
+        ContentCatalog drawn = ContentCatalogLoader.Load(
+            new InMemoryContentSource()
+                .Add("packs/world/pack.json", TestPacks.Manifest("world", ("place-render", "place-render")))
+                .Add("packs/world/place-render.json", TestPacks.Document("place-render", "place-render",
+                    """{"id":"1","mesh":"render/1.mesh","sky":"","doors":[],"materials":[{"texture":"c2b","named":"c2b","surface":"face"},{"texture":"cwb1","named":"cwb1","surface":"face"}]}"""))
+                .Add("packs/media/pack.json", TestPacks.Manifest("media", ("looks", "look")))
+                .Add("packs/media/looks.json", TestPacks.Document("looks", "look",
+                    """{"id":"decoration-17","name":"tree37","sprite":"frame-1","height":300,"radius":40,"hidden":false}""")),
+            new ContentLayout("packs", "imports", "bundles")).RequireValid();
+        InteractionLedger ledger = new();
+        MightAndMagic7Interaction rule = new(fixtures: new MightAndMagic7Fixtures(MightAndMagic7MapEvents.Read(catalog),
+            switches: MightAndMagic7Switches.Read(drawn), kept: place => ledger.ValuesOf(place)));
+        GameClock clock = TestClock.Create(scale: 1);
+        using PartyEntity party = Party();
+
+        // The vein's cog takes the place's cwb1 material, the face group is shown, one decoration cog is hidden and
+        // another shown with the tree's row; the interior light is passed over.
+        (InteractionOutcome mined, _) = Use(rule, Fixture(400, "Ore Vein", string.Empty), EmeraldIsle, party, clock, ledger);
+        Assert.True(mined.IsApplied, mined.Refusal?.Message);
+        IReadOnlyDictionary<string, long> kept = ledger.ValuesOf(EmeraldIsle);
+        Assert.Equal(1, kept[MightAndMagic7Switches.TextureKey(2)]);
+        Assert.Equal(0, kept[MightAndMagic7Switches.HiddenKey(3)]);
+        Assert.Equal(0, kept[MightAndMagic7Switches.ShownKey(5)]);
+        Assert.Equal(1, kept[MightAndMagic7Switches.ShownKey(6)]);
+        Assert.Equal(17, kept[MightAndMagic7Switches.LookKey(6)]);
+        Assert.False(kept.ContainsKey(MightAndMagic7Switches.LookKey(5)));
+
+        // A bitmap the place's render entry does not list is refused by name rather than kept as a guess.
+        (InteractionOutcome odd, _) = Use(rule, Fixture(401, "Odd Vein", string.Empty), EmeraldIsle, party, clock, ledger);
+        Assert.False(odd.IsApplied);
+        Assert.Contains("nosuch", odd.Refusal!.Message, StringComparison.Ordinal);
+
+        // A decoration on the hidden cog is not there to use; one on a shown cog is.
+        static PlacementDefinition Decoration(int cog, int flags)
+        {
+            string json = string.Create(CultureInfo.InvariantCulture,
+                $$"""{ "id": "decoration-{{cog}}", "kind": "decoration", "x": 0, "y": 0, "z": 0, "eventId": 402, "cog": {{cog}}, "flags": {{flags}}, "descriptionId": 3 }""");
+            return new PlacementDefinition(new PlacementContentId("decoration", $"decoration-{cog}"), "decorations", cog, PlacePose.Origin,
+                new ContentEntry($"decoration-{cog}", JsonDocument.Parse(json).RootElement));
+        }
+
+        Assert.Null(rule.Describe(new InteractionTargetRequest(EmeraldIsle, Decoration(5, 0), string.Empty)));
+        Assert.NotNull(rule.Describe(new InteractionTargetRequest(EmeraldIsle, Decoration(6, 0x20), string.Empty)));
+        Assert.Null(rule.Describe(new InteractionTargetRequest(EmeraldIsle, Decoration(9, 0x20), string.Empty)));
+
+        // A decoration is aimed at its middle and seen by its front, by its look's height and radius.
+        InteractionTargetDefinition shown = rule.Describe(new InteractionTargetRequest(EmeraldIsle, Decoration(6, 0), string.Empty))!;
+        Assert.Equal((150d, 40d), (shown.AimHeight, shown.Radius));
+
+        // What the run kept is what a save may carry back: each name and value is judged on load.
+        MightAndMagic7Fixtures judge = new(MightAndMagic7MapEvents.Read(catalog), switches: MightAndMagic7Switches.Read(drawn));
+        Assert.Null(judge.Judge(EmeraldIsle, MightAndMagic7Switches.TextureKey(2), 1, 0));
+        Assert.NotNull(judge.Judge(EmeraldIsle, MightAndMagic7Switches.TextureKey(2), 9, 0));
+        Assert.Null(judge.Judge(EmeraldIsle, MightAndMagic7Switches.LookKey(6), 17, 0));
+        Assert.NotNull(judge.Judge(EmeraldIsle, MightAndMagic7Switches.LookKey(6), 18, 0));
+        Assert.Null(judge.Judge(EmeraldIsle, MightAndMagic7Switches.ShownKey(5), 0, 0));
+        Assert.NotNull(judge.Judge(EmeraldIsle, MightAndMagic7Switches.HiddenKey(3), 2, 0));
+        Assert.NotNull(judge.Judge(EmeraldIsle, "decoration-shown:0", 1, 0));
     }
 
     [Fact]
@@ -736,6 +820,7 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
         // "every instruction this game does not interpret is refused by name" a counted fact.
         ContentCatalog catalog = ImportedContent.Load();
         MightAndMagic7MapEvents events = MightAndMagic7MapEvents.Read(catalog);
+        MightAndMagic7Switches switches = MightAndMagic7Switches.Read(catalog);
         GameClock clock = TestClock.Create(scale: 1);
 
         // The running effects a temporary resistance is left in are composed as a session composes them, over
@@ -782,7 +867,8 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
                 actors: place => [.. placed.PlacementsOf(place).Where(MightAndMagic7Fixtures.IsActor).Select(placement => new PlaceActor(placement, Down: false))],
                 journal: () => journal,
                 population: place => live.Place == place ? live : null,
-                followers: conversation?.Followers));
+                followers: conversation?.Followers,
+                switches: switches));
             (InteractionOutcome outcome, _) = Use(rule, Fixture(mapEvent.Id, mapEvent.Label, string.Empty), mapEvent.Place, party, clock, transitions: graph.TransitionsFrom(mapEvent.Place));
             if (outcome.IsApplied)
             {

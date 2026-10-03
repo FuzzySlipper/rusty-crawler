@@ -63,7 +63,8 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
     // Presentation memory, not world state: when each body first lay, so a fresh body falls before it lies still, and
     // the current place's decorations. Forgotten with the place.
     private readonly Dictionary<long, double> _fell = [];
-    private readonly List<(string Id, string Sprite, PlacePose Pose)> _decorations = [];
+    private readonly List<(PlacementDefinition Placement, int Row)> _decorations = [];
+    private readonly Dictionary<int, string?> _decorationLooks = [];
     private PlaceId? _remembered;
     private Func<MightAndMagic7Combat?> _combat = () => null;
     private Func<CombatState?> _fight = () => null;
@@ -82,14 +83,9 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
     /// <summary>A map decoration's row in the decoration list, as the importer writes it.</summary>
     private const string DecorationListField = "descriptionId";
 
-    /// <summary>A map decoration's level flags, as the importer writes them.</summary>
-    private const string DecorationFlagsField = "flags";
-
     /// <summary>A map sprite object's row in the object list, as the importer writes it.</summary>
     private const string ObjectListField = "objectDescId";
 
-    /// <summary><c>LEVEL_DECORATION_INVISIBLE</c> (OpenEnroth <c>src/Engine/Objects/Decoration.h:18</c>).</summary>
-    private const int InvisibleDecoration = 0x20;
     private readonly Func<SessionWorld?> _world;
     private readonly GameClock _clock;
     private readonly TuningProfile _tuning;
@@ -239,13 +235,20 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
             foreach (PlacementDefinition placement in ((IInteractionWorld)world).Placements)
             {
                 if (placement.Content.Kind != MightAndMagic7Interaction.DecorationPlacementKind) continue;
-                if (((placement.Source.GetInt32(DecorationFlagsField) ?? 0) & InvisibleDecoration) != 0) continue;
-                if (Look($"decoration-{placement.Source.GetInt32(DecorationListField)}") is { } sprite)
-                    _decorations.Add((placement.Content.ToString(), sprite, placement.Pose));
+                _decorations.Add((placement, placement.Source.GetInt32(DecorationListField) ?? -1));
             }
         }
 
-        List<SceneObject> objects = [.. _decorations.Select(decoration => new SceneObject(decoration.Id, decoration.Sprite, decoration.Pose, seconds))];
+        // A decoration shows as its level marks it until a sprite step on its cog shows or hides it, and takes the look
+        // that step gave; both are kept on the place's ledger, so a place re-entered or resumed shows them again.
+        IReadOnlyDictionary<string, long> values = world.Interactions.ValuesOf(place);
+        List<SceneObject> objects = [];
+        foreach ((PlacementDefinition placement, int row) in _decorations)
+        {
+            if (MightAndMagic7Switches.IsHidden(placement, values)) continue;
+            int look = MightAndMagic7Switches.LookOf(placement, values) ?? row;
+            if (DecorationLook(look) is { } sprite) objects.Add(new SceneObject(placement.Content.ToString(), sprite, placement.Pose, seconds));
+        }
         foreach (PlacementDefinition placement in ((IInteractionWorld)world).Placements)
         {
             if (placement.Content.Kind != MightAndMagic7Containers.PilePlacementKind) continue;
@@ -355,6 +358,13 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
         sprite.Length > 0 && Sprite(sprite) is { } group && elapsed >= 0 && elapsed < Math.Max(group.TotalSeconds, ShortestAction);
 
     /// <summary>A decoration's or object's sprite, or null when its look is hidden or content carries none.</summary>
+    /// <summary>A decoration row's sprite, read once per row, or null when its look is hidden or content carries none.</summary>
+    private string? DecorationLook(int row)
+    {
+        if (!_decorationLooks.TryGetValue(row, out string? sprite)) _decorationLooks[row] = sprite = Look($"decoration-{row}");
+        return sprite;
+    }
+
     private string? Look(string look) => _looks.TryGetValue(look, out var found) && !found.Hidden && found.Sprite.Length > 0 ? found.Sprite : null;
 
     /// <summary>A creature's or person's eight animations, by the row the fight reads it as, or null when it has no look.</summary>
@@ -375,6 +385,17 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
         if (placement is null) return false;
         return MightAndMagic7Interaction.DoorState(placement, world.Interactions.StateOf(place, placement.Content).State)
             != MightAndMagic7Interaction.OpenState;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>A face cog's faces are hidden and retextured as the place's events kept them (<see cref="MightAndMagic7Switches"/>).</remarks>
+    public SceneSwitch Switch(PlaceId place, int cog)
+    {
+        if (_world() is not { } world || world.Place != place) return default;
+        IReadOnlyDictionary<string, long> values = world.Interactions.ValuesOf(place);
+        return new SceneSwitch(
+            values.TryGetValue(MightAndMagic7Switches.HiddenKey(cog), out long hidden) ? hidden != 0 : null,
+            MightAndMagic7Switches.MaterialOf(cog, values));
     }
 
     /// <inheritdoc />
