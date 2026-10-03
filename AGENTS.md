@@ -157,8 +157,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 **Open residue and its receivers** (Den task ids; Den owns their status):
 
 - Stone 5, interaction and services: a topic event reaches uncarried NPC group news (#9150).
-- Stone 7, progression and magic: world-targeted Telekinesis (#9145), additional special-item powers (#9148),
-  and follower profession benefits (#9151) remain.
+- Stone 7, progression and magic: world-targeted Telekinesis (#9145) and follower profession benefits (#9151) remain.
 
 When a stone lands or a residue closes, update this section, `README.md`, and the owning project README
 together.

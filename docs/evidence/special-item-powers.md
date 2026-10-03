@@ -8,4 +8,15 @@ Genie Lamp (616) has an ordinary inventory action targeting a real member and in
 
 This is an explicit adaptation of `OpenEnroth/src/Engine/Objects/Character.cpp:3425-3536`: the donor changes gifts by month and grants a random six-kind resistance in December, with dangerous calendar-day curses. Here the resistance branch applies in every month, with no curse; other calendar gifts are not claimed. No invented spell definition is used to represent an item action, and no extra clock, effect ledger or inventory is introduced.
 
-Composed checks use ordinary equipment and item payloads, actual combat readers, break/unequip changes, current-save identity/gift restoration, repeat and laid-out refusal. Creation/scenario parity probes the composed item-use owner. C# projection fixtures and the DOM suite bind usable item identities, member selection, result sentences, disappearance after consumption and permanent-gift rows. Full gate, three source lanes and bounded live acceptance remain pending.
+Composed checks use ordinary equipment and item payloads, actual combat readers, break/unequip changes, current-save identity/gift restoration, repeat and laid-out refusal. Creation/scenario parity probes the composed item-use owner. C# projection fixtures and the DOM suite bind usable item identities, member selection, result sentences, disappearance after consumption and permanent-gift rows. The complete verification gate passed, including importer determinism and CoreCLR staging. Three source lanes approved the implementation; a narrow comments/documentation correction was separately approved. NativeAOT was not run.
+
+
+## Bounded ordinary live reading
+
+On imported Harmondale terrain, a parent-staged healthy scenario carried the six actual imported item definitions. Ordinary Equipment selection, Equip and Take off showed Puck Speed +40, Iron Feather Might +40, Splitter Fire resistance +50, Twilight Speed/Luck +50 with the six resistance penalties, and Elfbane hostile-missile shielding. Removing each item removed its worn contribution and returned the same instance to the shared pack. Elfbane explicitly named its other fixed powers uncompiled.
+
+Selecting Aelina and the ordinary Genie Lamp Use button consumed the lamp. The product sentence was: “Aelina uses the Genie Lamp: permanent Water resistance +1, now 1; the lamp is consumed.” The final panel showed that permanent gift and no usable lamp row. Four members remained healthy and ready.
+
+The observer's session was `83010ab3-957c-4cd8-94e4-514ccf74221a`; indexed original captures, sidecars, action receipts and cleanup are Den evidence 37778, with launch-fingerprint correction 37779. The parent inspected the original final panel. The owned browser and host stopped cleanly, the lease released, and all ten slots were free.
+
+This live reading covers ordinary equipment and item use. Hostile damage and current-save restoration are covered by composed semantic checks; no live damage, Save/resume, broad traversal, rendered world or NativeAOT claim is made. The operator's game data remains uncommitted.
