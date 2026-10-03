@@ -175,7 +175,7 @@ public sealed class SessionOwners
 
         if (Services is null && rules.Service is { } service && Party is { } customer)
         {
-            Services = new PartyServices(service, customer, Accounts, clock, Progression, Rest);
+            Services = new PartyServices(service, customer, Accounts, clock, Progression, Rest, rules.Names);
             Observe(Services);
         }
 

@@ -240,7 +240,11 @@ public sealed record EquipmentSnapshot(
         };
 
     private static string Picture(ItemInstance item, IItemReadingRule? readings, ContentImages? pictures) =>
-        pictures is not null && readings?.PictureOf(item) is { } key ? pictures.Url(key) : string.Empty;
+        Picture(item.Definition, readings, pictures);
+
+    /// <summary>The URL the Engine serves a definition's picture at, empty when the game draws it with none.</summary>
+    internal static string Picture(ItemDefinitionId definition, IItemReadingRule? readings, ContentImages? pictures) =>
+        pictures is not null && readings?.PictureOf(definition) is { } key ? pictures.Url(key) : string.Empty;
 }
 
 /// <summary>An ordinary item action offered by the compiled game policy.</summary>

@@ -244,8 +244,9 @@ public sealed class ServiceStockLot
     /// <summary>States a lot holding one instance the party sold, which the shop can sell back.</summary>
     /// <param name="instance">The instance the party released.</param>
     /// <param name="value">What the shop paid for it, which is the base its own price is worked from.</param>
-    internal static ServiceStockLot OfSale(ItemInstance instance, int value) =>
-        new(ServiceLotId.OfSale(instance.Id), instance.Definition, instance.StackCount, value, instance.Definition.Value, instance);
+    /// <param name="label">What a person reads for it, in the game's words.</param>
+    internal static ServiceStockLot OfSale(ItemInstance instance, int value, string label) =>
+        new(ServiceLotId.OfSale(instance.Id), instance.Definition, instance.StackCount, value, label, instance);
 
     /// <summary>Takes goods off the shelf.</summary>
     /// <param name="count">How many to take, which must not exceed what the shelf holds.</param>

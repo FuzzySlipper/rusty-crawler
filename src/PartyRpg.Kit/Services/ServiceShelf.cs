@@ -73,7 +73,8 @@ internal sealed class ServiceShelf
     /// <summary>Puts an item the party sold onto the shelves, held as the very instance it was.</summary>
     /// <param name="instance">The instance the party released.</param>
     /// <param name="value">What the shop paid for it, which is the base it prices the item back from.</param>
-    internal void Accept(ItemInstance instance, int value) => _lots.Add(ServiceStockLot.OfSale(instance, value));
+    /// <param name="label">What a person reads for it, in the game's words.</param>
+    internal void Accept(ItemInstance instance, int value, string label) => _lots.Add(ServiceStockLot.OfSale(instance, value, label));
 
     /// <summary>Fills content's own lines again, leaving what the shop bought from the party where it lies.</summary>
     /// <param name="lines">The lines the shelves hold when full, as the rule answers them now.</param>

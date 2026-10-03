@@ -17,6 +17,8 @@ export interface ConversationPersonView {
   readonly id: string;
   readonly name: string;
   readonly portrait: string;
+  /** The URL the Engine serves the person's portrait at, empty when there is none to show. */
+  readonly portraitImage: string;
   /** Whether this is the person already speaking, whom there is nothing to turn to. */
   readonly speaking: boolean;
 }
@@ -82,6 +84,7 @@ export function readConversation(f: Fields): ConversationView {
       id: entry.text('id'),
       name: entry.text('name'),
       portrait: entry.text('portrait'),
+      portraitImage: entry.text('portraitImage'),
       speaking: entry.flag('speaking'),
     })),
     topics: f.list('topics', readTopic),

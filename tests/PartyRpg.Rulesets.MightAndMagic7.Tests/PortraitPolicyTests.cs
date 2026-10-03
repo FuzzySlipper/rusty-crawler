@@ -18,13 +18,17 @@ public sealed class PortraitPolicyTests
             .Add("packs/media/icons.json", TestPacks.Document("icons", MightAndMagic7Portraits.IconDefinitionKind,
                 """{"id":"pc01-01","path":"icons/pc01-01.png"}""",
                 """{"id":"pc1501","path":"icons/pc1501.png"}""",
-                """{"id":"npc123","path":"icons/npc123.png"}"""));
+                """{"id":"npc123","path":"icons/npc123.png"}""",
+                """{"id":"npc007","path":"icons/npc007.png"}"""));
         MightAndMagic7Portraits portraits = MightAndMagic7Portraits.Read(
             ContentCatalogLoader.Load(source, new ContentLayout("packs", "imports", "bundles")).RequireValid());
 
         Assert.Equal("packs/media/icons/pc01-01.png", portraits.PathOf("human-man"));
         Assert.Equal("packs/media/icons/pc1501.png", portraits.PathOf("dwarf-woman"));
         Assert.Equal("packs/media/icons/npc123.png", portraits.PathOf("npc123"));
+        // A person's portrait is the number of their face in the people table, drawn with that number's interface image.
+        Assert.Equal("packs/media/icons/npc123.png", portraits.PathOf("123"));
+        Assert.Equal("packs/media/icons/npc007.png", portraits.PathOf("7"));
 
         // A face the install lacks, and a portrait nobody named, are drawn with nothing.
         Assert.Null(portraits.PathOf("elf-man"));

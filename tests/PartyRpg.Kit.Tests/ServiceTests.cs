@@ -86,6 +86,73 @@ public sealed class ServiceTests
             membership: membership);
 
     [Fact]
+    public void A_lot_on_the_shelves_and_an_item_the_counter_would_buy_carry_the_pictures_the_game_draws_them_with()
+    {
+        using PartyEntity party = Party(coins: 500);
+        ShopRule rule = new(Shop());
+        PartyServices services = new(rule, party, new PartyResourceLedger(party), Clock());
+        Assert.True(services.Open(rule.Service).IsApplied);
+        RecordingUiService ui = new();
+        (IContentService content, _) = RecordingEngineService<IContentService>.Create();
+        using ContentImages pictures = new(new FakeEngineContext(ui, content: content), key => $"icons/{key}.png", "item pictures");
+
+        ServiceSnapshot snapshot = ServiceSnapshot.From(services, new SwordPictures(), pictures);
+        Assert.Equal("/__rusty/product/runtime/ui-images/1", Assert.Single(snapshot.Stock).Image);
+        // A session that draws no items publishes the lots without a picture.
+        Assert.Equal(string.Empty, Assert.Single(ServiceSnapshot.From(services).Stock).Image);
+    }
+
+    [Fact]
+    public void An_item_the_counter_would_buy_and_the_sale_itself_are_named_in_the_games_words()
+    {
+        using PartyEntity party = Party(coins: 500);
+        ItemInstance sword = party.AcquireItem(new ItemDefinitionId("sword")).Item!;
+        ShopRule rule = new(Shop());
+        PartyServices services = new(rule, party, new PartyResourceLedger(party), Clock(), names: new SwordNames());
+        Assert.True(services.Open(rule.Service).IsApplied);
+
+        Assert.Equal("A fine sword", Assert.Single(ServiceSnapshot.From(services).Sales).Name);
+        ServiceResult sold = services.Transact(new ServiceCommand(ServiceOperationKind.Sell, sword.Id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        Assert.Contains("A fine sword", sold.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Identifying_and_mending_are_quoted_on_the_row_before_anything_is_settled_and_refused_in_the_games_words()
+    {
+        using PartyEntity party = Party(coins: 500);
+        ItemInstance sword = party.AcquireItem(new ItemDefinitionId("sword")).Item!;
+        sword.TakeDamage(2);
+        ShopRule rule = new(Shop());
+        PartyServices services = new(rule, party, new PartyResourceLedger(party), Clock(), names: new SwordNames());
+        Assert.True(services.Open(rule.Service).IsApplied);
+
+        ServiceSaleSnapshot row = Assert.Single(ServiceSnapshot.From(services).Sales);
+        Assert.Equal(500, party.Purse.Coins);
+        Assert.Equal(row.RepairPrice, services.Transact(new ServiceCommand(ServiceOperationKind.Repair, sword.Id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture))).Paid);
+
+        Assert.Equal(row.IdentifyPrice, services.Transact(new ServiceCommand(ServiceOperationKind.Identify, sword.Id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture))).Paid);
+        ServiceResult again = services.Transact(new ServiceCommand(ServiceOperationKind.Identify, sword.Id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        Assert.Equal(ServiceCodes.ServiceAlreadyIdentified, again.Code);
+        Assert.StartsWith("A fine sword is identified already", again.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>A game that calls its sword by name.</summary>
+    private sealed class SwordNames : IGameNames
+    {
+        public string TierName(SkillTier tier) => tier.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        public string ItemName(ItemDefinitionId definition) => definition.Value == "sword" ? "A fine sword" : string.Empty;
+    }
+
+    /// <summary>A game that draws a sword with its own picture and nothing else.</summary>
+    private sealed class SwordPictures : IItemReadingRule
+    {
+        public ItemReading Read(ItemInstance item) => new("Thing", []);
+
+        public string? PictureOf(ItemDefinitionId definition) => definition.Value == "sword" ? "sword-picture" : null;
+    }
+
+    [Fact]
     public void A_visited_shelfs_repeat_schedule_resumes_without_rearming_from_load()
     {
         using PartyEntity party = Party(coins: 500);

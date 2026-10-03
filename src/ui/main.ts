@@ -22,8 +22,10 @@ import { mountCharacter } from './character.js';
 import { mountCombat } from './combat.js';
 import type { ProductUiContext, ProjectionEnvelope } from './context.js';
 import { mountConversation } from './conversation.js';
+import { mountCounter } from './counter.js';
 import { mountCreation } from './creation.js';
 import { mountDetails } from './details.js';
+import { mountDialogue } from './dialogue.js';
 import { element, type Host } from './dom.js';
 import { mountEquipment } from './equipment.js';
 import { mountFrame } from './frame.js';
@@ -102,6 +104,8 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   const creation = mountCreation(host);
   const conversation = mountConversation(host);
   const service = mountService(host);
+  const dialogue = mountDialogue(host);
+  const counter = mountCounter(host);
   const rest = mountRest(host);
   const combat = mountCombat(host);
   const progression = mountProgression(host);
@@ -129,8 +133,8 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   const hud = mountHud(host, { open: (screen) => frame.open(screen), toggleDiagnostics: () => frame.toggleDiagnostics() });
   marked = hud;
   frame.body('creation').append(creation.element);
-  frame.body('conversation').append(conversation.element);
-  frame.body('service').append(service.element);
+  frame.body('conversation').append(dialogue.element);
+  frame.body('service').append(counter.element);
   frame.body('rest').append(rest.element);
   frame.body('character').append(character.element);
   frame.body('spellbook').append(magicBook.element);
@@ -143,7 +147,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
 
   // The facts and controls a developer reads: kept, complete and current, but out of the player's way.
   // The rows the character book draws from are kept here whole as well, every member at once.
-  frame.diagnostics.append(...details.top, ...details.bottom, equipment.element, skills.element, progression.element, promotion.element, spellbook.element, problems);
+  frame.diagnostics.append(...details.top, ...details.bottom, equipment.element, skills.element, progression.element, promotion.element, spellbook.element, conversation.element, service.element, problems);
   hud.side.append(details.companions);
   panel.append(hud.message, fight, hud.side, frame.element, hud.bar, frame.diagnostics);
   root.append(style, panel);
@@ -162,6 +166,8 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     });
     conversation.render({ conversation: snapshot.conversation, leave: controls.conversationLeave });
     service.render({ service: snapshot.service, leave: controls.serviceLeave });
+    dialogue.render({ conversation: snapshot.conversation, leave: controls.conversationLeave });
+    counter.render({ service: snapshot.service, leave: controls.serviceLeave });
     rest.render({
       rest: snapshot.rest,
       controls: [controls.rest, controls.camp, controls.waitDawn, controls.waitHour, controls.waitFiveMinutes],

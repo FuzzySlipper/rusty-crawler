@@ -176,7 +176,7 @@ public sealed class OutfittingTests
     {
         public ItemReading Read(ItemInstance item) => item.Definition == Blade ? new ItemReading("Blade", ["Sharp"]) : new ItemReading("Stone", []);
 
-        public string? PictureOf(ItemInstance item) => item.Definition == Blade ? "blade-picture" : null;
+        public string? PictureOf(ItemDefinitionId definition) => definition == Blade ? "blade-picture" : null;
     }
 
     private sealed class Sheet : ICharacterSheetRule

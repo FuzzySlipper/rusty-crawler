@@ -457,5 +457,44 @@ export const STYLES = `
 .crawler-spell-refusal { color: #e8c8b0; }
 .crawler-magic-book-outcome { margin: 0 0 0.4rem; padding: 0.3rem 0.5rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.85rem; }
 .crawler-magic-book-outcome[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.9); color: #e8c8b0; }
+/* The dialogue: the speaker beside their words. */
+.crawler-dialogue-layout { display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: 1rem; align-items: start; }
+.crawler-dialogue-speaker { display: grid; gap: 0.4rem; justify-items: center; text-align: center; }
+.crawler-dialogue-face { width: 9rem; height: 10.5rem; object-fit: cover; image-rendering: pixelated; border: 2px solid #8a7446; background: #222; display: grid; place-items: center; font-size: 3rem; color: #8d8a7a; }
+.crawler-dialogue-name { margin: 0; color: #f0e4c4; font-size: 1.05rem; font-weight: 600; }
+.crawler-dialogue-greeting { margin: 0; color: #d8cba6; font-style: italic; }
+.crawler-dialogue-others { display: flex; flex-wrap: wrap; gap: 0.3rem; justify-content: center; }
+.crawler-session .crawler-dialogue-other { display: grid; justify-items: center; gap: 0.15rem; width: auto; padding: 0.2rem; font-size: 0.75rem; }
+.crawler-dialogue-other-face { width: 2.6rem; height: 3rem; object-fit: cover; image-rendering: pixelated; display: grid; place-items: center; background: #222; }
+.crawler-dialogue-said { max-height: 14rem; overflow-y: auto; margin-bottom: 0.6rem; padding: 0.4rem 0.6rem; border: 1px solid #5a4b31; background: rgba(0, 0, 0, 0.3); }
+.crawler-dialogue-line { margin: 0 0 0.35rem; color: #e8dcc0; }
+.crawler-dialogue-topics { display: grid; gap: 0.3rem; margin-bottom: 0.4rem; }
+.crawler-session .crawler-dialogue-topic { text-align: left; padding: 0.35rem 0.7rem; font-size: 0.92rem; }
+.crawler-dialogue-withheld { margin: 0 0 0.4rem; padding-left: 1.1rem; color: #9d927a; font-size: 0.82rem; }
+.crawler-dialogue-thieves { display: flex; gap: 0.3rem; margin-bottom: 0.4rem; }
+.crawler-dialogue-thieves button { width: auto; }
+/* The counter: the establishment, a page per thing it does. */
+.crawler-counter-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 1rem; }
+.crawler-counter-title { margin: 0; color: #f0e4c4; font-size: 1.05rem; font-weight: 600; }
+.crawler-counter-state { margin: 0; grid-column: 1; color: #b9ad8c; font-size: 0.85rem; }
+.crawler-counter-state[data-state='closed'] { color: #e8a080; }
+.crawler-counter-purse { margin: 0; grid-column: 2; grid-row: 1 / span 2; align-self: center; color: #f2cf5b; font-weight: 600; }
+.crawler-counter-page { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(14rem, 1fr); grid-auto-rows: auto; gap: 0.8rem; align-items: start; margin-bottom: 0.8rem; }
+.crawler-counter > .crawler-actions { clear: both; margin-top: 0.8rem; }
+.crawler-counter-card { display: flex; flex-direction: column; align-items: flex-start; }
+.crawler-counter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr)); gap: 0.35rem; }
+.crawler-session .crawler-counter-tile { display: grid; grid-template-rows: 4.5rem auto; place-items: center; width: auto; padding: 0.2rem; border: 1px solid #4b4030; background: rgba(0, 0, 0, 0.45); }
+.crawler-session .crawler-counter-tile[data-picked='true'] { border-color: #e2b060; box-shadow: 0 0 5px rgba(226, 176, 96, 0.7); }
+.crawler-counter-caption { font-size: 0.72rem; color: #f2cf5b; }
+.crawler-counter-detail, .crawler-counter-card { padding: 0.5rem; border: 1px solid #5a4b31; background: rgba(0, 0, 0, 0.3); }
+.crawler-counter-detail button, .crawler-counter-card button { width: auto; margin: 0.2rem 0.3rem 0 0; }
+.crawler-counter-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 0.5rem; grid-column: 1 / -1; }
+.crawler-counter-page > .crawler-counter-card, .crawler-counter-page > .crawler-counter-amount, .crawler-counter-page > .crawler-counter-who, .crawler-counter-page > .crawler-counter-notice, .crawler-counter-page > .crawler-inspect-hint { grid-column: 1 / -1; }
+.crawler-counter-choice { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.crawler-counter-reason { color: #e8c8b0; font-size: 0.8rem; }
+.crawler-counter-who { display: flex; align-items: center; gap: 0.5rem; }
+.crawler-counter-notice { margin: 0 0 0.4rem; padding: 0.4rem 0.6rem; border-left: 2px solid #8a7446; color: #e8dcc0; }
+.crawler-counter-outcome, .crawler-dialogue-outcome { margin: 0.3rem 0; padding: 0.3rem 0.5rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.85rem; }
+:is(.crawler-counter-outcome, .crawler-dialogue-outcome)[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.9); color: #e8c8b0; }
 @media (max-width: 900px) { .crawler-inventory { grid-template-columns: minmax(0, 1fr); } }
 `;

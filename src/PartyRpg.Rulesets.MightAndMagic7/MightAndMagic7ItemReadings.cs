@@ -86,11 +86,8 @@ internal sealed class MightAndMagic7ItemReadings : IItemReadingRule
     }
 
     /// <inheritdoc />
-    public string? PictureOf(ItemInstance item)
-    {
-        ArgumentNullException.ThrowIfNull(item);
-        return _rows.TryGetValue(item.Definition, out Row row) && row.Picture.Length > 0 ? row.Picture : null;
-    }
+    public string? PictureOf(ItemDefinitionId definition) =>
+        _rows.TryGetValue(definition, out Row row) && row.Picture.Length > 0 ? row.Picture : null;
 
     private static IEnumerable<string> StateOf(ItemInstance item)
     {

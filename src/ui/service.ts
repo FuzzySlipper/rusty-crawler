@@ -24,6 +24,8 @@ export interface ServiceStockView {
   readonly price: number;
   /** Whether the counter is reselling something it bought from the party. */
   readonly sale: boolean;
+  /** The URL the Engine serves the item's picture at, empty when it has none. */
+  readonly image: string;
   /** Whether the counter would sell one now. */
   readonly canBuy: boolean;
   /** Whether a thief could reach for one now. */
@@ -55,6 +57,7 @@ export interface ServiceSaleView {
   readonly identified: boolean;
   /** Whether the item carries the stolen mark, which a counter may refuse to deal in. */
   readonly stolen: boolean;
+  readonly image: string;
 }
 
 /** One of the party's items a counter would identify or repair. */
@@ -62,7 +65,22 @@ export interface ServiceHeldView {
   /** The instance's durable identity, which the command names. */
   readonly item: string;
   readonly name: string;
+  /** The URL the Engine serves the item's picture at, empty when it has none. */
+  readonly image: string;
+  /** What the counter would charge for the work, quoted before anything is settled. */
+  readonly price: number;
 }
+
+/** The command each offer choice's operation names, which every counter surface sends. */
+export const OFFER_ACTIONS: Readonly<Record<string, string>> = {
+  cure: ACTIONS.serviceCure,
+  train: ACTIONS.serviceTrain,
+  provision: ACTIONS.serviceProvision,
+  stay: ACTIONS.serviceStay,
+  deposit: ACTIONS.serviceDeposit,
+  withdraw: ACTIONS.serviceWithdraw,
+  fare: ACTIONS.serviceFare,
+};
 
 /** One thing a counter offers besides goods and lessons: a passage, a cure, a room, a line it posts. */
 export interface ServiceOfferView {
@@ -161,7 +179,7 @@ export interface ServiceView {
 }
 
 function readHeld(entry: Fields): ServiceHeldView {
-  return { item: entry.text('item'), name: entry.text('name') };
+  return { item: entry.text('item'), name: entry.text('name'), image: entry.text('image'), price: entry.number('price') };
 }
 
 export function readService(f: Fields): ServiceView {
@@ -184,6 +202,7 @@ export function readService(f: Fields): ServiceView {
       count: entry.number('count'),
       price: entry.number('price'),
       sale: entry.flag('sale'),
+      image: entry.text('image'),
       canBuy: entry.flag('canBuy'),
       canSteal: entry.flag('canSteal'),
     })),
@@ -215,6 +234,7 @@ export function readService(f: Fields): ServiceView {
       damage: entry.number('damage'),
       identified: entry.flag('identified'),
       stolen: entry.flag('stolen'),
+      image: entry.text('image'),
     })),
     members: f.list('members', (entry) => ({ index: entry.number('index'), name: entry.text('name') })),
     identify: f.list('identify', readHeld),
@@ -418,11 +438,6 @@ export function mountService(host: Host): Section<ServiceReading> {
     ];
     saleRow.replaceChildren(held.length === 0 ? element('div') : options(claim, 'Your items', held));
 
-    const offerActions: Readonly<Record<string, string>> = {
-      cure: ACTIONS.serviceCure, train: ACTIONS.serviceTrain, provision: ACTIONS.serviceProvision,
-      stay: ACTIONS.serviceStay, deposit: ACTIONS.serviceDeposit, withdraw: ACTIONS.serviceWithdraw,
-      fare: ACTIONS.serviceFare,
-    };
     amountRow.hidden = !view.offers.some((offer) => offer.kind === 'holding' && offer.choices.length > 0);
     amountInput.value = String(view.amount);
     offerRow.replaceChildren(...view.offers.filter((offer) => offer.kind !== 'debt').map((offer) => options(
@@ -431,7 +446,7 @@ export function mountService(host: Host): Section<ServiceReading> {
       offer.choices.map((choice) => ({
         id: `${choice.operation}-${offer.subject}-${choice.member}`,
         text: `${choice.operation}${choice.name === '' ? '' : ` ${choice.name}`} — pay ${choice.price}${choice.payment === 0 ? '' : `, receive ${choice.payment}`}${choice.reason === '' ? '' : ` · ${choice.reason}`}`,
-        action: offerActions[choice.operation],
+        action: OFFER_ACTIONS[choice.operation],
         enabled: choice.enabled,
         payload: () => ({ target: offer.subject, member: choice.member, count: choice.count }),
       })),

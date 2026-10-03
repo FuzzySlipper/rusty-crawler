@@ -17,6 +17,9 @@ public sealed record ServiceStockSnapshot(
     int Price,
     bool IsSale)
 {
+    /// <summary>The URL the Engine serves the item's picture at, empty when it has none to show.</summary>
+    public string Image { get; init; } = string.Empty;
+
     /// <summary>Writes one lot on the shelves.</summary>
     /// <param name="builder">The projection being built.</param>
     /// <param name="buys">Whether the counter the party stands at takes a purchase at all.</param>
@@ -30,6 +33,7 @@ public sealed record ServiceStockSnapshot(
             ("count", builder.Number(Count)),
             ("price", builder.Number(Price)),
             ("sale", builder.Boolean(IsSale)),
+            ("image", builder.String(Image)),
             // A lot the counter has sold out of is still a row, and one a purchase would be refused on.
             ("canBuy", builder.Boolean(buys && Count > 0)),
             // A line nothing is left of is no more to be stolen than bought.
@@ -85,6 +89,15 @@ public sealed record ServiceSaleSnapshot(
     /// <summary>Whether the instance carries the stolen mark, which a counter may refuse to deal in.</summary>
     public bool Stolen { get; init; }
 
+    /// <summary>The URL the Engine serves the item's picture at, empty when it has none to show.</summary>
+    public string Image { get; init; } = string.Empty;
+
+    /// <summary>What the counter would charge to identify it.</summary>
+    public int IdentifyPrice { get; init; }
+
+    /// <summary>What the counter would charge to repair it.</summary>
+    public int RepairPrice { get; init; }
+
     /// <summary>Writes one of the party's items the counter would buy.</summary>
     /// <param name="builder">The projection being built.</param>
     /// <returns>The row's node.</returns>
@@ -96,15 +109,19 @@ public sealed record ServiceSaleSnapshot(
             ("price", builder.Number(Price)),
             ("damage", builder.Number(Damage)),
             ("identified", builder.Boolean(Identified)),
-            ("stolen", builder.Boolean(Stolen)));
+            ("stolen", builder.Boolean(Stolen)),
+            ("image", builder.String(Image)));
 
     /// <summary>Writes this item as one a counter would work on: which instance, and what it is called.</summary>
     /// <param name="builder">The projection being built.</param>
     /// <returns>The row's node.</returns>
-    internal uint WriteHeld(UiValueBuilder builder) =>
+    /// <param name="price">What the counter would charge for the work it is listed for.</param>
+    internal uint WriteHeld(UiValueBuilder builder, int price) =>
         builder.Object(
             ("item", builder.String(Item)),
-            ("name", builder.String(Name)));
+            ("name", builder.String(Name)),
+            ("image", builder.String(Image)),
+            ("price", builder.Number(price)));
 }
 
 /// <summary>One thing a counter offers besides goods and lessons, as the panel shows it.</summary>
@@ -289,7 +306,9 @@ public sealed record ServiceSnapshot(
     /// <summary>Reads the service facts out of the session's mechanism.</summary>
     /// <param name="services">The session's service mechanism, or null when it holds none.</param>
     /// <returns>The facts the panel shows, or <see cref="None"/> when there is no mechanism.</returns>
-    public static ServiceSnapshot From(PartyServices? services)
+    /// <param name="readings">The game's reading of items, whose picture key draws a lot or a held item.</param>
+    /// <param name="pictures">The images items are drawn with, or null for a session that grants none.</param>
+    public static ServiceSnapshot From(PartyServices? services, PartyRpg.Kit.Party.IItemReadingRule? readings = null, ContentImages? pictures = null)
     {
         if (services is null) return None;
 
@@ -305,7 +324,10 @@ public sealed record ServiceSnapshot(
         List<ServiceStockSnapshot> stock = [];
         foreach (ServiceStockOffer offer in offers)
         {
-            stock.Add(new ServiceStockSnapshot(offer.Lot.Value, offer.Definition.Value, offer.Name, offer.Count, offer.Price, offer.IsSale));
+            stock.Add(new ServiceStockSnapshot(offer.Lot.Value, offer.Definition.Value, offer.Name, offer.Count, offer.Price, offer.IsSale)
+            {
+                Image = EquipmentSnapshot.Picture(offer.Definition, readings, pictures),
+            });
         }
 
         List<ServiceLessonSnapshot> lessons = [];
@@ -339,7 +361,13 @@ public sealed record ServiceSnapshot(
                 offer.Name,
                 offer.Price,
                 offer.Damage,
-                offer.Identified) { Stolen = offer.Stolen });
+                offer.Identified)
+            {
+                Stolen = offer.Stolen,
+                Image = EquipmentSnapshot.Picture(offer.Definition, readings, pictures),
+                IdentifyPrice = offer.IdentifyPrice,
+                RepairPrice = offer.RepairPrice,
+            });
         }
 
         List<ServiceMemberSnapshot> members = [];
@@ -461,8 +489,8 @@ public sealed record ServiceSnapshot(
             ("offers", builder.Array([.. Offers.Select(offer => offer.Write(builder))])),
             ("sales", builder.Array([.. Sales.Select(offer => offer.Write(builder))])),
             ("members", builder.Array([.. Members.Select(member => member.Write(builder))])),
-            ("identify", builder.Array([.. identify.Select(offer => offer.WriteHeld(builder))])),
-            ("repair", builder.Array([.. repair.Select(offer => offer.WriteHeld(builder))])),
+            ("identify", builder.Array([.. identify.Select(offer => offer.WriteHeld(builder, offer.IdentifyPrice))])),
+            ("repair", builder.Array([.. repair.Select(offer => offer.WriteHeld(builder, offer.RepairPrice))])),
             ("fares", builder.Array([.. fares.Select(offer => offer.WriteFare(builder))])),
             ("debts", builder.Array([.. debts.Select(offer => offer.WriteDebt(builder))])),
             ("thieves", builder.Array([.. (steals ? Thieves : Array.Empty<ServiceMemberSnapshot>()).Select(member => member.Write(builder))])),

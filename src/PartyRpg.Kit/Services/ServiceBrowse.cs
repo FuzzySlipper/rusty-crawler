@@ -64,7 +64,14 @@ public readonly record struct ServiceSaleOffer(
     int Price,
     int Damage,
     bool Identified,
-    bool Stolen = false);
+    bool Stolen = false)
+{
+    /// <summary>What the service would charge to identify it, quoted before anything is settled; zero when it does not identify.</summary>
+    public int IdentifyPrice { get; init; }
+
+    /// <summary>What the service would charge to repair it, quoted before anything is settled; zero when it does not repair.</summary>
+    public int RepairPrice { get; init; }
+}
 
 /// <summary>One member a lesson could be taught to, as the panel offers them.</summary>
 /// <param name="Index">The member's place in the party, counted from zero, which a teach command names.</param>

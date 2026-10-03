@@ -10,6 +10,9 @@ namespace PartyRpg.Kit.Presentation;
 /// <param name="Speaking">Whether this is the person speaking now.</param>
 public sealed record ConversationPersonSnapshot(string Id, string Name, string Portrait, bool Speaking)
 {
+    /// <summary>The URL the Engine serves the person's portrait at, empty when there is none to show.</summary>
+    public string PortraitImage { get; init; } = string.Empty;
+
     /// <summary>Writes one person present.</summary>
     /// <param name="builder">The projection being built.</param>
     /// <returns>The row's node.</returns>
@@ -18,6 +21,7 @@ public sealed record ConversationPersonSnapshot(string Id, string Name, string P
             ("id", builder.String(Id)),
             ("name", builder.String(Name)),
             ("portrait", builder.String(Portrait)),
+            ("portraitImage", builder.String(PortraitImage)),
             ("speaking", builder.Boolean(Speaking)));
 }
 
@@ -136,7 +140,8 @@ public sealed record ConversationSnapshot(
     /// nobody could, because nothing would carry a theft out.
     /// </param>
     /// <returns>The facts the panel shows, or <see cref="None"/> when there is no mechanism.</returns>
-    public static ConversationSnapshot From(PartyConversations? conversations, PartyServices? services = null)
+    /// <param name="portraits">The images people's portraits are drawn with, or null for a session that grants none.</param>
+    public static ConversationSnapshot From(PartyConversations? conversations, PartyServices? services = null, ContentImages? portraits = null)
     {
         if (conversations is null) return None;
 
@@ -150,7 +155,10 @@ public sealed record ConversationSnapshot(
                     person.Id,
                     person.Name,
                     person.Portrait,
-                    string.Equals(person.Id, speaking, StringComparison.Ordinal)));
+                    string.Equals(person.Id, speaking, StringComparison.Ordinal))
+                {
+                    PortraitImage = portraits?.Url(person.Portrait) ?? string.Empty,
+                });
             }
         }
 

@@ -244,9 +244,9 @@ function openShop(overrides = {}) {
     operations: ['buy', 'sell', 'identify', 'repair', 'teach'],
     memberships: [],
     stock: [
-      { lot: 'stock:sword', item: 'sword', name: 'A fine sword', count: 2, price: 110, sale: false, canBuy: true, canSteal: false },
-      { lot: 'sold:7', item: 'dagger', name: 'dagger', count: 1, price: 22, sale: true, canBuy: true, canSteal: false },
-      { lot: 'stock:potion', item: 'potion', name: 'potion', count: 0, price: 30, sale: false, canBuy: false, canSteal: false },
+      { lot: 'stock:sword', item: 'sword', name: 'A fine sword', count: 2, price: 110, sale: false, image: '', canBuy: true, canSteal: false },
+      { lot: 'sold:7', item: 'dagger', name: 'dagger', count: 1, price: 22, sale: true, image: '', canBuy: true, canSteal: false },
+      { lot: 'stock:potion', item: 'potion', name: 'potion', count: 0, price: 30, sale: false, image: '', canBuy: false, canSteal: false },
     ],
     // Two lessons of one skill: the first rung every counter that teaches a trade sells, and the mastery the
     // guild's own depth reaches. The rung is part of what identifies a lesson, so both rows are real.
@@ -254,10 +254,10 @@ function openShop(overrides = {}) {
       { kind: 'skill', subject: 'Sword', name: 'Sword', amount: 1, price: 25, tier: 1 },
       { kind: 'skill', subject: 'Sword', name: 'Sword, expert', amount: 1, price: 1000, tier: 2 },
     ],
-    sales: [{ item: '3', definition: 'shield', name: 'shield', price: 12, damage: 3, identified: false, stolen: false }],
+    sales: [{ item: '3', definition: 'shield', name: 'shield', price: 12, damage: 3, identified: false, stolen: false, image: '' }],
     // What the counter would identify and mend is the product's own list of the party's items it has a use for.
-    identify: [{ item: '3', name: 'shield' }],
-    repair: [{ item: '3', name: 'shield' }],
+    identify: [{ item: '3', name: 'shield', image: '', price: 25 }],
+    repair: [{ item: '3', name: 'shield', image: '', price: 25 }],
     canBuy: true,
     canSell: true,
     canTeach: true,
@@ -559,7 +559,7 @@ function talking(overrides = {}) {
     subject: 'person-0',
     speaker: 'Tester Two',
     greeting: "'A fine day for it.'",
-    people: [{ id: 'np-2', name: 'Tester Two', portrait: '707', speaking: true }],
+    people: [{ id: 'np-2', name: 'Tester Two', portrait: '707', portraitImage: '', speaking: true }],
     topics: [{ id: 'topic-1', label: 'The contest', available: true, reason: '' }],
     withheld: [{ id: 'topic-2', label: 'The errand', available: false, reason: 'the errand the table calls 7 is not finished' }],
     said: [
@@ -2666,10 +2666,10 @@ test('a thief and a debt are rows the product published, and each asks for the a
         canSteal: true,
         thieves: [{ index: 1, name: 'Nyx' }],
         stock: [
-          { lot: 'stock:sword', item: 'sword', name: 'A fine sword', count: 2, price: 110, sale: false, canBuy: true, canSteal: true },
-          { lot: 'stock:potion', item: 'potion', name: 'potion', count: 0, price: 30, sale: false, canBuy: false, canSteal: false },
+          { lot: 'stock:sword', item: 'sword', name: 'A fine sword', count: 2, price: 110, sale: false, image: '', canBuy: true, canSteal: true },
+          { lot: 'stock:potion', item: 'potion', name: 'potion', count: 0, price: 30, sale: false, image: '', canBuy: false, canSteal: false },
         ],
-        sales: [{ item: '3', definition: 'shield', name: 'shield', price: 12, damage: 0, identified: true, stolen: true }],
+        sales: [{ item: '3', definition: 'shield', name: 'shield', price: 12, damage: 0, identified: true, stolen: true, image: '' }],
       }),
     }));
     const steal = [...h.panel().querySelectorAll('.crawler-service .crawler-options button')].filter((button) => button.dataset.id.startsWith('steal-'));
@@ -3047,8 +3047,8 @@ test('every conversation control asks for the choice it was shown, on the produc
         conversation: talking({
           speaker: 'Mira',
           people: [
-            { id: 'mira', name: 'Mira', portrait: '709', speaking: true },
-            { id: 'simon', name: 'Simon', portrait: '707', speaking: false },
+            { id: 'mira', name: 'Mira', portrait: '709', portraitImage: '', speaking: true },
+            { id: 'simon', name: 'Simon', portrait: '707', portraitImage: '', speaking: false },
           ],
           topics: [
             { id: 'topic-1', label: 'The contest', available: true, reason: '' },

@@ -51,6 +51,7 @@ namespace PartyRpg.Kit.Services;
 /// </remarks>
 public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
 {
+    private readonly IGameNames? _names;
     private readonly IServiceRule _rule;
     private readonly PartyEntity _party;
     private readonly PartyResourceLedger? _accounts;
@@ -95,8 +96,10 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
         PartyResourceLedger? accounts = null,
         GameClock? clock = null,
         PartyProgression? progression = null,
-        PartyRest? rest = null)
+        PartyRest? rest = null,
+        IGameNames? names = null)
     {
+        _names = names;
         _rule = rule ?? throw new ArgumentNullException(nameof(rule));
         _party = party ?? throw new ArgumentNullException(nameof(party));
         _accounts = accounts;
@@ -302,7 +305,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
     /// <summary>The shared judgments for a quote and its transaction; no resources are settled here.</summary>
     private Refusal? Judge(Transaction transaction, Operation operation)
     {
-        if (operation.Admit?.Invoke(transaction.Subject) is { } unfit) return unfit;
+        if (operation.Admit?.Invoke(this, transaction.Subject) is { } unfit) return unfit;
         if (_rule.Judge(new ServiceEligibilityRequest(transaction.Visit.Service, transaction.Kind, transaction.Subject, transaction.Member, _party, _clock)).Refusal is { } refused)
             return refused;
         if ((!transaction.Quote.Charge.IsFree || !transaction.Quote.Payment.IsFree || operation.NeedsAccounts) && _accounts is null)
@@ -404,14 +407,22 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
             foreach (ItemInstance item in _party.Inventory.Items)
             {
                 int price = Price(service, ServiceOperationKind.Sell, ServiceSubject.OfItem(item), default).Payment.Coins;
+                // What identifying or mending it would cost is quoted here too, so a counter shows the price before
+                // the party commits to it, as it does a sale's.
+                int identify = service.Offers(ServiceOperationKind.Identify) && !item.State.IsIdentified
+                    ? Price(service, ServiceOperationKind.Identify, ServiceSubject.OfItem(item), default).Charge.Coins
+                    : 0;
+                int repair = service.Offers(ServiceOperationKind.Repair) && item.State.Damage > 0
+                    ? Price(service, ServiceOperationKind.Repair, ServiceSubject.OfItem(item), default).Charge.Coins
+                    : 0;
                 sales.Add(new ServiceSaleOffer(
                     item.Id,
                     item.Definition,
-                    item.Definition.Value,
+                    GameNames.Item(_names, item.Definition),
                     price,
                     item.State.Damage,
                     item.State.IsIdentified,
-                    item.State.IsStolen));
+                    item.State.IsStolen) { IdentifyPrice = identify, RepairPrice = repair });
             }
         }
 
@@ -660,30 +671,30 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
         [ServiceOperationKind.Sell] = new(
             "sell",
             SubjectShape.Item,
-            Admit: static subject => subject.Item!.Custody.IsInSharedInventory
+            Admit: static (services, subject) => subject.Item!.Custody.IsInSharedInventory
                 ? null
                 // A member's figure is not the party's stock: selling it would take a worn item off a character.
-                : new Refusal(ServiceCodes.ServiceItemWorn, $"{subject.Item.Definition} is worn by a member, and a shop buys what lies in the party's pack."),
+                : new Refusal(ServiceCodes.ServiceItemWorn, $"{GameNames.Item(services._names, subject.Item.Definition)} is worn by a member, and a shop buys what lies in the party's pack."),
             Judge: static (services, t) => services._party.JudgeItemRemoval(t.Subject.Item!.Id),
             Apply: static (services, t) => services.ApplySell(t),
-            Describe: static (_, t) => $"The party sells {t.Subject.Item!.StackCount} × {t.Subject.Item.Definition} for {t.Quote.Payment.Coins} coin(s), and the counter will sell it back."),
+            Describe: static (services, t) => $"The party sells {t.Subject.Item!.StackCount} × {GameNames.Item(services._names, t.Subject.Item.Definition)} for {t.Quote.Payment.Coins} coin(s), and the counter will sell it back."),
         [ServiceOperationKind.Identify] = new(
             "identify",
             SubjectShape.Item,
             // Charging to identify what is identified would be taking coin for a change that never happened.
-            Admit: static subject => subject.Item!.State.IsIdentified
-                ? new Refusal(ServiceCodes.ServiceAlreadyIdentified, $"{subject.Item.Definition} is identified already, so there is nothing to learn about it.")
+            Admit: static (services, subject) => subject.Item!.State.IsIdentified
+                ? new Refusal(ServiceCodes.ServiceAlreadyIdentified, $"{GameNames.Item(services._names, subject.Item.Definition)} is identified already, so there is nothing to learn about it.")
                 : null,
             Apply: static (_, t) => t.Subject.Item!.Identify(),
-            Describe: static (_, t) => $"The party pays {t.Quote.Charge.Coins} coin(s) to identify {t.Subject.Item!.Definition}."),
+            Describe: static (services, t) => $"The party pays {t.Quote.Charge.Coins} coin(s) to identify {GameNames.Item(services._names, t.Subject.Item!.Definition)}."),
         [ServiceOperationKind.Repair] = new(
             "repair",
             SubjectShape.Item,
-            Admit: static subject => subject.Item!.State.Damage == 0
-                ? new Refusal(ServiceCodes.ServiceNotDamaged, $"{subject.Item.Definition} is sound, so there is nothing to repair.")
+            Admit: static (services, subject) => subject.Item!.State.Damage == 0
+                ? new Refusal(ServiceCodes.ServiceNotDamaged, $"{GameNames.Item(services._names, subject.Item.Definition)} is sound, so there is nothing to repair.")
                 : null,
             Apply: static (_, t) => t.Subject.Item!.Repair(t.Subject.Item.State.Damage),
-            Describe: static (_, t) => $"The party pays {t.Quote.Charge.Coins} coin(s) to repair {t.Subject.Item!.Definition}."),
+            Describe: static (services, t) => $"The party pays {t.Quote.Charge.Coins} coin(s) to repair {GameNames.Item(services._names, t.Subject.Item!.Definition)}."),
         [ServiceOperationKind.Teach] = new(
             "teach",
             SubjectShape.Lesson,
@@ -837,7 +848,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
         bool ForMember = false,
         bool NeedsAccounts = false,
         bool Unpriced = false,
-        Func<ServiceSubject, Refusal?>? Admit = null,
+        Func<PartyServices, ServiceSubject, Refusal?>? Admit = null,
         Func<PartyServices, Transaction, Refusal?>? Judge = null,
         Action<PartyServices, Transaction> Apply = null!,
         Func<PartyServices, Transaction, string> Describe = null!);
@@ -1105,7 +1116,7 @@ public sealed class PartyServices : IGameTimeObserver, IDeadlineOwner
     {
         ItemInstance released = _party.ReleaseItem(t.Subject.Item!.Id).Item
             ?? throw new InvalidOperationException($"Item {t.Subject.Item.Id} was resolved and is no longer the party's.");
-        t.Visit.Shelf.Accept(released, t.Quote.Value > 0 ? t.Quote.Value : t.Subject.Value);
+        t.Visit.Shelf.Accept(released, t.Quote.Value > 0 ? t.Quote.Value : t.Subject.Value, GameNames.Item(_names, released.Definition));
     }
 
     /// <summary>

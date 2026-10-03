@@ -336,7 +336,7 @@ public sealed class ProjectionContractTests
             ],
             Sales:
             [
-                new ServiceSaleSnapshot("3", "shield", "A shield", 12, 3, false),
+                new ServiceSaleSnapshot("3", "shield", "A shield", 12, 3, false) { IdentifyPrice = 25, RepairPrice = 40 },
                 new ServiceSaleSnapshot("4", "dagger", "A dagger", 8, 0, true) { Stolen = true },
             ],
             Members: [new ServiceMemberSnapshot(0, "Roderick"), new ServiceMemberSnapshot(1, "Aelina")],

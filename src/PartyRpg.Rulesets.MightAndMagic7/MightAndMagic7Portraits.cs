@@ -15,7 +15,8 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// </para>
 /// <para>
 /// A neutral frame is the face set's name and <c>01</c>, and the importer writes it as an <c>icon</c> beside the
-/// interface images; a person's portrait already names its interface image (<c>npc</c> and three digits).
+/// interface images; a person's portrait is the number of their face, whose interface image is <c>npc</c> and that
+/// number in three digits.
 /// </para>
 /// </remarks>
 internal sealed class MightAndMagic7Portraits
@@ -60,6 +61,10 @@ internal sealed class MightAndMagic7Portraits
     internal string? IconPath(string icon) => _icons.GetValueOrDefault(icon);
 
     /// <summary>The content path a portrait is drawn with, or null when content carries no image for it.</summary>
+    /// <remarks>
+    /// A person's portrait is the number of their face in the people table, drawn with the interface image of that number
+    /// written to three digits (<c>npc001</c>), as the donor names it (OpenEnroth <c>src/GUI/UI/UIDialogue.cpp:67</c>).
+    /// </remarks>
     internal string? PathOf(string portrait) =>
-        _icons.GetValueOrDefault(Faces.GetValueOrDefault(portrait) ?? portrait);
+        _icons.GetValueOrDefault(Faces.GetValueOrDefault(portrait) ?? portrait) ?? _icons.GetValueOrDefault($"npc{portrait.PadLeft(3, '0')}");
 }

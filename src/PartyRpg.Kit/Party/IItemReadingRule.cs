@@ -15,9 +15,9 @@ public interface IItemReadingRule
     /// <returns>What a player is told about it.</returns>
     ItemReading Read(ItemInstance item);
 
-    /// <summary>The content key the item's picture is drawn with, or null when the game draws it with none.</summary>
-    /// <param name="item">The instance, whose definition decides its picture.</param>
-    string? PictureOf(ItemInstance item);
+    /// <summary>The content key an item's picture is drawn with, or null when the game draws it with none.</summary>
+    /// <param name="definition">The item's definition, which alone decides its picture — on a shelf or in the pack.</param>
+    string? PictureOf(ItemDefinitionId definition);
 }
 
 /// <summary>What a player is told about one item.</summary>
