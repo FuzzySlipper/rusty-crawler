@@ -7,6 +7,17 @@
     "partyStart": "creation",
     "setup": null
   },
+  "menu": {
+    "visible": false,
+    "screen": "adventure",
+    "canNewGame": false,
+    "canContinue": false,
+    "canReturnTitle": true,
+    "hasUnsaved": false,
+    "state": "none",
+    "code": "",
+    "message": ""
+  },
   "session": {
     "mode": "turnbased",
     "simulationSeconds": 12.5,

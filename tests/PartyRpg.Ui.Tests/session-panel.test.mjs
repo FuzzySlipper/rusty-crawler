@@ -671,6 +671,17 @@ function snapshot(mode, seconds = 0, steps = 0, _updates = 0, facts = undefined,
       partyStart: blocks?.partyStart ?? 'scenario',
       setup: null,
     },
+    menu: {
+      visible: false,
+      screen: 'adventure',
+      canNewGame: false,
+      canContinue: false,
+      canReturnTitle: true,
+      hasUnsaved: false,
+      state: 'none',
+      code: '',
+      message: '',
+    },
     session: { mode, simulationSeconds: seconds, admittedSteps: steps },
     world: world(),
   };
@@ -678,6 +689,7 @@ function snapshot(mode, seconds = 0, steps = 0, _updates = 0, facts = undefined,
   // looks like — so the helper adds one only when a case asks for it. The clock and the party are
   // optional on the same terms: a case that asks for neither gets a projection that carries neither.
   if (facts !== undefined) value.movement = facts;
+  if (blocks?.menu !== undefined) value.menu = blocks.menu;
   if (blocks?.clock !== undefined) value.clock = blocks.clock;
   if (blocks?.party !== undefined) value.party = blocks.party;
   // Creation is published in every mode, so the helper adds the block only when a case asks for one: a
@@ -737,6 +749,46 @@ function snapshot(mode, seconds = 0, steps = 0, _updates = 0, facts = undefined,
   value.feedback = blocks?.feedback ?? { serial: 0, source: '', actor: '', subject: '', outcome: 'none', code: '', message: '' };
   return value;
 }
+
+test('the lifecycle menu shows title choices, ordinary return, and the unsaved confirmation', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+    h.emit(snapshot('starting', 0, 0, 0, movement(), {
+      menu: {
+        visible: true, screen: 'title', canNewGame: true, canContinue: true, canReturnTitle: false,
+        hasUnsaved: false, state: 'none', code: '', message: 'Choose how to begin the expedition.',
+      },
+    }));
+    const menu = h.panel().querySelector('.crawler-menu');
+    assert.equal(menu.dataset.menu, 'title');
+    assert.equal(menu.querySelector('.crawler-menu-overlay').hidden, false);
+    assert.deepEqual(
+      [...menu.querySelectorAll('.crawler-menu-title-actions button')].map((button) => button.textContent),
+      ['New Game', 'Continue'],
+    );
+    menu.querySelector('.crawler-menu-new-game').click();
+    assert.equal(h.claims.at(-1).value.data.action, 'session.new-game');
+
+    h.emit(snapshot('paused', 0, 0, 1, movement(), {
+      menu: {
+        visible: true, screen: 'confirm-return', canNewGame: false, canContinue: false, canReturnTitle: true,
+        hasUnsaved: true, state: 'confirm', code: 'return-unsaved', message: 'Unsaved progress will be lost.',
+      },
+    }));
+    assert.equal(menu.querySelector('.crawler-menu-confirm').hidden, false);
+    menu.querySelector('.crawler-menu-cancel-return').click();
+    assert.equal(h.claims.at(-1).value.data.action, 'session.cancel-return-title');
+
+    h.emit(snapshot('running', 0, 0, 2, movement()));
+    assert.equal(menu.querySelector('.crawler-menu-launch').hidden, false);
+    menu.querySelector('.crawler-menu-launch').click();
+    assert.equal(h.claims.at(-1).value.data.action, 'session.return-title');
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
 
 /** The automap block as the product publishes it: a drawing already placed in its own space. */
 function automap(overrides = {}) {

@@ -94,6 +94,11 @@ public sealed class ProjectionContractTests
     [
         UiActionPayload.PauseSession,
         UiActionPayload.ResumeSession,
+        SessionMenuActions.NewGame,
+        SessionMenuActions.Continue,
+        SessionMenuActions.ReturnTitle,
+        SessionMenuActions.ConfirmReturnTitle,
+        SessionMenuActions.CancelReturnTitle,
         SaveActions.Save,
         PartyRpg.Kit.Interaction.UseActions.Use,
         CombatActions.Attack,

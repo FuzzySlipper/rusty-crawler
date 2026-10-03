@@ -32,6 +32,11 @@ Implemented today:
   session offers no creation and publishes them as `composition.setup`, which the panel shows in place of a
   world ([new-game reading](../../docs/evidence/new-game-bundle.md)). Any other content defect still stops the
   product with every problem named.
+- The ordinary product entry opens a fresh launch on the projected title menu. `SessionMenuState` is shared by the
+  Host and its one session: New Game reveals the existing creation or scenario path, Continue composes a resumed
+  session and swaps it only after a successful load, and a visible return control pauses for an unsaved confirmation
+  before disposing and rebuilding the session. A refused Continue keeps a usable title menu with its persistence or
+  content sentence; no menu action creates a second update loop or a parallel session owner.
 - The project file declares the product metadata and 25 input intents, each digital with its key: pause
   (`session.pause-toggle`, P) and save (`session.save`, F); the movement intents (W/S/A/D, Q/E, Space, and
   flight's `party.ascend` and `party.descend` on the up and down arrows, held — the original's Page Up and Insert

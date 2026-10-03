@@ -1,6 +1,7 @@
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Interaction;
+using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Rulesets;
@@ -58,34 +59,43 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
     private readonly ControlKeys _keys;
     private readonly BundleSelection _selection;
     private readonly ContentCatalog? _content;
+    private readonly bool _showLaunchTitle;
+    private readonly SessionMenuState _menu;
     private readonly InteractionSelection _interaction = new();
     private readonly IReadOnlyList<ProductPlaytest.Binding> _bindings;
     private IGameSession _session;
     private bool _started;
     private bool _shutdown;
+    private bool _menuHeldSession;
 
     /// <summary>Creates the product with the host's default compiled ruleset, started as the process environment says.</summary>
     public CrawlerProduct(ProductCreateContext context)
-        : this(context, Environment.GetEnvironmentVariable)
+        : this(context, Environment.GetEnvironmentVariable, showLaunchTitle: true)
     {
     }
 
     /// <summary>Creates the product with the host's default compiled ruleset, started as the given variables say.</summary>
     /// <param name="context">The Engine's creation context.</param>
     /// <param name="variables">Reads one named variable, or null when it is unset.</param>
-    internal CrawlerProduct(ProductCreateContext context, Func<string, string?> variables)
-        : this(context, BuiltInRulesets.Default, BuiltInBundles.Parse(variables(ProductIdentity.BundleVariable)), ProductStart.From(variables))
+    internal CrawlerProduct(ProductCreateContext context, Func<string, string?> variables, bool showLaunchTitle = false)
+        : this(context, BuiltInRulesets.Default, BuiltInBundles.Parse(variables(ProductIdentity.BundleVariable)), ProductStart.From(variables), showLaunchTitle)
     {
     }
 
     /// <summary>Creates the product over an explicitly selected compiled ruleset and bundle.</summary>
     public CrawlerProduct(ProductCreateContext context, IGameRuleset ruleset, string? bundleId, SessionStart start = SessionStart.Fresh)
+        : this(context, ruleset, bundleId, start, showLaunchTitle: false)
+    {
+    }
+
+    private CrawlerProduct(ProductCreateContext context, IGameRuleset ruleset, string? bundleId, SessionStart start, bool showLaunchTitle)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(ruleset);
         _context = context;
         _ruleset = ruleset;
         StartMode = start;
+        _showLaunchTitle = showLaunchTitle;
         _input = new SessionInputRouter(ProductIdentity.PauseToggleIntent, ProductIdentity.UiActionContract);
         _movement = new MovementIntentNames(
             ProductIdentity.MoveForwardIntent,
@@ -157,6 +167,20 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
         _keys = ProductControlKeys.Read(context.Input);
         _bindings = ProductPlaytest.Bindings(context.Input);
         (_selection, _content) = SelectBundle(context, bundleId ?? BuiltInBundles.Default, ruleset.Id);
+        _menu = new SessionMenuState();
+        if (_showLaunchTitle)
+        {
+            _menu.ShowTitle(
+                canNewGame: _selection.Unavailable is null,
+                canContinue: context.Engine is not null,
+                message: _selection.Unavailable is { } missing
+                    ? _selection.Setup.Length > 0
+                        ? _selection.Setup
+                        : $"The selected bundle '{missing}' is missing {_selection.MissingPacks.Count} content pack(s)."
+                    : string.Empty,
+                code: _selection.Unavailable is null ? string.Empty : "content-missing",
+                state: _selection.Unavailable is null ? "none" : "setup");
+        }
         _session = CreateSession();
     }
 
@@ -208,7 +232,12 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
     {
         if (_shutdown) return;
         _started = true;
+        // A process-launched fresh run opens on the title menu. The creation/session owners are already composed
+        // behind it, so selecting New Game reveals that same flow without a second session or update loop. An
+        // environment-requested resume keeps its established direct-start behavior for operator automation.
+        if (StartMode == SessionStart.Resume || !_showLaunchTitle) _menu.ShowAdventure();
         _session.Start();
+        if (_showLaunchTitle && StartMode == SessionStart.Fresh && _session.Mode == SessionMode.Running) _session.Hold();
     }
 
     /// <summary>Holds the session because the engine paused it.</summary>
@@ -236,7 +265,13 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
         IGameSession previous = _session;
         _session = replacement;
         previous.Dispose();
-        if (_started) _session.Start();
+        if (_started)
+        {
+            _session.Start();
+            if (_showLaunchTitle && StartMode == SessionStart.Fresh &&
+                _menu.Snapshot.Screen == SessionMenuScreen.Title && _session.Mode == SessionMode.Running)
+                _session.Hold();
+        }
     }
 
     /// <summary>Shuts the session down and stops responding to the engine.</summary>
@@ -283,11 +318,14 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
     public ProductUpdateResult Update(ProductUpdate update)
     {
         if (!_started || _shutdown) return ProductUpdateResult.None;
+        HandleMenu(update);
         _input.Apply(_session, update.Input);
         return _session.Update(update);
     }
 
-    private IGameSession CreateSession()
+    private IGameSession CreateSession() => CreateSession(StartMode);
+
+    private IGameSession CreateSession(SessionStart start)
     {
         EngineUiProjectionChannel channel = new(
             _context.Engine.Ui,
@@ -319,13 +357,14 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
                 Mix: _mix,
                 Keys: _keys,
                 Interaction: _interaction,
-                Equip: _equip);
+                Equip: _equip,
+                Menu: _menu);
 
             // The start switch travels with the context and is answered at the ruleset's one composition
             // entry: a resumed run reads the save the slot holds and composes a session from it, and a slot
             // that holds nothing fails by name rather than starting a new expedition in place of the one
             // that was asked for.
-            return _ruleset.CreateSession(context with { Start = StartMode });
+            return _ruleset.CreateSession(context with { Start = start });
         }
         catch
         {
@@ -334,6 +373,119 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
             channel.Dispose();
             throw;
         }
+    }
+
+    /// <summary>Handles the visible title/menu lifecycle actions at the Host seam.</summary>
+    private void HandleMenu(ProductUpdate update)
+    {
+        ActionInbox input = new(update.Input);
+        IReadOnlyList<UiAction> actions = input.Take(ProductIdentity.UiActionContract, SessionMenuActions.IsMenuAction);
+        foreach (UiAction action in actions)
+        {
+            switch (action.Name)
+            {
+                case SessionMenuActions.NewGame when _menu.Snapshot.Screen == SessionMenuScreen.Title:
+                    BeginNewGame();
+                    break;
+                case SessionMenuActions.Continue when _menu.Snapshot.Screen == SessionMenuScreen.Title:
+                    Continue();
+                    break;
+                case SessionMenuActions.ReturnTitle when _menu.Snapshot.Screen == SessionMenuScreen.Adventure:
+                    RequestReturnToTitle();
+                    break;
+                case SessionMenuActions.ConfirmReturnTitle when _menu.Snapshot.Screen == SessionMenuScreen.ConfirmReturn:
+                    ConfirmReturnToTitle();
+                    break;
+                case SessionMenuActions.CancelReturnTitle when _menu.Snapshot.Screen == SessionMenuScreen.ConfirmReturn:
+                    CancelReturnToTitle();
+                    break;
+            }
+        }
+
+        // Existing keyboard creation controls remain a supported shortcut for automated/operator sessions. If
+        // one arrives while the launch title is still up, treat it as selecting New Game so it cannot leave the
+        // session in a hidden creation flow while the ordinary title control remains available to players.
+        if (_menu.Snapshot.Screen == SessionMenuScreen.Title && _session.Mode == SessionMode.Creating &&
+            input.Activated(System.Text.Encoding.UTF8.GetBytes(ProductIdentity.CreationAcceptIntent)))
+        {
+            BeginNewGame();
+        }
+    }
+
+    private void BeginNewGame()
+    {
+        _menu.ShowAdventure();
+        if (_session.Mode == SessionMode.Stopped)
+        {
+            ReplaceStopped(SessionStart.Fresh);
+            return;
+        }
+
+        if (!_started || _session.Mode == SessionMode.Starting) _session.Start();
+        if (_session.Mode == SessionMode.Paused) _session.ReleaseHold();
+    }
+
+    private void Continue()
+    {
+        IGameSession? replacement = null;
+        try
+        {
+            replacement = CreateSession(SessionStart.Resume);
+            IGameSession previous = _session;
+            _menu.ShowAdventure();
+            _session = replacement;
+            replacement = null;
+            previous.Dispose();
+            if (_started) _session.Start();
+        }
+        catch (SessionSaveException refused)
+        {
+            replacement?.Dispose();
+            // The old session is no longer a safe title owner after a return-to-title, so rebuild a fresh
+            // composition that carries the refusal in the visible title menu. No save bytes are changed.
+            if (_session.Mode != SessionMode.Stopped) _session.Dispose();
+            _menu.ShowTitle(
+                canNewGame: _selection.Unavailable is null,
+                canContinue: _context.Engine is not null,
+                state: "failed",
+                code: refused.Problems.FirstOrDefault()?.Code ?? "continue-failed",
+                message: refused.Message);
+            ReplaceStopped(SessionStart.Fresh);
+        }
+    }
+
+    private void RequestReturnToTitle()
+    {
+        _menu.ShowReturnConfirmation();
+        _menuHeldSession = _session.Mode is SessionMode.Running or SessionMode.TurnBased;
+        if (_menuHeldSession) _session.Hold();
+    }
+
+    private void CancelReturnToTitle()
+    {
+        _menu.ShowAdventure();
+        if (_menuHeldSession)
+        {
+            _menuHeldSession = false;
+            _session.ReleaseHold();
+        }
+    }
+
+    private void ConfirmReturnToTitle()
+    {
+        _menuHeldSession = false;
+        if (_session.Mode != SessionMode.Stopped) _session.Dispose();
+        _menu.ShowTitle(
+            canNewGame: _selection.Unavailable is null,
+            canContinue: _context.Engine is not null);
+        ReplaceStopped(SessionStart.Fresh);
+    }
+
+    private void ReplaceStopped(SessionStart start)
+    {
+        if (_session.Mode != SessionMode.Stopped) _session.Dispose();
+        _session = CreateSession(start);
+        if (start == SessionStart.Resume || (_started && _menu.Snapshot.Screen == SessionMenuScreen.Adventure)) _session.Start();
     }
 }
 

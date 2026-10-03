@@ -553,7 +553,8 @@ internal sealed class MightAndMagic7Session : IGameSession
                 start,
                 rules,
                 controls,
-                store is null ? null : new SessionSaving(store, MightAndMagic7Persistence.SaveSlot));
+                store is null ? null : new SessionSaving(store, MightAndMagic7Persistence.SaveSlot),
+                context.Menu);
         }
         catch
         {

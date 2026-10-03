@@ -91,6 +91,9 @@ public sealed record SessionSnapshot(
     ControlKeys Keys,
     EquipmentSnapshot Equipment)
 {
+    /// <summary>The Host-owned title/adventure menu, or the hidden menu for a session-only composition.</summary>
+    public SessionMenuSnapshot Menu { get; init; } = SessionMenuSnapshot.Adventure;
+
     /// <summary>Each member's character page as the game's sheet reads them, or the no-sheet value.</summary>
     public CharacterSnapshot Character { get; init; } = CharacterSnapshot.None;
 
@@ -253,6 +256,7 @@ public static class SessionProjection
         UiValueBuilder builder = new();
         uint root = builder.Object(
             ("composition", Composition(builder, snapshot.Composition)),
+            ("menu", snapshot.Menu.Write(builder)),
             (SessionField, builder.Object(
                 ("mode", builder.String(WireName(snapshot.Mode))),
                 ("simulationSeconds", builder.Number(snapshot.SimulationSeconds)),

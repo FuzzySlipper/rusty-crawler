@@ -35,6 +35,7 @@ import { mountJournal } from './journal.js';
 import { mountJournalBook } from './journal-book.js';
 import { mountMagicBook } from './magic-book.js';
 import { mountMap } from './map.js';
+import { mountMenu } from './menu.js';
 import { mountProgression } from './progression.js';
 import { mountPromotion } from './promotion.js';
 import { mountQuests } from './quests.js';
@@ -133,6 +134,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   // section lives in the screen a player opens for it, or the one the product shows while it is in front of the party.
   let marked: Hud | null = null;
   const frame = mountFrame(panel, context, (screen) => marked?.mark(screen));
+  const menu = mountMenu(host);
   const hud = mountHud(host, { open: (screen) => frame.open(screen), toggleDiagnostics: () => frame.toggleDiagnostics() });
   const journalBook = mountJournalBook(host, () => frame.open('map'));
   marked = hud;
@@ -154,15 +156,17 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   // The rows the character book draws from are kept here whole as well, every member at once.
   frame.diagnostics.append(...details.top, ...details.bottom, combat.element, equipment.element, skills.element, progression.element, promotion.element, spellbook.element, conversation.element, service.element, journal.element, problems);
   hud.side.append(details.companions);
-  panel.append(hud.message, fight, hud.side, frame.element, hud.bar, frame.diagnostics);
+  panel.append(menu.element, hud.message, fight, hud.side, frame.element, hud.bar, frame.diagnostics);
   root.append(style, panel);
 
   const render = (snapshot: SnapshotView): void => {
     const { controls } = snapshot;
+    menu.render(snapshot.menu, 'Rusty Crawler', snapshot.composition.title);
     details.render(snapshot);
     hud.render(snapshot);
     // The fight's panel stands beside the world while something is fighting the party, and only then.
-    fight.hidden = !snapshot.combat.engaged;
+    frame.element.hidden = snapshot.menu.visible;
+    fight.hidden = snapshot.menu.visible || !snapshot.combat.engaged;
     creation.render({
       creation: snapshot.creation,
       resumed: snapshot.save.resumed,
@@ -219,6 +223,8 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     // its runtime is rebound — and the panel says so rather than presenting the last one as current.
     if (projection === null) {
       panel.dataset.projection = 'none';
+      menu.clear();
+      frame.element.hidden = false;
       frame.clear();
       return;
     }

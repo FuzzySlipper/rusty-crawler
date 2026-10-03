@@ -51,6 +51,7 @@ public sealed class PartyRpgSession : IGameSession
     private readonly SessionActs _acts;
     private readonly CombatDriver _fight;
     private readonly SaveRequests _saves;
+    private readonly SessionMenuState _menu;
     private readonly ActionFeedback _feedback = new();
     private readonly bool _resumed;
     private readonly HashSet<string> _contracts;
@@ -74,6 +75,7 @@ public sealed class PartyRpgSession : IGameSession
     // What the panel was last sent, and whether an update is under way: an update publishes once, at its end,
     // and only a value that differs from the last one sent.
     private UiValue? _published;
+    private long _publishedMenuRevision = -1;
     private bool _updating;
 
     // The blocks the projection keeps between readings, each beside the owner stamps it was read under.
@@ -99,7 +101,8 @@ public sealed class PartyRpgSession : IGameSession
         SessionParty party,
         SessionRules? rules = null,
         SessionControls? controls = null,
-        SessionSaving? saving = null)
+        SessionSaving? saving = null,
+        SessionMenuState? menu = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
         ArgumentNullException.ThrowIfNull(owners);
@@ -126,6 +129,7 @@ public sealed class PartyRpgSession : IGameSession
         };
         _projection = projection ?? throw new ArgumentNullException(nameof(projection));
         _owners = owners;
+        _menu = menu ?? new SessionMenuState();
         _movement = controls.Movement;
         _resumed = records is not null;
         _saves = new SaveRequests(composition.Title, saving, controls.Save, _resumed);
@@ -296,7 +300,8 @@ public sealed class PartyRpgSession : IGameSession
 
         // A session that was held throughout and heard nothing moved nothing any block reads, so it is not even
         // read: the panel already shows what it holds.
-        if (heard || before != SessionMode.Paused || _mode != SessionMode.Paused) Publish();
+        if (heard || before != SessionMode.Paused || _mode != SessionMode.Paused || _menu.Revision != _publishedMenuRevision)
+            Publish();
 
         // The world is drawn as this update left it, from where the party now stands.
         if (LiveWorld is { } world) _view?.Present(world.Party, _simulationSeconds);
@@ -495,6 +500,7 @@ public sealed class PartyRpgSession : IGameSession
         foreach (UiAction action in input.Unclaimed(_contracts))
         {
             if (action.Name is UiActionPayload.PauseSession or UiActionPayload.ResumeSession) continue;
+            if (SessionMenuActions.IsMenuAction(action.Name)) continue;
             _owners.Diagnostics.Refused(
                 "input",
                 "action-unclaimed",
@@ -632,9 +638,14 @@ public sealed class PartyRpgSession : IGameSession
     {
         if (_updating) return;
         UiValue value = SessionProjection.Build(Snapshot());
-        if (_published is { } last && Same(last, value)) return;
+        if (_published is { } last && Same(last, value))
+        {
+            _publishedMenuRevision = _menu.Revision;
+            return;
+        }
         _projection.Publish(value);
         _published = value;
+        _publishedMenuRevision = _menu.Revision;
     }
 
     /// <summary>Whether two projection values say exactly the same thing.</summary>
@@ -692,6 +703,7 @@ public sealed class PartyRpgSession : IGameSession
             _keys,
             _readings.Equipment(_owners.Outfitting, party, _owners.ItemUses, _owners.Rules.ItemReadings, _itemPictures, Quests))
         {
+            Menu = _menu.Snapshot,
             Character = _readings.Character(Party, party, _owners.Rules.CharacterSheet, Clock),
             Feedback = _feedback.Observe(_owners, _saves.State),
         };

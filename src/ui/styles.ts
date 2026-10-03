@@ -100,6 +100,32 @@ export const STYLES = `
 .crawler-hud-said { color: #e8c98a; font-size: 0.82rem; }
 .crawler-hud-said[data-outcome='refused'] { color: #f0b49a; }
 
+/* The lifecycle menu: the adventure keeps a small launcher, while the title and unsaved confirmation cover the
+   product surface so the player cannot act on an old adventure behind the decision. */
+.crawler-menu { position: absolute; inset: 0; z-index: 20; pointer-events: none; }
+.crawler-menu-launch {
+  position: absolute; top: 0.6rem; left: 0.6rem; width: auto !important; padding: 0.3rem 0.65rem !important;
+  background: rgba(30, 25, 18, 0.92) !important; border-color: #8a7446 !important; pointer-events: auto;
+}
+.crawler-menu-overlay {
+  position: absolute; inset: 0; display: grid; place-items: center; padding: 1rem;
+  background: radial-gradient(circle at 50% 35%, rgba(65, 53, 34, 0.86), rgba(8, 7, 6, 0.96));
+  pointer-events: auto;
+}
+.crawler-menu-card {
+  width: min(34rem, 100%); padding: 1.4rem 1.6rem; text-align: center;
+  background: linear-gradient(#2b241a, #17130f); border: 2px solid #8a7446; border-radius: 0.35rem;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.65);
+}
+.crawler-menu-title { margin: 0 0 0.4rem; color: #f0dca0; font-size: 1.65rem; letter-spacing: 0.05em; }
+.crawler-menu-subtitle { margin: 0 0 0.8rem; color: #b9ad8c; font-size: 0.82rem; }
+.crawler-menu-state { margin: 0 0 0.35rem; color: #d6a76a; text-transform: capitalize; }
+.crawler-menu-message, .crawler-menu-confirm-message { margin: 0.45rem 0 0.8rem; color: #e8e0cc; }
+.crawler-menu-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.45rem; margin-top: 0.8rem; }
+.crawler-menu-actions button { width: auto !important; min-width: 10rem; padding: 0.45rem 0.8rem !important; }
+.crawler-menu-confirm { margin-top: 0.5rem; }
+.crawler-menu[data-state='failed'] .crawler-menu-message, .crawler-menu[data-state='failed'] .crawler-menu-state { color: #f0b49a; }
+
 /* The fight, beside the world while the party is in one. */
 .crawler-fight { position: absolute; top: 0.6rem; left: 0.6rem; width: 19rem; }
 .crawler-fight-panel { padding: 0.45rem 0.6rem; background: rgba(18, 16, 14, 0.86); border: 1px solid #5a4b31; border-radius: 0.25rem; color: #cfc3a2; font-size: 0.75rem; }

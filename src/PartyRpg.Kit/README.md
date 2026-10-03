@@ -113,7 +113,11 @@ Owns:
   state and its notes have no room for a thousand squares, which the kit's own source laws hold to).
 - Session plumbing: compiled ruleset contracts, typed IDs, bundle and
   content-pack resolution, typed tuning handles, structured UI values, and
-  bootstrap of an Engine-admitted session.
+  bootstrap of an Engine-admitted session. `SessionMenuState` is the small
+  Host-owned lifecycle projection shared with the composed session: its title,
+  continuation, return confirmation, and explicit semantic action names are
+  presented beside the session blocks without owning a second session, clock,
+  or update path.
 - Persistence: the session's one current save schema (`SessionSave` over the
   party's own `PartySave`, `ClockSave`, `WorldSave`, and `CombatSave`), the explicit
   `SessionSaveBoundary` a save is written through, the `ISessionSaveStore` seam

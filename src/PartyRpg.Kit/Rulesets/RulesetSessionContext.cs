@@ -124,6 +124,10 @@ public enum SessionStart
 /// creates, so what the host registered to inspect the reticle reads the live world's own focus. Without it
 /// each world aims through a selection of its own that nothing outside the session reads.
 /// </param>
+/// <param name="Menu">
+/// The Host-owned visible menu state, when the product offers one. It is shared across session replacements so
+/// title and return-to-title transitions stay on the same projection contract without creating a second session.
+/// </param>
 public sealed record RulesetSessionContext(
     IUiProjectionChannel Projection,
     BundleSelection Selection = default,
@@ -143,4 +147,5 @@ public sealed record RulesetSessionContext(
     MixIntentNames? Mix = null,
     ControlKeys? Keys = null,
     InteractionSelection? Interaction = null,
-    EquipIntentNames? Equip = null);
+    EquipIntentNames? Equip = null,
+    SessionMenuState? Menu = null);

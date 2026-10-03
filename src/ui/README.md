@@ -15,6 +15,7 @@ its own:
 | --- | --- |
 | `context.ts` | The mount context as the Engine delivers it: the interface port, the projection view (`current()` and a `subscribe` that delivers the current envelope, possibly `null`, at once), the intent port, and the input port. |
 | `actions.ts` | The projection and action contracts, and the actions a row of a screen claims. |
+| `menu.ts` | The Host-projected title, New Game, Continue, return confirmation, and adventure launcher; it claims lifecycle actions and owns no session state. |
 | `reader.ts` | The one way a field is read: by name and type, with every missing or mistyped field named as a problem and its block read as unknown rather than half-read. |
 | `snapshot.ts` | `readSnapshot`: every block of one projection, and every problem met reading it. |
 | `dom.ts` | The small DOM vocabulary the sections share, and the one guard that decides when a section's controls are rebuilt. |

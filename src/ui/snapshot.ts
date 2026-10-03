@@ -18,6 +18,7 @@ import { readFeedback, type FeedbackView } from './feedback.js';
 import { readJournal, type JournalView } from './journal.js';
 import { readMagic, type MagicView } from './magic.js';
 import { readMap, type MapView } from './map.js';
+import { readMenu, type MenuView } from './menu.js';
 import {
   readClock,
   readComposition,
@@ -49,6 +50,7 @@ import { readSkills, type SkillsView } from './skills.js';
 /** Every block of one projection, as the panel draws it. */
 export interface SnapshotView {
   readonly composition: CompositionView;
+  readonly menu: MenuView;
   readonly session: SessionView;
   readonly world: WorldView;
   readonly movement: MovementView;
@@ -94,6 +96,7 @@ export function readSnapshot(value: unknown): Reading {
   const read = <T>(key: string, reader: (entry: Fields) => T): T => block(root, key, reader, problems);
   const snapshot: SnapshotView = {
     composition,
+    menu: read('menu', readMenu),
     session,
     world: read('world', readWorld),
     movement: read('movement', readMovement),

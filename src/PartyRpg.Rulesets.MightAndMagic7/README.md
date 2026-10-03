@@ -408,6 +408,9 @@ content kinds, identities and recovery against the existing combat/spell policie
 legitimate additive stun debt is bounded by elapsed game time and the roster's possible casts rather than one
 ordinary attack. The [bounded fight reading](../../docs/evidence/fight-persistence.md) records ordinary
 save/resume of a provoked imported Fighter and continuing creature recovery, with its all-dead party and startup-time limits. A party record issues created-creature identities across saves for spells and event ambushes.
+The Host's title and return flows call these same explicit save/resume seams: Continue refuses a missing or
+contradictory current document with its named problems and leaves the title usable, while New Game composes the
+ruleset's ordinary creation or scenario start after the menu decision.
 The clock also carries the original due moments for sleep,
 party and member spell effects, and visited shelf restocks. Load judges sleep and restock repeat intervals
 against the existing rest and service policy and refuses a timed spell effect without its end. The lazy

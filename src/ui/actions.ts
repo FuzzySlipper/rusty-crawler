@@ -27,6 +27,12 @@ export const ACTIONS = {
   // names the button after it.
   pause: 'session.pause',
   resume: 'session.resume',
+  // Host-owned lifecycle controls: the title menu starts, continues, or leaves the one session composition.
+  newGame: 'session.new-game',
+  continue: 'session.continue',
+  returnTitle: 'session.return-title',
+  confirmReturnTitle: 'session.confirm-return-title',
+  cancelReturnTitle: 'session.cancel-return-title',
   partySelectMember: 'party.select-member',
   // Creation: the choices a member is made with. The flow validates each, and its refusal is what the screen shows.
   selectMember: 'creation.select-member',
