@@ -160,8 +160,11 @@ public sealed class WorldView : IWorldPresenter
         try
         {
             RenderMesh mesh = ReadMesh(scene.MeshPath);
-            if (mesh.Parts.SelectMany(part => part.Groups).FirstOrDefault(group => group.Material >= scene.Materials.Count) is { Count: > 0 } stray)
-                throw new InvalidDataException($"'{scene.MeshPath}' draws material {stray.Material}, and the scene lists {scene.Materials.Count}.");
+            foreach (RenderMeshGroup group in mesh.Parts.SelectMany(part => part.Groups))
+            {
+                if (group.Material < 0 || group.Material >= scene.Materials.Count)
+                    throw new InvalidDataException($"'{scene.MeshPath}' draws material {group.Material}, and the scene lists {scene.Materials.Count}.");
+            }
             loaded = new Loaded(scene, mesh);
             foreach (SceneMaterial material in scene.Materials) loaded.Materials.Add(Material(material));
             foreach (RenderMeshPart part in loaded.Mesh.Parts)
