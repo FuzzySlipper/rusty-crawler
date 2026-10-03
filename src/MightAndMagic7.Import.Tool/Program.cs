@@ -316,7 +316,7 @@ internal static class Program
                 loot = Describe(result.Containers, tables),
                 fixtures = Describe(result.Fixtures, tables),
                 globalEvents = Describe(result.Globals),
-                use = "add these pack ids to a bundle under content/partyrpg/bundles to load them",
+                use = "the product's default mm7-new-game bundle names these packs; restart the product to play them",
             },
             Json));
         return 0;

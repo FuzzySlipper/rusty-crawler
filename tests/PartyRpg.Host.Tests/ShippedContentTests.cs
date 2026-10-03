@@ -10,9 +10,9 @@ namespace PartyRpg.Host.Tests;
 public sealed class ShippedContentTests
 {
     /// <remarks>
-    /// The default bundle this repository ships names no packs — the packs a product plays are the operator's
-    /// imports, and none of them is committed — so resolving it alone proves only that one small file parses. What
-    /// this case proves instead is everything the checkout's own tree carries: every bundle file it ships loads and
+    /// The default bundle this repository ships names the operator's imported packs, which no checkout carries, so it
+    /// resolves only where an operator has written them; elsewhere it must be the missing-content state naming exactly
+    /// those packs. What this case proves besides is everything the checkout's own tree carries: every bundle file it ships loads and
     /// validates, the bundles are exactly the ones the host will select, each resolves to exactly the packs its own
     /// file names, every pack directory under the shipped content root loads (none today, so that part binds the
     /// first pack anyone commits rather than passing on one now), and the product itself starts from that tree as the
@@ -50,6 +50,15 @@ public sealed class ShippedContentTests
             ContentBootstrapResult result = ContentBootstrap.Load(source, layout, bundleId, BuiltInRulesets.Default.Id);
 
             Assert.True(result.IsValid, string.Join("; ", result.Issues.Select(issue => issue.ToString())));
+            if (result.Missing is { } missing)
+            {
+                // Only packs the importer writes may be absent: an authored pack the bundle names ships with it.
+                Assert.All(missing.Packs, pack => Assert.False(Directory.Exists(Path.Combine(root, layout.ContentPacks, pack)), pack));
+                Assert.NotEqual(string.Empty, missing.Bundle.Setup);
+                if (bundleId == BuiltInBundles.Default) defaultPacks = 0;
+                continue;
+            }
+
             Assert.NotNull(result.Selection);
             Assert.Equal(bundleId, result.Selection.Bundle.BundleId);
             Assert.Equal(result.Selection.Bundle.ContentPacks, result.Selection.Packs.Select(pack => pack.PackId));
@@ -62,9 +71,34 @@ public sealed class ShippedContentTests
         (Rusty.Engine.ProductCreateContext context, _) = ProductTestContext.Create(staged);
         using CrawlerProduct product = new(context, ProductTestContext.NoVariables);
 
-        Assert.Equal(BuiltInBundles.Default, product.Selection.BundleId);
         Assert.NotNull(defaultPacks);
-        Assert.Equal(defaultPacks.Value, product.Selection.PackCount);
+        if (defaultPacks == 0)
+        {
+            Assert.Equal(BuiltInBundles.Default, product.Selection.Unavailable);
+        }
+        else
+        {
+            Assert.Equal(BuiltInBundles.Default, product.Selection.BundleId);
+            Assert.Equal(defaultPacks.Value, product.Selection.PackCount);
+        }
+    }
+
+    /// <summary>
+    /// The new game names every pack the importer writes, so an operator who ran <c>write</c> plays all of it: when
+    /// an import's own pack list is present, the shipped default must name each pack in it.
+    /// </summary>
+    [Fact]
+    public void The_new_game_names_every_pack_the_importer_last_wrote()
+    {
+        string root = RepositoryContentRoot();
+        ContentLayout layout = ContentLayout.Under(ContentDirectory());
+        string fragment = Path.Combine(root, ContentDirectory(), "imports", "imported-bundle.json");
+        if (!File.Exists(fragment)) return;
+
+        using System.Text.Json.JsonDocument written = System.Text.Json.JsonDocument.Parse(File.ReadAllText(fragment));
+        string[] imported = [.. written.RootElement.GetProperty("contentPacks").EnumerateArray().Select(pack => pack.GetString()!)];
+        GameBundle shipped = BundleCatalog.Load(new FileContentSource(root), layout).Find(BuiltInBundles.NewGame)!;
+        Assert.All(imported, pack => Assert.Contains(pack, shipped.ContentPacks));
     }
 
     [Fact]

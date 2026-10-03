@@ -492,7 +492,7 @@ internal static partial class PackWriter
         writer.WriteStartArray("contentPacks");
         foreach ((string packId, _, _) in packs) writer.WriteStringValue(packId);
         writer.WriteEndArray();
-        writer.WriteString("description", $"The packs this import wrote, from {provenance.BuildString}. Copy this file to a bundle directory to load them.");
+        writer.WriteString("description", $"The packs this import wrote, from {provenance.BuildString}. The product's default mm7-new-game bundle names each of them; this list is what it is checked against.");
         writer.WriteEndObject();
     }
 
