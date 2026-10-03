@@ -101,6 +101,54 @@ public sealed class WorldViewTests
         }, refuseImages: true);
 
     [Fact]
+    public void A_sprite_shows_its_frame_for_its_time_looping_or_holding_its_last()
+    {
+        SceneSprite sprite = new("s.png", 64, 32, 2, 32, 32, 1, 1, false, false, [0.5, 0.25]);
+
+        Assert.Equal(0, sprite.FrameAt(0.2, loop: true));
+        Assert.Equal(1, sprite.FrameAt(0.6, loop: true));
+        Assert.Equal(0, sprite.FrameAt(0.8, loop: true));
+        Assert.Equal(1, sprite.FrameAt(5, loop: false));
+    }
+
+    [Fact]
+    public void Objects_are_drawn_as_sprites_under_their_identity_showing_the_view_their_facing_turns_to_the_eye()
+        => WithView((view, rule, graphics, _, party) =>
+        {
+            // The party stands at (100, 200) facing +x; one object stands ahead at (500, 200) facing back at it.
+            rule.Things = [new SceneObject("actor:a", "walk", new PlacePose(500, 200, 0, 1024, 0), 0)];
+            view.Present(party, 0);
+
+            Assert.Single(graphics.Calls.CallsTo(nameof(IGraphicsService.CreateSpriteAtlas)));
+            SpriteFromAtlasRequest created = (SpriteFromAtlasRequest)Assert.Single(graphics.Calls.CallsTo(nameof(IGraphicsService.CreateSpriteFromAtlas)))[0]!;
+            Assert.Equal(0u, created.FrameId);
+            Assert.Equal(new Vector2(64, 64), created.Size);
+            Assert.Equal(BillboardMode.Cylindrical, created.Billboard);
+            AppearanceFact drawn = Assert.Single(graphics.Snapshots[^1], fact => fact.ObjectId >= 1UL << 44);
+            Assert.Equal(new Vector3(500, 0, -200), drawn.Transform.Translation);
+
+            // Half a second on it shows its second frame from the same side, set on its own sprite without republishing.
+            view.Present(party, 0.6);
+            rule.Things = [rule.Things[0] with { Seconds = 0.6 }];
+            view.Present(party, 0.6);
+            Assert.Contains(graphics.Calls.CallsTo(nameof(IGraphicsService.SetSpriteFrame)),
+                call => ((SpriteFrameUpdateRequest)call[0]!).FrameId == 8u);
+
+            // Turned away, it shows its back; moved, it is republished; gone, it is removed.
+            rule.Things = [rule.Things[0] with { Feet = new PlacePose(500, 200, 0, 0, 0), Seconds = 0 }];
+            view.Present(party, 0.7);
+            Assert.Contains(graphics.Calls.CallsTo(nameof(IGraphicsService.SetSpriteFrame)),
+                call => ((SpriteFrameUpdateRequest)call[0]!).FrameId == 4u);
+            int published = graphics.Snapshots.Count;
+            rule.Things = [rule.Things[0] with { Feet = new PlacePose(450, 200, 0, 0, 0) }];
+            view.Present(party, 0.8);
+            Assert.Equal(published + 1, graphics.Snapshots.Count);
+            rule.Things = [];
+            view.Present(party, 0.9);
+            Assert.DoesNotContain(graphics.Snapshots[^1], fact => fact.ObjectId >= 1UL << 44);
+        });
+
+    [Fact]
     public void Disposing_a_view_that_never_drew_asks_nothing_of_the_engine()
     {
         RecordingUiService ui = new();
@@ -159,7 +207,9 @@ public sealed class WorldViewTests
                 new Dictionary<int, string> { [4] = "door-4" }, null)
             : null;
 
-        public SceneSprite? Sprite(string sprite) => null;
+        public SceneSprite? Sprite(string sprite) => sprite == "walk"
+            ? new SceneSprite("walk.png", 256, 64, 8, 32, 32, 8, 2, false, false, [0.5, 0.5])
+            : null;
     }
 
     private sealed class Rule : ISceneRule
@@ -175,6 +225,8 @@ public sealed class WorldViewTests
 
         public bool IsClosed(PlaceId place, string door) => Closed && door == "door-4";
 
-        public IReadOnlyList<SceneObject> Objects(PlaceId place, double seconds) => [];
+        public IReadOnlyList<SceneObject> Things { get; set; } = [];
+
+        public IReadOnlyList<SceneObject> Objects(PlaceId place, double seconds) => Things;
     }
 }

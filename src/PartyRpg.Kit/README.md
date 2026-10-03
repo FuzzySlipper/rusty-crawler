@@ -540,4 +540,7 @@ movement `PlaceSpace`'s eye (`EyeHeight`; the reticle shares its heading and kee
 sun and carried lights the rule's `SceneLighting` names (a light changes only when the answer does), and publishes
 one snapshot when what it draws changed. A place with no scene and an image the Engine refuses are each said once in
 `Notes`; a material without an image is drawn flat grey rather than guessed. It reaches for the Engine's services only
-when it first draws. `LoadedPack.Directory` lets a ruleset name a file beside a pack's documents, which the view reads through the Engine. The product disables the Engine's default light rig, so the scene is lit only by those lights.
+when it first draws. `LoadedPack.Directory` lets a ruleset name a file beside a pack's documents, which the view reads through the Engine. The view also draws each `SceneObject` the rule reports — under its
+canonical identity — as a cylindrical billboard cut from its `SceneSprite` atlas (an Engine sprite atlas per group,
+opened once and sampled nearest), showing the frame its time selects and the view its facing turns to the eye; a frame
+or view change is set on its sprite, and only an object that moved, appeared, left or changed group republishes. The product disables the Engine's default light rig, so the scene is lit only by those lights.

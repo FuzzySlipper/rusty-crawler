@@ -63,6 +63,18 @@ public sealed class ScenePolicyTests
     }
 
     [Fact]
+    public void A_sprite_group_is_read_with_its_atlas_beside_the_media_pack()
+    {
+        MightAndMagic7Scene scene = MightAndMagic7Scene.Read(Content(), () => null, MightAndMagic7Time.Compose(), MightAndMagic7Tuning.Read(null))!;
+
+        SceneSprite walk = scene.Sprite("frame-12")!;
+        Assert.Equal("packs/media/sprites/frame-12.png", walk.Texture);
+        Assert.Equal((8, 32, 48, 2d, false), (walk.Views, walk.CellWidth, walk.CellHeight, walk.Scale, walk.Centred));
+        Assert.Equal([0.5, 0.25], walk.Seconds);
+        Assert.Null(scene.Sprite("frame-99"));
+    }
+
+    [Fact]
     public void Content_without_render_entries_draws_nothing()
     {
         InMemoryContentSource source = new InMemoryContentSource()
@@ -86,7 +98,15 @@ public sealed class ScenePolicyTests
                 {"id":"2","mesh":"render/2.mesh","sky":"","doors":["door-3"],
                  "materials":[{"texture":"cfb1","surface":"sky"}]}
                 """))
-            .Add("packs/media/pack.json", TestPacks.Manifest("media", ("textures", "texture")))
+            .Add("packs/media/pack.json", TestPacks.Manifest("media", ("textures", "texture"), ("sprites", "sprite"), ("looks", "look")))
+            .Add("packs/media/sprites.json", TestPacks.Document("sprites", "sprite",
+                """
+                {"id":"frame-12","path":"sprites/frame-12.png","width":256,"height":96,"columns":8,"cellWidth":32,"cellHeight":48,
+                 "octants":8,"scale":2,"centred":false,"lit":false,"seconds":[0.5,0.25]}
+                """))
+            .Add("packs/media/looks.json", TestPacks.Document("looks", "look",
+                """{"id":"monster-151","height":160,"radius":40,"actions":["frame-12","frame-12","","","","","",""]}""",
+                """{"id":"decoration-2","sprite":"","hidden":true}"""))
             .Add("packs/media/textures.json", TestPacks.Document("textures", "texture",
                 """{"id":"grastyl","path":"textures/grastyl.png"}""",
                 """{"id":"cfb1","path":"textures/cfb1.png"}""",

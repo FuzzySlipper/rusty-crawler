@@ -55,6 +55,7 @@ public class RecordingEngineService<T> : DispatchProxy where T : class
         if (type == typeof(Appearance)) return new Appearance(new AppearanceHandle(id), static () => { });
         if (type == typeof(Light)) return new Light(new LightHandle(id), static () => { });
         if (type == typeof(Camera)) return new Camera(new CameraHandle(id), static () => { });
+        if (type == typeof(SpriteAtlas)) return new SpriteAtlas(new SpriteAtlasHandle(id), static () => { });
         if (type == typeof(ContentReference)) return new ContentReference(new ContentReferenceHandle(id), static () => { });
         if (type == typeof(RenderResourceInfo))
             return new RenderResourceInfo(new RenderResource(new RenderResourceHandle(id), static () => { }), RenderResourceKind.Texture, 0);

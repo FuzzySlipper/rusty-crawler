@@ -114,7 +114,7 @@ public sealed class SpriteAtlasBuilder
     }
 
     /// <summary>The entry one view of a frame draws, whether it is flipped, and the palette it is coloured by.</summary>
-    private static (string Entry, bool Mirrored, int PaletteId)? View(SpriteFrame frame, int octant)
+    public static (string Entry, bool Mirrored, int PaletteId)? View(SpriteFrame frame, int octant)
     {
         string name = frame.TextureName;
         if (name.Length == 0) return null;
