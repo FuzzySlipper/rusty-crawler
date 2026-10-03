@@ -63,6 +63,7 @@ public sealed class WorldView : IWorldPresenter
     private SceneLighting? _lit;
     private Loaded? _loaded;
     private Loaded? _retired;
+    private PlaceId? _shown;
     private bool _disposed;
 
     /// <summary>Creates the view. Nothing is drawn until the first <see cref="Present"/>.</summary>
@@ -103,8 +104,9 @@ public sealed class WorldView : IWorldPresenter
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(party);
         bool changed = false;
-        if (_loaded?.Scene.Place != party.Place)
+        if (_shown != party.Place)
         {
+            _shown = party.Place;
             changed = Enter(party.Place);
         }
 
@@ -123,7 +125,7 @@ public sealed class WorldView : IWorldPresenter
     {
         if (_disposed) return;
         _disposed = true;
-        if (_camera is null && _loaded is null && _retired is null) return;
+        if (_shown is null) return;
         try { Graphics.PublishSnapshot(ReadOnlySpan<AppearanceFact>.Empty); } catch (EngineCallException) { }
         try { Cameras.ClearSkyBackground(new ClearSkyBackgroundRequest(0)); } catch (EngineCallException) { }
         try { Cameras.ClearActiveCamera(new ClearActiveCameraRequest(0)); } catch (EngineCallException) { }
@@ -321,6 +323,10 @@ public sealed class WorldView : IWorldPresenter
     }
 
     /// <summary>Lights the place as the game says it is lit now, changing the Engine's lights only when the answer moved.</summary>
+    /// <remarks>
+    /// The carried light has no inverse-power decay: a place's units are a few hundred to a body, so a physical falloff
+    /// would leave it dark one step away. Its range's smooth cutoff is its whole falloff.
+    /// </remarks>
     private void Light(Loaded loaded)
     {
         SceneLighting lighting = _rule.Lighting(loaded.Scene.Place, loaded.Sky);
@@ -343,7 +349,7 @@ public sealed class WorldView : IWorldPresenter
             Vector3.Zero, lighting.SunDirection ?? -Vector3.UnitY, false, 0f, 0f, 0f, 0f, LightShadowIntent.Disabled));
         (Vector3 colour, float intensity, float range) = lighting.Carried ?? (Vector3.One, 0f, 1f);
         _carried = Replace(_carried, 3, new LightDescriptor(LightKind.Point, colour, intensity, lighting.Carried is not null,
-            Vector3.Zero, -Vector3.UnitY, true, range, 2f, 0f, 0f, LightShadowIntent.Disabled));
+            Vector3.Zero, -Vector3.UnitY, true, range, 0f, 0f, 0f, LightShadowIntent.Disabled));
     }
 
     private Light Replace(Light? light, ulong id, LightDescriptor descriptor)
@@ -385,7 +391,7 @@ public sealed class WorldView : IWorldPresenter
         if (_carried is not null && _lit?.Carried is { } carried)
         {
             Graphics.UpdateLight(new LightUpdateRequest(_carried, new LightRequest(3, false, 0, new LightDescriptor(
-                LightKind.Point, carried.Colour, carried.Intensity, true, eye, -Vector3.UnitY, true, carried.Range, 2f, 0f, 0f,
+                LightKind.Point, carried.Colour, carried.Intensity, true, eye, -Vector3.UnitY, true, carried.Range, 0f, 0f, 0f,
                 LightShadowIntent.Disabled))));
         }
     }

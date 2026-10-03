@@ -528,3 +528,17 @@ unchanged ordinary marks, the actual JSON save, and repeated settlement refusal.
 An instance property is `ItemEnchantment`: the ruleset identity, positive strength and optional absolute elapsed-clock deadline. Canonical item mutations preserve it, and the current source-generated save carries it with hardening and reduced charge capacity. The kit interprets no property word; ruleset spell effects apply and expire it, and figure/combat policy reads its meaning. Casting, combat and the magic projection share the instance capacity.
 
 `PartyItemUse` applies named non-spell uses of real shared-pack instances through the compiled `IItemUseRule`. The game judges and mutates canonical owners; this workflow keeps only the last answer, with no inventory, timer or saved ledger. `party.item.use` shares the inventory screen's declared payload contract. Equipment projections publish the rule's current power words, permanent gifts and usable rows; the DOM echoes instance and member identities.
+
+`Scene/` draws the live world. `WorldView` (an `IWorldPresenter` the session holds through `SessionRules.View`,
+handed the party after every admitted update and released with the session) reads a place's `PlaceScene` from an
+`IPlaceSceneSource`: the content path of its `RenderMesh` — the kit's own binary document (`PRMESH01`: positions,
+normals, texture coordinates and door travel per vertex, divided into parts drawn independently) — its
+`SceneMaterial`s, its doors' identities and its sky. It reads the mesh and opens images through the Engine content
+service, binds materials and meshes through the safe Graphics API (a door part rebuilt where `ISceneRule.IsClosed`
+puts it: a closed door's corners stand at rest plus travel, the collision's own pairing), aims an explicit-basis camera
+at `PartyView.Derive` through the movement's `PlaceSpace`, sets the sky panorama or clear colour and the ambient,
+sun and carried lights the rule's `SceneLighting` names (a light changes only when the answer does), and publishes
+one snapshot when what it draws changed. A place with no scene and an image the Engine refuses are each said once in
+`Notes`; a material without an image is drawn flat grey rather than guessed. It reaches for the Engine's services only
+when it first draws. `IContentSource.ReadBytes` and `LoadedPack.Directory` let a ruleset name a file beside a pack's
+documents. The product disables the Engine's default light rig, so the scene is lit only by those lights.

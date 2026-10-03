@@ -35,7 +35,7 @@ Bundle assembles. Host launches.**
 > first region's party start; a product without them shows how to generate them instead of a world. [`AGENTS.md`](AGENTS.md) states the shape and lists the residue with
 > each receiver; the project READMEs under [`src/`](src/README.md) hold the per-mechanism detail.
 
-The current DOM panel exposes these mechanisms over an empty world frame; it is not the completed
+The current DOM panel exposes these mechanisms beside the drawn world; it is not the completed
 player interface. The [ordinary-play assessment](docs/evidence/product-assessment-2026-10-02.md)
 records the visible gaps. A game feature lands through a recognizable game screen or visible world
 control, not by adding commands to a scrolling panel; agent console access remains useful. The
@@ -210,9 +210,8 @@ rusty dev --project ./src/PartyRpg.Host/PartyRpg.Host.csproj
 The same command is what `.den-serve.json` uses; `--headless` runs it unattended, and `--live-debug`
 opens the engine's debug surface. **The runtime needs a GPU adapter**: `rusty dev` always builds the
 engine's renderer and refuses to load without one (a software Vulkan driver such as llvmpipe counts).
-**The product draws no world**: the only engine services it uses are UI, spatial, content, random,
-diagnostics and persistence, so the frame the renderer presents is empty and the game is the DOM panel
-over it. A session driven through the agent playtest service's browser takes the player's keys; with
+**The product draws the world** from the imported render meshes and media (`mm7-world`, `mm7-media`)
+through the Engine's graphics and camera services, from the party's own eye, with the DOM panel beside it. A session driven through the agent playtest service's browser takes the player's keys; with
 `--live-debug` the product's `playtest.observe`, `playtest.action` and `interaction.inspect` commands read the
 place, pose, facing target, hostiles (including their canonical live feet positions) and each control's key
 and availability without scraping the panel.

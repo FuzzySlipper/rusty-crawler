@@ -97,6 +97,20 @@ Owns:
   flip that puts a region's grid in the product's axes, are in
   [`../../docs/research/mm7-map-formats.md`](../../docs/research/mm7-map-formats.md) §9. What the original
   draws instead is coarser here and is marked ours.
+- Render geometry (`Render/PlaceRender`): one binary mesh per place in `mm7-world/render/<place>.mesh` (the kit's
+  `PRMESH01` document) indexed by `place-render.json`, from the same decoded faces and terrain the collision reads and on
+  the same axes. Portals and invisible faces (`FACE_IsInvisible`) are not drawn; ethereal faces are; a region's terrain
+  square draws its tile record's bitmap once (OpenEnroth `OpenGLRenderer.cpp`, the terrain pass) and a face its texel
+  coordinates plus its delta over its bitmap's size (the model and BSP passes); a door's faces are a part of their own
+  carrying the collision layout's per-corner travel. A region's sky is its saved weather's, else the donor's first-visit
+  `plansky3` (OpenEnroth `src/Engine/Graphics/Outdoor.cpp:518-534`). Every bitmap a place names that `BITMAPS.LOD` lacks is listed
+  per place and in the write summary rather than replaced.
+- Media (`mm7-media`): every bitmap a place binds as a PNG (`textures.json`, kind `texture`, with archive, entry and
+  transform), a terrain tile's keyed texels (252, 0, 252) replaced by the water tile at the same texel as the donor's
+  terrain shader does (OpenEnroth `resources/shaders/glterrain.frag:31-41`), each region sky as a 2:1 panorama (ours), and the
+  interface images (`icons.json`, kind `icon`): each item's `picture`, each person's portrait `npc{:03}`
+  (OpenEnroth `src/GUI/UI/UIDialogue.cpp:67`) and each member face set's neutral frame (OpenEnroth `src/Engine/mm7_data.cpp:50-55`), the absent
+  ones named in the summary. The UI tasks bind the interface images; the world view binds the rest.
 - Collision geometry: one artifact per place in the engine's own spatial document,
   built from the solid faces the map decoders already resolve — portals, ethereal
   faces and degenerate corners excluded, outdoor terrain tiled from its height

@@ -22,7 +22,7 @@ rusty dev --project src/PartyRpg.Host/PartyRpg.Host.csproj \
   to an address that browser reaches rather than to loopback. `.den-serve.json` is the same command with
   Den choosing host and port.
 - **The runtime needs a GPU adapter** (a software Vulkan driver counts); without one the load fails.
-- The product draws no world: the frame is empty and the game is the DOM panel over it. `--live-debug`
+- The product draws the party's place from the imported render meshes and media, beside the DOM panel. `--live-debug`
   exposes the Engine's debug surface, where the product registers the playtest and interaction commands
   ([Reading gameplay state](#reading-gameplay-state)): read gameplay state there, not from the panel.
 - Wait for the host to log that the runtime was replaced. A content refusal appears in the same log as the

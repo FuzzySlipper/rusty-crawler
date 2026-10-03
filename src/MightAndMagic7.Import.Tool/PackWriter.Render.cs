@@ -12,7 +12,9 @@ namespace MightAndMagic7.Import.Tool;
 /// <param name="Places">Every place written, in id order.</param>
 /// <param name="Textures">How many world bitmaps the media pack carries.</param>
 /// <param name="Skies">How many sky panoramas it carries.</param>
-internal sealed record RenderSummary(IReadOnlyList<PlaceRender> Places, int Textures, int Skies)
+/// <param name="Icons">How many interface images it carries.</param>
+/// <param name="MissingIcons">The interface images the tables name that the installation does not hold.</param>
+internal sealed record RenderSummary(IReadOnlyList<PlaceRender> Places, int Textures, int Skies, int Icons = 0, IReadOnlyList<string>? MissingIcons = null)
 {
     internal static RenderSummary Empty { get; } = new([], 0, 0);
 
@@ -22,11 +24,39 @@ internal sealed record RenderSummary(IReadOnlyList<PlaceRender> Places, int Text
 
 internal static partial class PackWriter
 {
+
     /// <summary>The definition kind a place's render geometry is written under.</summary>
     internal const string RenderDefinitionKind = "place-render";
 
     /// <summary>The definition kind a world bitmap is written under in the media pack.</summary>
     internal const string TextureDefinitionKind = "texture";
+
+    /// <summary>The definition kind an interface image — an item's picture, a portrait — is written under.</summary>
+    internal const string IconDefinitionKind = "icon";
+
+    /// <summary>
+    /// The face sets a party member can wear, in the donor's order (OpenEnroth <c>src/Engine/mm7_data.cpp:50-55</c>,
+    /// <c>pPlayerPortraitsNames</c>); a face's frame is the set's name and a two-digit frame number
+    /// (<c>src/GUI/UI/UIGame.cpp:219</c>), the neutral face being frame 01.
+    /// </summary>
+    private static readonly string[] MemberFaceSets =
+    [
+        "pc01-", "pc02", "pc03", "pc04", "pc05-", "pc06", "pc07", "pc08", "pc09-", "pc10", "pc11-", "pc12", "pc13",
+        "pc14", "pc15", "pc16", "pc17-", "pc18", "pc19", "pc20", "pc21-", "pc22-", "pc23", "pc24-", "pc25-",
+    ];
+
+    /// <summary>
+    /// The interface images the media pack carries and why: each item's picture, each person's portrait
+    /// (<c>npc{:03}</c>, OpenEnroth <c>src/GUI/UI/UIDialogue.cpp:67</c>), and each member face set's neutral frame.
+    /// </summary>
+    private static IReadOnlyList<(string Entry, string Use)> IconsNamed(Mm7Tables tables) =>
+    [
+        .. tables.Items.Items.Select(item => item.Picture).Where(picture => picture.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase).Select(picture => (picture, "item")),
+        .. tables.People.Npcs.Select(person => person.Portrait).Where(portrait => portrait > 0).Distinct()
+            .Select(portrait => ($"npc{portrait:000}", "person-portrait")),
+        .. MemberFaceSets.Select(set => (set + "01", "member-portrait")),
+    ];
 
     /// <summary>The directory a place's binary mesh is written to inside the world pack.</summary>
     private const string RenderDirectory = "render";
@@ -110,12 +140,14 @@ internal static partial class PackWriter
     /// Writes the media pack: every world bitmap a place binds, as a PNG with its source entry, and every region's sky
     /// as a panorama built from its sky bitmap.
     /// </summary>
-    private static ((string PackId, int Documents, int Entries) Pack, int Textures, int Skies) WriteMedia(
+    private static ((string PackId, int Documents, int Entries) Pack, int Textures, int Skies, int Icons, IReadOnlyList<string> MissingIcons) WriteMedia(
         InstallProvenance provenance,
         string packDirectory,
         IReadOnlyList<PlaceRender> renders,
         BitmapLibrary? bitmaps,
-        TerrainTileTable? tiles)
+        TerrainTileTable? tiles,
+        Mm7Tables tables,
+        BitmapLibrary? icons)
     {
         SortedDictionary<string, string> textures = new(StringComparer.Ordinal);
         HashSet<string> ground = new(StringComparer.Ordinal);
@@ -157,9 +189,46 @@ internal static partial class PackWriter
         }
 
         int written = WriteDocument(packDirectory, "textures.json", "textures", TextureDefinitionKind, entries);
+
+        // Interface images: written where the archive holds them, and each absent one named in the summary rather than
+        // replaced by a stand-in.
+        Directory.CreateDirectory(Path.Combine(packDirectory, "icons"));
+        List<(string, Action<Utf8JsonWriter>)> iconEntries = [];
+        HashSet<string> taken = new(StringComparer.Ordinal);
+        List<string> missingIcons = [];
+        foreach ((string name, string use) in IconsNamed(tables))
+        {
+            if (icons?.Find(name) is not { } image || icons.EntryName(name) is not { } entry || !taken.Add(TextureId(entry)))
+            {
+                if (icons?.Find(name) is null) missingIcons.Add(name);
+                continue;
+            }
+
+            string id = TextureId(entry);
+            string path = $"icons/{id}.png";
+            using (FileStream stream = File.Create(Path.Combine(packDirectory, path))) ImageWriter.WritePng(image, stream);
+            iconEntries.Add((id, writer =>
+            {
+                writer.WriteString("path", path);
+                writer.WriteString("use", use);
+                writer.WriteNumber("width", image.Width);
+                writer.WriteNumber("height", image.Height);
+                writer.WriteBoolean("transparent", image.ZeroIsTransparent);
+                writer.WriteStartObject("source");
+                writer.WriteString("archive", icons.Archive);
+                writer.WriteString("entry", entry);
+                writer.WriteString("transform", "base level, embedded palette");
+                writer.WriteEndObject();
+            }));
+        }
+
+        int iconCount = WriteDocument(packDirectory, "icons.json", "icons", IconDefinitionKind, iconEntries);
         WriteManifest(packDirectory, "mm7-media", "definitions", provenance,
-            [("textures.json", "textures", TextureDefinitionKind, [])]);
-        return (("mm7-media", 1, written), textures.Count, skies.Count);
+            [
+                ("textures.json", "textures", TextureDefinitionKind, []),
+                ("icons.json", "icons", IconDefinitionKind, []),
+            ]);
+        return (("mm7-media", 2, written + iconCount), textures.Count, skies.Count, iconCount, missingIcons);
 
         static void WriteImage(Utf8JsonWriter writer, string path, int width, int height, string use, string entry, bool transparent)
         {

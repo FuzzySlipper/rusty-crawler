@@ -86,8 +86,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   26 input intents with their keys, and the `crawler.ui` payload channel. The session publishes one
   projection (`crawler.hud` / `crawler.ui.snapshot.v1`) when it has changed; the TypeScript companion
   renders it with no state, rule or timer of its own, and fixtures the host suite writes bind the C# and
-  TypeScript sides of that contract. The runtime needs a GPU adapter; the product draws no world, so the
-  game is the DOM panel over an empty frame. Playtest observation includes actors' canonical live feet positions
+  TypeScript sides of that contract. The runtime needs a GPU adapter; the kit's `WorldView` draws the party's
+  place from imported render meshes and media through the Engine, beside the DOM panel. Playtest observation includes actors' canonical live feet positions
   so pursuit can be inspected in that product.
 - **Content.** The importer reads the operator's own install and `write` emits deterministic packs; no game
   data is committed, and every count the documents quote is checked by `mm7import verify`. The kit validates

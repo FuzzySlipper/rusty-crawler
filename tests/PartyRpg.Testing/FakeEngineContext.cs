@@ -19,18 +19,24 @@ public sealed class FakeEngineContext : IEngineContext
     private readonly IPersistenceService? _persistence;
     private readonly ISpatialService? _spatial;
     private readonly IContentService? _content;
+    private readonly IGraphicsService? _graphics;
+    private readonly ICameraViewService? _cameras;
     private readonly TestRandomService _random = new();
 
     public FakeEngineContext(
         RecordingUiService ui,
         IPersistenceService? persistence = null,
         ISpatialService? spatial = null,
-        IContentService? content = null)
+        IContentService? content = null,
+        IGraphicsService? graphics = null,
+        ICameraViewService? cameras = null)
     {
         Ui = ui;
         _persistence = persistence;
         _spatial = spatial;
         _content = content;
+        _graphics = graphics;
+        _cameras = cameras;
     }
 
     /// <summary>The random service this context answers with, which a test states the roll of.</summary>
@@ -75,7 +81,11 @@ public sealed class FakeEngineContext : IEngineContext
 
     public IAuthoredContentService AuthoredContent => Unsupported<IAuthoredContentService>();
 
-    public IGraphicsService Graphics => Unsupported<IGraphicsService>();
+    /// <summary>
+    /// Absent unless a test asks for a recording one: the world view draws through graphics and the camera, and a test
+    /// that composes it states what it expects asked of them (<see cref="RecordingEngineService{T}"/>).
+    /// </summary>
+    public IGraphicsService Graphics => _graphics ?? Unsupported<IGraphicsService>();
 
     public IPresentationService Presentation => Unsupported<IPresentationService>();
 
@@ -85,7 +95,7 @@ public sealed class FakeEngineContext : IEngineContext
 
     public IVideoService Video => Unsupported<IVideoService>();
 
-    public ICameraViewService CameraView => Unsupported<ICameraViewService>();
+    public ICameraViewService CameraView => _cameras ?? Unsupported<ICameraViewService>();
 
     /// <summary>
     /// The engine's random service, which this stone attached the camping risk to: a product that camps

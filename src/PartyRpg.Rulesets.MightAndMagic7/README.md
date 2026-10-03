@@ -656,7 +656,8 @@ that reaches a move takes it through the one transition path instead (the hostel
 47); a run that reaches neither keeps the party outside with what it said (`InteractionOutcome.KeptOut`, a shop closed
 while Harmondale is besieged); and a run refused at a step this game does not read opens the house as before, the
 refusal its residue. **Presentation, passed over**: the
-product draws no world and plays no sound, so `set-texture`, `set-sprite`, `play-sound`, `character-animation`,
+product draws a place's imported geometry but does not yet interpret the steps that change how it looks, and plays no
+sound, so `set-texture`, `set-sprite`, `play-sound`, `character-animation`,
 `toggle-indoor-light`, `show-movie` (the three effects the donor's player hangs on a movie's name — the arbiter's
 alignment and the crossing's week of rest, `OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:288-300` — are the
 executable's and are not kept: this build's path is the class a promotion chooses), and a `set-faces-bit` that only hides a face group or makes it fluid change nothing and the
@@ -934,3 +935,14 @@ owners, and rejects an unknown bout/opponent or health contradicting recorded de
 repeat-payment refusal, unrelated kills, partial return and five earned wins reaching the existing
 promotion/topic readers. The [arena reading](../../docs/evidence/arena-bouts.md) distinguishes focused
 checks from live acceptance.
+
+`MightAndMagic7Scene` is this game's scene meaning: a place is drawn from its imported `place-render` entry (the mesh
+beside the world pack, one material per entry naming a `texture` of the media pack, `terrain`/`water` opaque and
+`face`/`sky` cut out at palette zero, a `sky` face lighting itself), its doors by the collision layout's `door-<index>`
+names and read exactly as `MightAndMagic7Geometry` reads them (the place's door placement, its ledger state,
+`MightAndMagic7Interaction.DoorState`), and its sky outdoors only. The eye is the donor's default 160 units above the
+feet (OpenEnroth `src/Engine/Party.h:281`). Light is ours: a sun that rises at the calendar's dawn and sets at its dusk,
+a dim blue night under a clear dark sky with the party's light, and a dim interior lit by the light the party carries
+(no inverse-square falloff at this unit scale). The [world rendering reading](../../docs/evidence/world-rendering.md)
+records the ordinary new game drawn outdoors and an interior entered and left.
+

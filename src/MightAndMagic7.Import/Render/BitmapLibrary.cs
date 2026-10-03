@@ -18,6 +18,9 @@ public sealed class BitmapLibrary
     /// <summary>The archive the world's bitmaps live in.</summary>
     public const string ArchiveName = "BITMAPS.LOD";
 
+    /// <summary>The archive the interface's images live in: item pictures and portraits.</summary>
+    public const string IconArchiveName = "ICONS.LOD";
+
     private readonly LodArchive? _archive;
     private readonly Dictionary<string, DecodedImage?> _decoded = new(StringComparer.OrdinalIgnoreCase);
 
@@ -27,12 +30,18 @@ public sealed class BitmapLibrary
     /// Opens the installation's bitmap archive. An installation without one holds no bitmaps: every name is then
     /// unresolved, and the render output reports each one missing rather than the import refusing the world.
     /// </summary>
-    public static BitmapLibrary Open(LodInstall install)
+    public static BitmapLibrary Open(LodInstall install) => Open(install, ArchiveName);
+
+    /// <summary>Opens one of the installation's image archives, or an empty library when the installation lacks it.</summary>
+    public static BitmapLibrary Open(LodInstall install, string archiveName)
     {
         ArgumentNullException.ThrowIfNull(install);
-        bool present = install.ArchiveNames().Contains(ArchiveName, StringComparer.OrdinalIgnoreCase);
-        return new BitmapLibrary(present ? install.Archive(ArchiveName) : null);
+        bool present = install.ArchiveNames().Contains(archiveName, StringComparer.OrdinalIgnoreCase);
+        return new BitmapLibrary(present ? install.Archive(archiveName) : null) { Archive = archiveName };
     }
+
+    /// <summary>The archive this library reads.</summary>
+    public string Archive { get; private init; } = ArchiveName;
 
     /// <summary>The bitmap a name spells, decoded, or null when the archive holds no image under it.</summary>
     public DecodedImage? Find(string name)

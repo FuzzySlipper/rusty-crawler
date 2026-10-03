@@ -162,7 +162,7 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
         Vector3 sky = Vector3.Lerp(night, new Vector3(0.62f, 0.72f, 0.86f), level);
         return new SceneLighting(
             Vector3.Lerp(new Vector3(0.5f, 0.55f, 0.8f), Vector3.One, level),
-            0.18f + (0.42f * level),
+            0.25f + (0.55f * Math.Min(1f, level * 1.5f)),
             direction,
             new Vector3(1f, 0.96f, 0.88f),
             1.4f * level,

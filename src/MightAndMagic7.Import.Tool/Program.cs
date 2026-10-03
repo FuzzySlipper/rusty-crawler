@@ -326,6 +326,8 @@ internal static class Program
                     untexturedFaces = result.Render.Places.Sum(place => place.UntexturedFaces),
                     textures = result.Render.Textures,
                     skies = result.Render.Skies,
+                    icons = result.Render.Icons,
+                    missingIcons = result.Render.MissingIcons ?? [],
                     missingTextures = result.Render.MissingTextures,
                 },
                 use = "the product's default mm7-new-game bundle names these packs; restart the product to play them",

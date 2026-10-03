@@ -74,6 +74,7 @@ Working names; the responsibilities are the contract, the names are not.
 | Time | The one game clock and calendar; discrete advancement; schedule and respawn queries; duration deadlines | Schedules and constants (content and ruleset) |
 | Content | Pack loading and validation: definitions, tuning, scenario, imported world data, provenance; bundle resolution | Any meaning of the data |
 | Presentation | Projections (HUD and screens) and semantic actions; live-debug diagnostics | DOM, layout, styling, or state |
+| Scene | The drawn world (`WorldView`): a place's render mesh, materials and sky bound through the Engine's safe Graphics and CameraView services, the camera at the party's eye (`PartyView`) through the movement's `PlaceSpace`, door parts where the game's rule puts them, and the light the game names, published once per admitted update | What a place looks like (content), which door is closed or how bright an hour is (the ruleset), any renderer of its own |
 | Persistence | The current-schema session snapshot and restore; what is saved and what is deliberately dropped | Original save formats (out of scope) |
 
 Two Kit rules that prevent most later refactoring:
@@ -92,7 +93,7 @@ Two Kit rules that prevent most later refactoring:
 | Interpretation | What a content definition means here: which definitions are legal, how stock and hours work, which quests gate which promotions, what an imported place is |
 | Progression policy | Promotion requirements and order, path choice and its consequences, award and reputation checks |
 | Session composition | Assembling the named Kit services with this game's policy, and this game's save meaning |
-| Presentation meaning | Which projection fields exist and what the books and screens show |
+| Presentation meaning | Which projection fields exist and what the books and screens show; which content a place is drawn from, the eye, the light at an hour, and a drawn door's state (`MightAndMagic7Scene`) |
 | Provenance rules | What an imported pack must record about the source it came from |
 
 Skills, spells, classes, items, monsters, and places are **data**. Their numbers
@@ -117,7 +118,7 @@ have different authors:
 | Definitions | Catalogs with meaning: classes, races, skills, spells, monsters, items, services, quests, conditions, places | Authored, or generated from imported tables |
 | Tuning | Values for the handles a ruleset declares (`TuningHandle`: id, default, range, meaning), read into one `TuningProfile` per session; an unknown id, a non-number, or a value out of range is refused at composition with every problem named | Authored |
 | Scenario | The starting state: party defaults, placements, spawns, quest state, initial scenario flags | Authored |
-| Imported world | Geometry, spatial data, media, and tables normalized by the importer, with provenance | Offline generation from an operator-supplied install |
+| Imported world | Geometry (collision and, beside it on the same axes, render meshes), spatial data, media (world bitmaps, skies and interface images as PNG with their source entries), and tables normalized by the importer, with provenance | Offline generation from an operator-supplied install |
 
 Rules:
 
