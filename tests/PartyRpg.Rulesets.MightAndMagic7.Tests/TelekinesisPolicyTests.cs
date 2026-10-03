@@ -40,6 +40,58 @@ public sealed class TelekinesisPolicyTests
     }
 
     [Theory]
+    [InlineData("door")]
+    [InlineData("container")]
+    public void Distant_use_carries_discovered_knowledge_through_current_save(string kind)
+    {
+        var content = Content(kind).Select(file =>
+        {
+            if (!file.Path.EndsWith("/places.json", StringComparison.Ordinal)) return file;
+            var json = JsonNode.Parse(file.Text)!;
+            var target = json["entries"]![0]!["placements"]![0]!;
+            if (kind == "door") { target["secret"] = true; target["perceptionDifficulty"] = 0; }
+            else target["contents"] = JsonNode.Parse("""[{"slot":0,"item":500}]""");
+            return (Path: file.Path, Text: json.ToJsonString());
+        }).ToList();
+        var pack = JsonNode.Parse(content.Single(file => file.Path.EndsWith("/pack.json", StringComparison.Ordinal)).Text)!;
+        pack["documents"]!.AsArray().Add(JsonNode.Parse("""{"path":"items.json","documentId":"items","definitionKind":"item"}"""));
+        int manifest = content.FindIndex(file => file.Path.EndsWith("/pack.json", StringComparison.Ordinal));
+        content[manifest] = (content[manifest].Path, pack.ToJsonString());
+        content.Add(($"{RulesetTestContext.ContentDirectory}/content-packs/world/items.json", """
+            {"documentId":"items","definitionKind":"item","entries":[{"id":"500","name":"Puck","material":"Artifact","value":20000,"type":"single-handed","skill":"sword","damageDice":"3d3","damageModifier":"14"}]}
+            """));
+        InMemoryPersistenceService persistence = new();
+        var (context, ui) = RulesetTestContext.Create(persistence, content.ToArray());
+        using IGameSession session = Session(context, ui);
+        session.Update(RulesetTestContext.Update(1, 1));
+        SpellEffectPolicyTests.Cast(session, ui, 2, "42", Aim(ui));
+        var live = (MightAndMagic7Session)session;
+        Assert.True(live.World!.LastInteraction!.IsApplied);
+        Assert.Single(live.Knowledge!.Notes);
+        MightAndMagic7Ruleset.Instance.Save(session);
+        var (againContext, againUi) = RulesetTestContext.Create(persistence, content.ToArray());
+        using IGameSession resumed = Session(againContext, againUi, true);
+        Assert.Equal(live.Knowledge.Notes.Single(), ((MightAndMagic7Session)resumed).Knowledge!.Notes.Single());
+    }
+
+    [Fact]
+    public void A_live_focus_change_refreshes_the_projected_aim_without_a_cast_or_party_change()
+    {
+        var (context, ui) = RulesetTestContext.Create(new InMemoryPersistenceService(), Content("door"));
+        using IGameSession session = Session(context, ui);
+        var live = (MightAndMagic7Session)session;
+        session.Update(RulesetTestContext.Update(1, 1));
+        string before = Aim(ui);
+        Assert.NotEmpty(before);
+        live.World!.Interactions.Record(new("1"), new("door", "target"), "open");
+        session.Update(RulesetTestContext.Update(2, 1));
+        Assert.NotEqual(before, Aim(ui));
+        live.World.ArriveAt(new("1"), new(0, 0, 0, 1024, 0));
+        session.Update(RulesetTestContext.Update(3, 1));
+        Assert.Empty(Aim(ui));
+    }
+
+    [Theory]
     [InlineData("revision")]
     [InlineData("pose")]
     [InlineData("place")]
@@ -80,7 +132,7 @@ public sealed class TelekinesisPolicyTests
                 target["flags"] = 1; target["trapDifficulty"] = 10; target["trapDamageDice"] = 1;
             }
             else target["requires"] = JsonNode.Parse("""[{"kind":"flag","id":"gate-key","label":"the gate key"}]""");
-            return (file.Path, json.ToJsonString());
+            return (Path: file.Path, Text: json.ToJsonString());
         }).ToArray();
         var (context, ui) = RulesetTestContext.Create(new InMemoryPersistenceService(), content);
         using IGameSession session = Session(context, ui);

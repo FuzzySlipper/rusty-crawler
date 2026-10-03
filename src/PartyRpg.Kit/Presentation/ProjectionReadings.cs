@@ -86,6 +86,8 @@ internal sealed class ProjectionReadings
     /// party stands among the places it has visited, which is what a travel spell offers, and what the party sees by,
     /// which follows the clock's daylight. The fight stamp and the exact target facts are both held: a wound can
     /// leave a body in the fight, and a creature can cross the spell's reach while staying in one coarse distance band.
+    /// Named spell aims are also compared by value: the live world may change a focus as the party moves or uses
+    /// a target without changing party or casting state.
     /// </remarks>
     /// <param name="casting">The casting owner, when the session has one.</param>
     /// <param name="party">The party's change stamp: the pools, spellbooks, skills and items the rows are read from.</param>
@@ -104,6 +106,10 @@ internal sealed class ProjectionReadings
             casting?.Party.Roster.SelectedMember,
             world.Place,
             world.Visited,
+            new Rows<(SpellId, SpellAim)>(casting is { Magic.Aim: { } aims }
+                ? casting.Party.Members.SelectMany(member => member.Spells.Known).Distinct()
+                    .SelectMany(spell => aims.AimsOf(casting.Rule.Catalog.Read(spell)).Select(aim => (spell, aim))).ToArray()
+                : []),
             new Rows<RunningSpellEffect>(casting?.Magic.Running?.Running),
             new Rows<RunningSpellEffect>(casting?.Magic.Members?.RunningOnMembers),
             fight?.Stamp ?? 0,
@@ -251,6 +257,7 @@ internal sealed class ProjectionReadings
         PartyMemberId? Selected,
         string Place,
         int Visited,
+        Rows<(SpellId, SpellAim)> Aims,
         Rows<RunningSpellEffect> Running,
         Rows<RunningSpellEffect> OnMembers,
         long FightStamp,

@@ -27,3 +27,5 @@ state is added to the save. The pinned safe package was compiled-probed before i
 
 Three final source lanes, the full gate and bounded ordinary staged product casts are pending. Den
 owns task acceptance and evidence identity. No broad traversal, rendered-world or NativeAOT claim is made.
+
+The magic projection compares the actual named aims on every reading, so motion, facing and target revisions refresh the offered identity without a cast. Successful distant uses hand their learned reports to the same PartyKnowledge owner; composed secret-door and artifact-container checks carry those notes through the current save.
