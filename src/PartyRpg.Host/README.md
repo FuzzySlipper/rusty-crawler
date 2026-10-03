@@ -30,7 +30,8 @@ Implemented today:
   (a resume with nothing saved is refused by name rather than starting fresh). When the selected bundle's only
   defect is that packs it names are absent, the selection carries them and the bundle's `setup` text; the
   session offers no creation and publishes them as `composition.setup`, which the panel shows in place of a
-  world. Any other content defect still stops the product with every problem named.
+  world ([new-game reading](../../docs/evidence/new-game-bundle.md)). Any other content defect still stops the
+  product with every problem named.
 - The project file declares the product metadata and 25 input intents, each digital with its key: pause
   (`session.pause-toggle`, P) and save (`session.save`, F); the movement intents (W/S/A/D, Q/E, Space, and
   flight's `party.ascend` and `party.descend` on the up and down arrows, held — the original's Page Up and Insert

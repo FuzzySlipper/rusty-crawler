@@ -11,6 +11,7 @@ What is published here is text only: no game data, no screenshots, no saves, and
 
 | Record | What it shows |
 | --- | --- |
+| [`new-game-bundle.md`](new-game-bundle.md) | The default launch opens creation and accepts the party into Emerald Island from the shipped `mm7-new-game` bundle; a checkout without imported packs shows the bundle's setup guidance and offers no creation. |
 | [`product-assessment-2026-10-02.md`](product-assessment-2026-10-02.md) | Ordinary new-party play, guided town purchase/equipment and unchanged-save resume, visible UI comparison to original screenshots, prioritized gaps and explicit coverage limits. |
 | [`secret-discovery.md`](secret-discovery.md) | Imported secret faces reach actual Perception, explicit discovery and ordinary door/event use through current world, knowledge and save owners; bounded live proof remains separate. |
 | [`foundation-closure.md`](foundation-closure.md) | The parent acceptance audit and evidence, followed by the owner's routing of the remaining secret-door skill requirement to progression. |

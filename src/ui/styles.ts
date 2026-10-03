@@ -204,7 +204,7 @@ export const STYLES = `
 .crawler-quests-result[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
 .crawler-setup { margin: 0 0 0.6rem; border: 1px solid #b08a4a; padding: 0.5rem 0.6rem; background: rgba(176, 138, 74, 0.12); }
 .crawler-setup[hidden] { display: none; }
-.crawler-setup .crawler-setup-guidance { margin: 0.3rem 0 0; color: #d8cba6; font-size: 0.78rem; white-space: pre-wrap; }
+.crawler-setup .crawler-setup-guidance { margin: 0.3rem 0 0; color: #d8cba6; font-size: 0.78rem; white-space: pre-wrap; overflow-wrap: anywhere; }
 .crawler-awards { margin: 0.4rem 0 0; border-top: 1px solid rgba(210, 196, 158, 0.35); padding-top: 0.5rem; }
 .crawler-awards[hidden] { display: none; }
 .crawler-awards > .crawler-step-head { margin: 0 0 0.3rem; color: #e0d3ae; font-size: 0.85rem; }
