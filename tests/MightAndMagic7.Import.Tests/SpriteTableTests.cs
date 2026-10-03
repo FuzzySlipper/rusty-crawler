@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Text;
 using MightAndMagic7.Import.Lod;
+using MightAndMagic7.Import.Media;
 using MightAndMagic7.Import.Render;
 using Xunit;
 
@@ -47,8 +48,12 @@ public sealed class SpriteTableTests
         BinaryPrimitives.WriteInt32LittleEndian(decorations, 1);
         Encoding.ASCII.GetBytes("tree01").CopyTo(decorations, 4);
         BinaryPrimitives.WriteUInt16LittleEndian(decorations.AsSpan(4 + 66), 512);
+        BinaryPrimitives.WriteInt16LittleEndian(decorations.AsSpan(4 + 70), 120);
         BinaryPrimitives.WriteUInt16LittleEndian(decorations.AsSpan(4 + 72), 77);
         BinaryPrimitives.WriteUInt16LittleEndian(decorations.AsSpan(4 + 74), DecorationLook.Marker);
+        decorations[4 + 80] = 12;
+        decorations[4 + 81] = 34;
+        decorations[4 + 82] = 56;
         byte[] objects = new byte[4 + 56];
         BinaryPrimitives.WriteInt32LittleEndian(objects, 1);
         BinaryPrimitives.WriteUInt16LittleEndian(objects.AsSpan(4 + 40), 91);
@@ -59,6 +64,7 @@ public sealed class SpriteTableTests
         Assert.Equal((1, 160, 40, "PeasStand", "PeasDead"), (peasant.Monster, peasant.Height, peasant.Radius, peasant.Groups[0], peasant.Groups[6]));
         DecorationLook tree = Assert.Single(lists.Decorations);
         Assert.Equal(("tree01", 77, 512, DecorationLook.Marker), (tree.Name, tree.Frame, tree.Height, tree.Flags));
+        Assert.Equal((120, new Rgb24(12, 34, 56)), (tree.LightRadius, tree.LightColour));
         Assert.Equal(91, Assert.Single(lists.Objects).Frame);
         Assert.Throws<LodFormatException>(() => LookLists.Read(monsters[..^1], decorations, objects));
     }

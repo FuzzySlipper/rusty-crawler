@@ -72,6 +72,27 @@ public sealed class WorldViewTests
         });
 
     [Fact]
+    public void Stationary_point_lights_keep_the_nearest_engine_slots_after_the_carried_light()
+        => WithView((view, rule, graphics, _, party) =>
+        {
+            rule.Carried = (new Vector3(1, 0.8f, 0.5f), 1f, 900f);
+            rule.Points = [.. Enumerable.Range(0, WorldView.MaxPointLights + 5).Select(index =>
+                new ScenePointLight($"point-{index}", new PlacePose(1_000 + (index * 10), 200, 0, 0, 0),
+                    new Vector3(0.5f, 0.75f, 1f), 2f, 128f))];
+
+            view.Present(party, 0);
+
+            object?[][] calls = [.. graphics.Calls.CallsTo(nameof(IGraphicsService.CreateLight))];
+            Assert.Equal(2 + WorldView.MaxPointLights, calls.Length);
+            LightRequest[] stationary = [.. calls.Skip(3).Select(call => (LightRequest)call[0]!)];
+            Assert.Equal(WorldView.MaxPointLights - 1, stationary.Length);
+            Assert.All(stationary, request => Assert.Equal(LightKind.Point, request.Descriptor.Kind));
+            Assert.Equal(new Vector3(1_000, 0, -200), stationary[0].Descriptor.Position);
+            Assert.Equal(new Vector3(1_380, 0, -200), stationary[^1].Descriptor.Position);
+            Assert.DoesNotContain(stationary, request => request.Descriptor.Position == new Vector3(1_400, 0, -200));
+        });
+
+    [Fact]
     public void A_switch_starts_hidden_and_is_shown_and_retextured_as_the_rule_says()
         => WithView((view, rule, graphics, _, party) =>
         {
@@ -157,6 +178,20 @@ public sealed class WorldViewTests
             Assert.Single(view.Notes, note => note.Contains("'2'", StringComparison.Ordinal));
             Assert.Equal(2, graphics.Snapshots.Count);
         }, refuseImages: true);
+
+    [Fact]
+    public void Leaving_a_lit_place_disables_its_stationary_slots_before_the_empty_place_is_shown()
+        => WithView((view, rule, graphics, _, party) =>
+        {
+            rule.Points = [new ScenePointLight("torch", new PlacePose(120, 200, 0, 0, 0), Vector3.One, 1f, 128f)];
+            view.Present(party, 0);
+            int updated = graphics.Calls.CallsTo(nameof(IGraphicsService.UpdateLight)).Count;
+
+            party.Enter(new PlaceId("2"), new PlacePose(0, 0, 0, 0, 0));
+            view.Present(party, 0);
+
+            Assert.True(graphics.Calls.CallsTo(nameof(IGraphicsService.UpdateLight)).Count > updated);
+        });
 
     [Fact]
     public void A_sprite_shows_its_frame_for_its_time_looping_or_holding_its_last()
@@ -308,7 +343,13 @@ public sealed class WorldViewTests
         public double ViewDistance => 10_000;
 
         public SceneLighting Lighting(PlaceId place, bool outdoors) =>
-            new(Vector3.One, 0.5f, null, Vector3.One, 0f, Vector3.Zero, Fog: (2_000f, 9_000f));
+            new(Vector3.One, 0.5f, null, Vector3.One, 0f, Vector3.Zero, Carried, Fog: (2_000f, 9_000f));
+
+        public (Vector3 Colour, float Intensity, float Range)? Carried { get; set; }
+
+        public IReadOnlyList<ScenePointLight> Points { get; set; } = [];
+
+        public IReadOnlyList<ScenePointLight> PointLights(PlaceId place, bool outdoors) => Points;
 
         public bool IsClosed(PlaceId place, string door) => Closed && door == "door-4";
 

@@ -1,3 +1,4 @@
+using System.Numerics;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Scene;
@@ -5,6 +6,7 @@ using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
 using PartyRpg.Testing;
+using Rusty.Engine;
 using Xunit;
 
 namespace PartyRpg.Rulesets.MightAndMagic7.Tests;
@@ -145,6 +147,36 @@ public sealed class ScenePolicyTests
     }
 
     [Fact]
+    public void A_decoration_light_uses_its_imported_colour_and_half_height_and_disappears_when_hidden()
+    {
+        MonsterAiPolicyTests.Fixture fixture = MonsterAiPolicyTests.Fixture.Of();
+        int file = Array.FindIndex(fixture.Files, item => item.Path.EndsWith("places.json", StringComparison.Ordinal));
+        Assert.True(file >= 0);
+        (string path, string text) = fixture.Files[file];
+        const string placements = "\"placements\": [";
+        int insert = text.IndexOf(placements, StringComparison.Ordinal);
+        Assert.True(insert >= 0);
+        fixture.Files[file] = (path, text.Insert(insert + placements.Length,
+            "{ \"id\":\"lamp\", \"kind\":\"decoration\", \"descriptionId\":2, \"cog\":7, \"flags\":0, \"x\":10, \"y\":20, \"z\":0 },"
+            + "{ \"id\":\"dark-lamp\", \"kind\":\"decoration\", \"descriptionId\":2, \"flags\":32, \"x\":20, \"y\":20, \"z\":0 },"));
+        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(fixture.Files);
+        using IGameSession game = MightAndMagic7Ruleset.Instance.CreateSession(RulesetTestContext.RulesetContext(context, ui));
+        game.Start();
+        SessionWorld world = ((MightAndMagic7Session)game).World!;
+        MightAndMagic7Scene scene = MightAndMagic7Scene.Read(Content(), () => world, MightAndMagic7Time.Compose(), MightAndMagic7Tuning.Read(null))!;
+
+        ScenePointLight light = Assert.Single(scene.PointLights(world.Place, outdoors: false));
+        Assert.Equal(new PlacePose(10, 20, 256, 0, 0), light.Position);
+        Assert.Equal(120f, light.Range);
+        Assert.Equal(new Vector3(12f / 255f, 34f / 255f, 56f / 255f), light.Colour);
+
+        world.Interactions.Keep(world.Place, new Dictionary<string, long> { [MightAndMagic7Switches.ShownKey(7)] = 0 });
+        Assert.Empty(scene.PointLights(world.Place, outdoors: false));
+        world.Interactions.Keep(world.Place, new Dictionary<string, long> { [MightAndMagic7Switches.ShownKey(7)] = 1 });
+        Assert.Single(scene.PointLights(world.Place, outdoors: false));
+    }
+
+    [Fact]
     public void Content_without_render_entries_draws_nothing()
     {
         InMemoryContentSource source = new InMemoryContentSource()
@@ -179,7 +211,7 @@ public sealed class ScenePolicyTests
             .Add("packs/media/looks.json", TestPacks.Document("looks", "look",
                 """{"id":"monster-151","height":160,"radius":40,"actions":["frame-12","frame-12","","","","","",""]}""",
                 """{"id":"monster-7","height":120,"radius":30,"actions":["stand","stand","","","hit","","",""]}""",
-                """{"id":"decoration-2","sprite":"","hidden":true}"""))
+                """{"id":"decoration-2","name":"lamp","sprite":"stand","height":512,"radius":40,"lightRadius":120,"lightColour":[12,34,56],"hidden":false}"""))
             .Add("packs/media/textures.json", TestPacks.Document("textures", "texture",
                 """{"id":"grastyl","path":"textures/grastyl.png"}""",
                 """{"id":"cfb1","path":"textures/cfb1.png"}""",

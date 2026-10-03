@@ -67,6 +67,14 @@ public sealed record SceneLighting(
     bool SkyVisible = true,
     (float Start, float End)? Fog = null);
 
+/// <summary>A point light the game's scene currently exposes to the renderer.</summary>
+/// <param name="Id">The source identity, stable while the same decoration remains in the place.</param>
+/// <param name="Position">The point in the place's own coordinates, including its height above the ground.</param>
+/// <param name="Colour">The light's linear RGB colour.</param>
+/// <param name="Intensity">The light's strength.</param>
+/// <param name="Range">The radius at which the light fades out, in place units.</param>
+public sealed record ScenePointLight(string Id, PlacePose Position, Vector3 Colour, float Intensity, float Range);
+
 /// <summary>A game's answers about how its world is seen: where the eye is, how a place is lit, and which doors stand closed.</summary>
 public interface ISceneRule
 {
@@ -80,6 +88,11 @@ public interface ISceneRule
     /// <param name="place">The place.</param>
     /// <param name="outdoors">Whether the place's scene has a sky.</param>
     SceneLighting Lighting(PlaceId place, bool outdoors);
+
+    /// <summary>The place's currently active point lights, before the view applies its render budget.</summary>
+    /// <param name="place">The place.</param>
+    /// <param name="outdoors">Whether the place's scene has a sky.</param>
+    IReadOnlyList<ScenePointLight> PointLights(PlaceId place, bool outdoors) => [];
 
     /// <summary>Whether a door currently stands closed, as the place's own interaction state says.</summary>
     /// <param name="place">The place.</param>

@@ -48,6 +48,12 @@ public sealed class WorldView : IWorldPresenter
     /// <summary>The first object id a door part takes; a door is this plus its part's position.</summary>
     public const ulong FirstDoorObjectId = 1UL << 20;
 
+    /// <summary>The total point-light budget, including the party's carried light.</summary>
+    public const int MaxPointLights = 40;
+
+    /// <summary>The first retained light id reserved for a scene's stationary point lights.</summary>
+    public const ulong FirstStationaryLightId = 4;
+
     private static readonly CameraViewport FullViewport = new(0d, 0d, 1d, 1d);
 
     private readonly IEngineContext _engine;
@@ -61,6 +67,8 @@ public sealed class WorldView : IWorldPresenter
     private Light? _sun;
     private Light? _carried;
     private SceneLighting? _lit;
+    private readonly List<Light> _stationary = [];
+    private IReadOnlyList<ScenePointLight> _pointLit = [];
     private Loaded? _loaded;
     private Loaded? _retired;
     private PlaceId? _shown;
@@ -118,7 +126,11 @@ public sealed class WorldView : IWorldPresenter
         if (_loaded is { } loaded)
         {
             changed |= Doors(loaded);
-            Light(loaded);
+            Light(loaded, party.PlacePose);
+        }
+        else
+        {
+            ClearStationaryLights();
         }
 
         List<ulong> moved = [];
@@ -153,6 +165,8 @@ public sealed class WorldView : IWorldPresenter
         _ambient?.Dispose();
         _sun?.Dispose();
         _carried?.Dispose();
+        foreach (Light light in _stationary) light.Dispose();
+        _stationary.Clear();
         foreach (RenderResource? texture in _textures.Values) texture?.Dispose();
         _textures.Clear();
     }
@@ -163,6 +177,11 @@ public sealed class WorldView : IWorldPresenter
         _retired?.Dispose();
         _retired = _loaded;
         _loaded = null;
+        // A place change happens before the next place is loaded. Disable the old place's selected slots now, while the
+        // previous selection is still remembered; otherwise an empty next place would compare equal and leave them lit.
+        ClearStationaryLights();
+        _lit = null;
+        _pointLit = [];
         PlaceScene? scene = _scenes.For(place);
         if (scene is null)
         {
@@ -449,33 +468,115 @@ public sealed class WorldView : IWorldPresenter
     /// The carried light has no inverse-power decay: a place's units are a few hundred to a body, so a physical falloff
     /// would leave it dark one step away. Its range's smooth cutoff is its whole falloff.
     /// </remarks>
-    private void Light(Loaded loaded)
+    private void Light(Loaded loaded, PlacePose partyPose)
     {
         SceneLighting lighting = _rule.Lighting(loaded.Scene.Place, loaded.Sky);
-        if (lighting == _lit) return;
-        _lit = lighting;
+        IReadOnlyList<ScenePointLight> selected = SelectPointLights(loaded, lighting, partyPose);
+        bool lightingChanged = lighting != _lit;
+        bool pointLightsChanged = !SamePointLights(selected);
+        if (!lightingChanged && !pointLightsChanged) return;
 
-        // The background is either the place's sky panorama or a clear colour; selecting the colour replaces the sky.
-        if (loaded.Panorama is { } panorama && lighting.SkyVisible)
+        if (lightingChanged) _lit = lighting;
+
+        if (lightingChanged)
         {
-            Cameras.SetSkyBackground(panorama);
+            // The background is either the place's sky panorama or a clear colour; selecting the colour replaces the sky.
+            if (loaded.Panorama is { } panorama && lighting.SkyVisible)
+            {
+                Cameras.SetSkyBackground(panorama);
+            }
+            else
+            {
+                Cameras.ClearSkyBackground(new ClearSkyBackgroundRequest(0));
+                Cameras.SetBackgroundColor(new SetBackgroundColorRequest(new Color(lighting.Background.X, lighting.Background.Y, lighting.Background.Z, 1f)));
+            }
+            // Distance fades linearly into the background colour, which the Engine never fogs, so far geometry meets it.
+            Cameras.SetFog(lighting.Fog is { } fog
+                ? new FogRequest(FogMode.Linear, new Color(lighting.Background.X, lighting.Background.Y, lighting.Background.Z, 1f), fog.Start, fog.End, 0f)
+                : new FogRequest(FogMode.Off, default, 0f, 0f, 0f));
+            _ambient = Replace(_ambient, 1, new LightDescriptor(LightKind.Ambient, lighting.Ambient, lighting.AmbientIntensity, true,
+                Vector3.Zero, -Vector3.UnitY, false, 0f, 0f, 0f, 0f, LightShadowIntent.Disabled));
+            _sun = Replace(_sun, 2, new LightDescriptor(LightKind.Directional, lighting.Sun, lighting.SunIntensity, lighting.SunDirection is not null,
+                Vector3.Zero, lighting.SunDirection ?? -Vector3.UnitY, false, 0f, 0f, 0f, 0f, LightShadowIntent.Disabled));
+            (Vector3 colour, float intensity, float range) = lighting.Carried ?? (Vector3.One, 0f, 1f);
+            _carried = Replace(_carried, 3, new LightDescriptor(LightKind.Point, colour, intensity, lighting.Carried is not null,
+                Vector3.Zero, -Vector3.UnitY, true, range, 0f, 0f, 0f, LightShadowIntent.Disabled));
         }
-        else
+
+        if (pointLightsChanged)
         {
-            Cameras.ClearSkyBackground(new ClearSkyBackgroundRequest(0));
-            Cameras.SetBackgroundColor(new SetBackgroundColorRequest(new Color(lighting.Background.X, lighting.Background.Y, lighting.Background.Z, 1f)));
+            _pointLit = selected;
+            UpdateStationaryLights(selected);
         }
-        // Distance fades linearly into the background colour, which the Engine never fogs, so far geometry meets it.
-        Cameras.SetFog(lighting.Fog is { } fog
-            ? new FogRequest(FogMode.Linear, new Color(lighting.Background.X, lighting.Background.Y, lighting.Background.Z, 1f), fog.Start, fog.End, 0f)
-            : new FogRequest(FogMode.Off, default, 0f, 0f, 0f));
-        _ambient = Replace(_ambient, 1, new LightDescriptor(LightKind.Ambient, lighting.Ambient, lighting.AmbientIntensity, true,
-            Vector3.Zero, -Vector3.UnitY, false, 0f, 0f, 0f, 0f, LightShadowIntent.Disabled));
-        _sun = Replace(_sun, 2, new LightDescriptor(LightKind.Directional, lighting.Sun, lighting.SunIntensity, lighting.SunDirection is not null,
-            Vector3.Zero, lighting.SunDirection ?? -Vector3.UnitY, false, 0f, 0f, 0f, 0f, LightShadowIntent.Disabled));
-        (Vector3 colour, float intensity, float range) = lighting.Carried ?? (Vector3.One, 0f, 1f);
-        _carried = Replace(_carried, 3, new LightDescriptor(LightKind.Point, colour, intensity, lighting.Carried is not null,
-            Vector3.Zero, -Vector3.UnitY, true, range, 0f, 0f, 0f, LightShadowIntent.Disabled));
+    }
+
+    /// <summary>Chooses the nearest active lights within the Engine's fixed fragment-light budget.</summary>
+    private IReadOnlyList<ScenePointLight> SelectPointLights(Loaded loaded, SceneLighting lighting, PlacePose partyPose)
+    {
+        int carried = lighting.Carried is null ? 0 : 1;
+        int capacity = Math.Max(0, MaxPointLights - carried);
+        return [.. _rule.PointLights(loaded.Scene.Place, loaded.Sky)
+            .Where(light => light.Range > 0 && float.IsFinite(light.Range) && light.Intensity > 0
+                && float.IsFinite(light.Intensity)
+                && double.IsFinite(light.Position.X) && double.IsFinite(light.Position.Y) && double.IsFinite(light.Position.Z)
+                && float.IsFinite(light.Colour.X) && float.IsFinite(light.Colour.Y) && float.IsFinite(light.Colour.Z))
+            .OrderBy(light => light.Position.DistanceTo(partyPose))
+            .ThenBy(light => light.Id, StringComparer.Ordinal)
+            .Take(capacity)];
+    }
+
+    private bool SamePointLights(IReadOnlyList<ScenePointLight> selected)
+    {
+        if (_pointLit.Count != selected.Count) return false;
+        for (int index = 0; index < selected.Count; index++)
+        {
+            if (_pointLit[index] != selected[index]) return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>Retains one Engine point-light handle per selected slot and disables slots that fell out of the budget.</summary>
+    private void UpdateStationaryLights(IReadOnlyList<ScenePointLight> selected)
+    {
+        for (int index = 0; index < selected.Count; index++)
+        {
+            ScenePointLight point = selected[index];
+            LightDescriptor descriptor = new(
+                LightKind.Point,
+                point.Colour,
+                point.Intensity,
+                true,
+                _space.GroundPosition(point.Position),
+                -Vector3.UnitY,
+                true,
+                point.Range,
+                0f,
+                0f,
+                0f,
+                LightShadowIntent.Disabled);
+            Light? existing = index < _stationary.Count ? _stationary[index] : null;
+            Light light = Replace(existing, FirstStationaryLightId + (ulong)index, descriptor);
+            if (existing is null) _stationary.Add(light);
+        }
+
+        for (int index = selected.Count; index < _stationary.Count; index++)
+        {
+            Light light = _stationary[index];
+            Graphics.UpdateLight(new LightUpdateRequest(light, new LightRequest(
+                FirstStationaryLightId + (ulong)index,
+                false,
+                0,
+                new LightDescriptor(LightKind.Point, Vector3.One, 0f, false, Vector3.Zero, -Vector3.UnitY, true, 1f,
+                    0f, 0f, 0f, LightShadowIntent.Disabled))));
+        }
+    }
+
+    private void ClearStationaryLights()
+    {
+        if (_pointLit.Count == 0) return;
+        _pointLit = [];
+        UpdateStationaryLights([]);
     }
 
     private Light Replace(Light? light, ulong id, LightDescriptor descriptor)

@@ -975,8 +975,11 @@ beside the world pack, one material per entry naming a `texture` of the media pa
 names and read exactly as `MightAndMagic7Geometry` reads them (the place's door placement, its ledger state,
 `MightAndMagic7Interaction.DoorState`), and its sky outdoors only. The eye is the donor's default 160 units above the
 feet (OpenEnroth `src/Engine/Party.h:281`). Light is ours: a sun that rises at the calendar's dawn and sets at its dusk,
-a dim blue night under a clear dark sky with the party's light, and a dim interior lit by the light the party carries
-(no inverse-square falloff at this unit scale). Distance fades into the sky's colour outdoors and into darkness indoors between tuned distances (`view.fog-start`/`view.fog-end`, `view.interior-fog-start`/`view.interior-fog-end`), never past the view distance; ours, since the donor fades only in foggy weather (OpenEnroth `src/Engine/Graphics/Renderer/OpenGLRenderer.cpp:1626-1652`). The [world rendering reading](../../docs/evidence/world-rendering.md)
+a dim blue night under a clear dark sky, the party's light, and the imported decoration look's radius and RGB colour.
+Each active drawn decoration contributes an Engine point light at its feet plus half its imported height; the level's
+invisible flag and an interaction `set-sprite` omission or hide remove it. The kit view selects the nearest bounded set
+before presenting those lights, while `#9267` owns indoor light-switch state. Distance fades into the sky's colour outdoors
+and into darkness indoors between tuned distances (`view.fog-start`/`view.fog-end`, `view.interior-fog-start`/`view.interior-fog-end`), never past the view distance; ours, since the donor fades only in foggy weather (OpenEnroth `src/Engine/Graphics/Renderer/OpenGLRenderer.cpp:1626-1652`). The [world rendering reading](../../docs/evidence/world-rendering.md)
 records the ordinary new game drawn outdoors and an interior entered and left.
 
 What stands in a place is drawn from the same scene reading (`MightAndMagic7Scene.Objects`): each decoration by its

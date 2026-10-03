@@ -31,11 +31,12 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// <b>The eye</b> is the movement's (<see cref="MightAndMagic7Movement.EyeLevel"/>); the reticle shares its heading.
 /// </para>
 /// <para>
-/// <b>Light is ours.</b> The original shades terrain by a sun that crosses the sky with the hour and dims the world
-/// at night, and lights interiors by sector levels and the party's torch (OpenEnroth <c>src/Engine/Graphics/Weather.cpp</c>,
-/// <c>src/Engine/Graphics/Outdoor.cpp</c>). This keeps that shape — a sun that rises at the calendar's dawn and sets at
-/// its dusk, a dim blue night, and a dim interior lit by the light the party carries — with values chosen here rather
-/// than taken from the donor's lighting tables.
+/// <b>Light is ours, with imported stationary lights.</b> The original shades terrain by a sun that crosses the sky with
+/// the hour and dims the world at night, and lights interiors by sector levels, decoration lights and the party's torch
+/// (OpenEnroth <c>src/Engine/Graphics/Weather.cpp</c>, <c>src/Engine/Graphics/Outdoor.cpp</c>,
+/// <c>src/Engine/Graphics/Renderer/BaseRenderer.cpp:217-228</c>). This keeps that shape — a sun that rises at the
+/// calendar's dawn and sets at its dusk, a dim blue night, and a dim interior lit by its visible decorations and the
+/// light the party carries — with the ambient and carried values chosen here rather than taken from the donor's tables.
 /// </para>
 /// </remarks>
 internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
@@ -57,6 +58,7 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
     private readonly Dictionary<PlaceId, PlaceScene> _scenes = [];
     private readonly Dictionary<string, SceneSprite> _sprites = new(StringComparer.Ordinal);
     private readonly Dictionary<string, (string Sprite, bool Hidden)> _looks = new(StringComparer.Ordinal);
+    private readonly Dictionary<int, DecorationLight> _decorationLights = [];
     private readonly Dictionary<int, IReadOnlyList<string>> _monsters = [];
     private CorpseGround? _corpses;
 
@@ -65,10 +67,14 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
     private readonly Dictionary<long, double> _fell = [];
     private readonly List<(PlacementDefinition Placement, int Row)> _decorations = [];
     private readonly Dictionary<int, string?> _decorationLooks = [];
+    private PlaceId? _decorationsPlace;
     private PlaceId? _remembered;
     private Func<MightAndMagic7Combat?> _combat = () => null;
     private Func<CombatState?> _fight = () => null;
     private Func<CombatDirector?> _director = () => null;
+
+    /// <summary>A decoration look's light and draw state, as the imported look document carries it.</summary>
+    private sealed record DecorationLight(string Sprite, bool Hidden, int Height, int LightRadius, Vector3 Colour);
 
     // What the fight resolved, as presentation remembers it: the last blow shown, when each creature last struck and
     // was struck, the bursts not yet emitted, and each drawn creature's row. Forgotten with the place.
@@ -152,6 +158,16 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
 
             scene._looks[entry.Id] = (look.GetProperty("sprite").GetString() ?? string.Empty,
                 look.TryGetProperty("hidden", out JsonElement hidden) && hidden.GetBoolean());
+            if (entry.Id.StartsWith("decoration-", StringComparison.Ordinal)
+                && int.TryParse(entry.Id.AsSpan("decoration-".Length), out int row))
+            {
+                scene._decorationLights[row] = new DecorationLight(
+                    look.GetProperty("sprite").GetString() ?? string.Empty,
+                    look.TryGetProperty("hidden", out hidden) && hidden.GetBoolean(),
+                    look.TryGetProperty("height", out JsonElement decorationHeight) ? decorationHeight.GetInt32() : 0,
+                    look.TryGetProperty("lightRadius", out JsonElement lightRadius) ? lightRadius.GetInt32() : 0,
+                    LightColour(look));
+            }
         }
 
         foreach ((LoadedPack pack, _, ContentEntry entry) in catalog.Entries(RenderDefinitionKind))
@@ -231,13 +247,9 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
             _lastSeen.Clear();
             _seenBlow = _fight()?.RecentBlows is { Count: > 0 } before ? before[^1].Serial : 0;
             foreach (Corpse body in _corpses?.In(place) ?? []) _fell[body.Serial] = double.NegativeInfinity;
-            _decorations.Clear();
-            foreach (PlacementDefinition placement in ((IInteractionWorld)world).Placements)
-            {
-                if (placement.Content.Kind != MightAndMagic7Interaction.DecorationPlacementKind) continue;
-                _decorations.Add((placement, placement.Source.GetInt32(DecorationListField) ?? -1));
-            }
         }
+
+        EnsureDecorations(place, world);
 
         // A decoration shows as its level marks it until a sprite step on its cog shows or hides it, and takes the look
         // that step gave; both are kept on the place's ledger, so a place re-entered or resumed shows them again.
@@ -317,6 +329,34 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
 
     /// <inheritdoc />
     /// <remarks>
+    /// A visible decoration with an imported nonzero light radius contributes a point at its feet plus half its authored
+    /// height. The level's invisible flag and a later sprite step both remove the light with the decoration; a changed
+    /// sprite row changes the light's colour, radius and height with the row. Selection and the Engine's light budget are
+    /// the view's concern, so this method reports every active decoration light in the place.
+    /// </remarks>
+    public IReadOnlyList<ScenePointLight> PointLights(PlaceId place, bool outdoors)
+    {
+        if (_world() is not { } world || world.Place != place) return [];
+        EnsureDecorations(place, world);
+        IReadOnlyDictionary<string, long> values = world.Interactions.ValuesOf(place);
+        List<ScenePointLight> lights = [];
+        foreach ((PlacementDefinition placement, int row) in _decorations)
+        {
+            if (MightAndMagic7Switches.IsHidden(placement, values)) continue;
+            int look = MightAndMagic7Switches.LookOf(placement, values) ?? row;
+            if (!_decorationLights.TryGetValue(look, out DecorationLight? decoration)
+                || decoration.Hidden || decoration.Sprite.Length == 0 || decoration.LightRadius <= 0)
+                continue;
+
+            PlacePose point = placement.Pose with { Z = placement.Pose.Z + (decoration.Height / 2d) };
+            lights.Add(new ScenePointLight(placement.Content.ToString(), point, decoration.Colour, 1f, decoration.LightRadius));
+        }
+
+        return lights;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
     /// A blow the fight resolved against a creature marks where it landed: a brief red flash for one that struck, a pale
     /// blue one for a spell that struck, and a grey one for anything that missed, sprayed from three-fifths of the creature's height. The colours, counts,
     /// sizes and speeds are ours, a presentation reading of the blow rather than a rule anybody adjusts;
@@ -369,7 +409,6 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
     private bool Running(string sprite, double elapsed) =>
         sprite.Length > 0 && Sprite(sprite) is { } group && elapsed >= 0 && elapsed < Math.Max(group.TotalSeconds, ShortestAction);
 
-    /// <summary>A decoration's or object's sprite, or null when its look is hidden or content carries none.</summary>
     /// <summary>A decoration row's sprite, read once per row, or null when its look is hidden or content carries none.</summary>
     private string? DecorationLook(int row)
     {
@@ -378,6 +417,32 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
     }
 
     private string? Look(string look) => _looks.TryGetValue(look, out var found) && !found.Hidden && found.Sprite.Length > 0 ? found.Sprite : null;
+
+    /// <summary>Reads a look's imported 8-bit RGB light colour as the Engine's normalized linear colour.</summary>
+    private static Vector3 LightColour(JsonElement look)
+    {
+        if (!look.TryGetProperty("lightColour", out JsonElement value) || value.ValueKind != JsonValueKind.Array
+            || value.GetArrayLength() < 3)
+            return Vector3.One;
+
+        JsonElement[] channels = [.. value.EnumerateArray()];
+        return new(Math.Clamp(channels[0].GetSingle(), 0f, 255f) / 255f,
+            Math.Clamp(channels[1].GetSingle(), 0f, 255f) / 255f,
+            Math.Clamp(channels[2].GetSingle(), 0f, 255f) / 255f);
+    }
+
+    /// <summary>Caches the current place's decoration placements without making them world state.</summary>
+    private void EnsureDecorations(PlaceId place, SessionWorld world)
+    {
+        if (_decorationsPlace == place) return;
+        _decorationsPlace = place;
+        _decorations.Clear();
+        foreach (PlacementDefinition placement in ((IInteractionWorld)world).Placements)
+        {
+            if (placement.Content.Kind == MightAndMagic7Interaction.DecorationPlacementKind)
+                _decorations.Add((placement, placement.Source.GetInt32(DecorationListField) ?? -1));
+        }
+    }
 
     /// <summary>A creature's or person's eight animations, by the row the fight reads it as, or null when it has no look.</summary>
     private IReadOnlyList<string>? Actions(PlacementDefinition placement)

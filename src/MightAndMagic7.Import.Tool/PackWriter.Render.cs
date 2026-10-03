@@ -112,6 +112,12 @@ internal static partial class PackWriter
                 writer.WriteString("sprite", sprite);
                 writer.WriteNumber("height", decoration.Height);
                 writer.WriteNumber("radius", decoration.Radius);
+                writer.WriteNumber("lightRadius", decoration.LightRadius);
+                writer.WriteStartArray("lightColour");
+                writer.WriteNumberValue(decoration.LightColour.R);
+                writer.WriteNumberValue(decoration.LightColour.G);
+                writer.WriteNumberValue(decoration.LightColour.B);
+                writer.WriteEndArray();
                 writer.WriteBoolean("hidden", hidden);
             }));
         }

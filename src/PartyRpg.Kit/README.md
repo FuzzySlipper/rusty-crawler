@@ -569,7 +569,11 @@ normals, texture coordinates and door travel per vertex, divided into parts draw
 service, binds materials and meshes through the safe Graphics API (a door part rebuilt where `ISceneRule.IsClosed`
 puts it: a closed door's corners stand at rest plus travel, the collision's own pairing), aims the camera from the
 movement `PlaceSpace`'s eye (`EyeHeight`; the reticle shares its heading and keeps its body-centre reach) along its heading, sets the sky panorama or clear colour and the ambient,
-sun and carried lights the rule's `SceneLighting` names (a light changes only when the answer does), and its linear distance fade into the background colour (`CameraView.SetFog`), and publishes
+sun and carried lights the rule's `SceneLighting` names (a light changes only when the answer does), and the stationary
+point lights the rule's `ISceneRule.PointLights` names. The view keeps the nearest active point lights in the fixed
+`MaxPointLights` budget, reserving one slot for a carried light, transforms their place poses through `PlaceSpace.GroundPosition`,
+and updates retained Engine light handles by slot. It applies the linear distance fade into the background colour
+(`CameraView.SetFog`), and publishes
 one snapshot when what it draws changed. A place with no scene and an image the Engine refuses are each said once in
 `Notes`; a material without an image is drawn flat grey rather than guessed. It reaches for the Engine's services only
 when it first draws. `LoadedPack.Directory` lets a ruleset name a file beside a pack's documents, which the view reads through the Engine. The view also draws each `SceneObject` the rule reports — under its

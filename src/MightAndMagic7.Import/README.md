@@ -103,7 +103,10 @@ Owns:
   OpenEnroth `src/Engine/Tables/DecorationTable.cpp:13-22`). An interior's stored rows are all zero, so every decoration's
   `descriptionId` is written as `LookLists.DecorationRow` of its name when the look tables are present. Event steps
   carry their operands for the world-visible changes: `set-texture` its cog (`group`) and bitmap (`name`), `set-sprite`
-  its cog, whether it shows (`on`) and its decoration name, `toggle-indoor-light` its light index and switch.
+  its cog, whether it shows (`on`) and its decoration name, `toggle-indoor-light` its light index and switch. The
+  corresponding `ddeclist.bin` look row keeps the authored height and radius plus the stationary light radius and
+  three 8-bit colour channels (`DecorationData_MM7`, OpenEnroth `src/Engine/Snapshots/EntitySnapshots.h:1005-1027`);
+  `WriteLooks` normalizes those as `height`, `radius`, `lightRadius` and `lightColour` for the ruleset scene.
 - Render geometry (`Render/PlaceRender`): one binary mesh per place in `mm7-world/render/<place>.mesh` (the kit's
   `PRMESH02` document) indexed by `place-render.json`, from the same decoded faces and terrain the collision reads and on
   the same axes. Portals and invisible faces (`FACE_IsInvisible`) are not drawn, except that a face of a cog the map's

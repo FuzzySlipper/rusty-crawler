@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Text;
 using MightAndMagic7.Import.Lod;
+using MightAndMagic7.Import.Media;
 
 namespace MightAndMagic7.Import.Render;
 
@@ -137,7 +138,17 @@ public sealed record MonsterLook(int Monster, int Height, int Radius, IReadOnlyL
 /// <param name="Height">Its height in place units.</param>
 /// <param name="Radius">Its radius in place units.</param>
 /// <param name="Flags">The donor's <c>DecorationDescFlag</c> word.</param>
-public sealed record DecorationLook(int Index, string Name, int Frame, int Height, int Radius, int Flags)
+/// <param name="LightRadius">The point-light radius in place units, or zero when the row emits no light.</param>
+/// <param name="LightColour">The authored point-light colour as the row's three 8-bit channels.</param>
+public sealed record DecorationLook(
+    int Index,
+    string Name,
+    int Frame,
+    int Height,
+    int Radius,
+    int Flags,
+    int LightRadius,
+    Rgb24 LightColour)
 {
     /// <summary><c>DECORATION_DESC_DONT_DRAW</c> (OpenEnroth <c>src/Engine/Data/DecorationEnums.h:249</c>).</summary>
     public const int DontDraw = 0x2;
@@ -185,7 +196,8 @@ public sealed record LookLists(IReadOnlyList<MonsterLook> Monsters, IReadOnlyLis
         Records(decorations, 84, "ddeclist.bin", (index, record) => decor.Add(new DecorationLook(
             index, SpriteFrameTable.Text(record[..32]), BinaryPrimitives.ReadUInt16LittleEndian(record[72..]),
             BinaryPrimitives.ReadUInt16LittleEndian(record[66..]), BinaryPrimitives.ReadInt16LittleEndian(record[68..]),
-            BinaryPrimitives.ReadUInt16LittleEndian(record[74..]))));
+            BinaryPrimitives.ReadUInt16LittleEndian(record[74..]), BinaryPrimitives.ReadInt16LittleEndian(record[70..]),
+            new Rgb24(record[80], record[81], record[82]))));
         List<ObjectLook> loose = [];
         Records(objects, 56, "dobjlist.bin", (index, record) => loose.Add(new ObjectLook(
             index, BinaryPrimitives.ReadUInt16LittleEndian(record[40..]), BinaryPrimitives.ReadUInt16LittleEndian(record[38..]))));
