@@ -33,6 +33,12 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// as a guild membership is.
 /// </para>
 /// <para>
+/// <b>A house can author the face its keeper wears.</b> Service and residence placements carry a neutral
+/// interface face when the compiled donor room table has no importer-readable proprietor identity. A
+/// person entry's own portrait remains authoritative, while the placement face gives a table-only keeper
+/// a real image for the conversation projection.
+/// </para>
+/// <para>
 /// <b>A topic's availability is content's conditions judged against real state.</b> A topic the packs
 /// carry states what must hold for it: a party-carried flag, the party's standing, a member's class or
 /// race, the hour, or an errand the party has finished — each written by name, so a topic that waits for
@@ -99,6 +105,9 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
 
     /// <summary>The field a placement names the people standing there under.</summary>
     internal const string PeopleField = "people";
+
+    /// <summary>The field a service or residence placement uses for its authored keeper face.</summary>
+    internal const string KeeperPortraitField = "portrait";
 
     /// <summary>The field a house's placement — a counter or a household — names its house by.</summary>
     internal const string HouseField = "houseId";
@@ -484,6 +493,11 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
         List<ConversationPerson> people = [];
         PartyEntity? party = _party();
         int? houseId = house ? request.Placement.Source.GetInt32(HouseField) : null;
+        string keeperPortrait = house ? request.Placement.Source.GetString(KeeperPortraitField) : string.Empty;
+        ConversationPerson Presented(PersonFacts person) =>
+            house && person.Portrait.Length == 0 && keeperPortrait.Length > 0
+                ? new ConversationPerson(person.Id, person.Name, keeperPortrait)
+                : person.Who;
         if (_present.TryGetValue((request.Place.Value, request.Placement.Content.Id), out IReadOnlyList<string>? named))
         {
             foreach (string id in named)
@@ -494,7 +508,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
                 // Somebody a map event moved to another house lives there now, not where content placed them
                 // (OpenEnroth src/GUI/UI/UIHouses.cpp:401 lists the people whose own record names the house).
                 if (houseId is { } here && party is not null && MightAndMagic7PersonState.House(party.Records, id) is { } moved && moved != here) continue;
-                people.Add(person.Who);
+                people.Add(Presented(person));
             }
         }
 
@@ -505,7 +519,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
             {
                 if (moved != home || !_people.TryGetValue(id, out PersonFacts? person)) continue;
                 if (party.Followers.Find(new FollowerDefinitionId(id)) is not null) continue;
-                if (!people.Any(present => string.Equals(present.Id, id, StringComparison.Ordinal))) people.Add(person.Who);
+                if (!people.Any(present => string.Equals(present.Id, id, StringComparison.Ordinal))) people.Add(Presented(person));
             }
         }
 
@@ -513,7 +527,8 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
         // counter's own definition names, then the one its placement carries, and failing both the building
         // itself. A shop nobody could speak with would be a shop the party cannot enter, which is worse than
         // an unnamed keeper — and the name is read from the same answers the counter's own screen shows, so
-        // the two cannot disagree about who keeps it.
+        // the two cannot disagree about who keeps it. The placement's authored face travels with the same
+        // fallback, so a table-only keeper has the image the content selected.
         if (people.Count == 0 && house)
         {
             string building = request.Placement.Source.GetString("name");
@@ -524,7 +539,8 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
                 : building;
             people.Add(new ConversationPerson(
                 $"{MightAndMagic7Identities.KeeperIdPrefix}{request.Placement.Content.Id}",
-                named2.Length > 0 ? named2 : "the keeper"));
+                named2.Length > 0 ? named2 : "the keeper",
+                keeperPortrait));
         }
 
         // A placed person nobody stands for is a defect the pack cannot state: the placement is where

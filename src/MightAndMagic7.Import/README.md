@@ -122,7 +122,11 @@ Owns:
   terrain shader does (OpenEnroth `resources/shaders/glterrain.frag:31-41`), each region sky as a 2:1 panorama (ours), and the
   interface images (`icons.json`, kind `icon`): each item's `picture`, each person's portrait `npc{:03}`
   (OpenEnroth `src/GUI/UI/UIDialogue.cpp:67`) and each member face set's neutral frame (OpenEnroth `src/Engine/mm7_data.cpp:50-55`), the absent
-  ones named in the summary. The UI tasks bind the interface images; the world view binds the rest.
+  ones named in the summary. Service and residence placements also carry an authored `portrait` key
+  selected from those neutral frames, because the donor's keeper identity is in a compiled animated-room
+  table outside this import boundary; the decision and donor evidence are in
+  [`keeper-portraits.md`](../../docs/research/keeper-portraits.md). The UI tasks bind the interface images;
+  the world view binds the rest.
 - Sprites and looks (`Render/SpriteTables`, `Render/SpriteAtlas`): the frame table (`dsft.bin`) and the monster,
   decoration and object lists (`dmonlist.bin`, `ddeclist.bin`, `dobjlist.bin`) at the record sizes the donor
   states (OpenEnroth `src/Engine/Snapshots/EntitySnapshots.h`); every sprite group a look draws is packed into one atlas

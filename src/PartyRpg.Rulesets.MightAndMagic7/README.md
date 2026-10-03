@@ -951,11 +951,13 @@ checks from live acceptance.
 face set of its race and sex, in the donor's face order (OpenEnroth `src/Engine/mm7_data.cpp:50-55`, races by face at
 OpenEnroth `src/Engine/Objects/Character.cpp:2779-2791`, men before women by the voice table at `:2808-2834`), and a
 person's portrait with the interface image of its own name; which face of a group is ours. The session grants the
-members' faces through `ContentImages` for the adventure frame; people's portraits are read the same way but drawn by
-no screen yet (the conversation screen, #9224). Items are drawn with the icon their table row names as `picture`,
-from the same installed icons, and a person from the people table with the `npc` icon of their portrait number in three digits, and `MightAndMagic7Names` names
-that person (a quest's giver) by the table's own name. A house
-keeper has no imported face yet (#9292).
+members' faces through `ContentImages` for the adventure frame; people's portraits are read the same way by the
+conversation projection. Items are drawn with the icon their table row names as `picture`, from the same installed
+icons, and a person from the people table with the `npc` icon of their portrait number in three digits, and
+`MightAndMagic7Names` names that person (a quest's giver) by the table's own name. A service or residence keeper
+without a person-table portrait uses the placement's authored neutral `pc` face key, while a named person's own
+portrait remains authoritative. The source decision and donor boundary are recorded in
+[`keeper-portraits.md`](../../docs/research/keeper-portraits.md).
 
 `MightAndMagic7ItemReadings` reads an item for the inventory page: the table's type as a word (a weapon by its skill
 group, armour by its kind), the damage or armour the figure reads from the same row the fight does, its charges (a

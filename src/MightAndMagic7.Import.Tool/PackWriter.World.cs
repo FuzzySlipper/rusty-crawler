@@ -710,6 +710,7 @@ internal static partial class PackWriter
                     field.WriteString("fixture", counter.Fixture);
                     field.WriteString("name", counter.Name);
                     if (counter.Proprietor.Length > 0) field.WriteString("proprietor", counter.Proprietor);
+                    if (counter.KeeperPortrait.Length > 0) field.WriteString("portrait", counter.KeeperPortrait);
                     field.WriteNumber("sourceEvent", counter.EventId);
                     field.WriteNumber("sourceFace", counter.SourceFaceIndex);
                     field.WriteNumber("sourceModel", counter.SourceModelIndex);

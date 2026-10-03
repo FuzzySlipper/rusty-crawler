@@ -135,6 +135,7 @@ public sealed class ConversationPolicyTests
         // game's own tables put behind it rather than a name the building states.
         ConversationPerson keeper = Assert.Single(subject.People);
         Assert.Equal("Tester One", keeper.Name);
+        Assert.Equal("709", keeper.Portrait);
 
         // What the keeper offers is the counter itself, and it is on offer while the shop's own hours say it
         // serves: the window is the one the counter reads, so the two cannot disagree about when it opens.
@@ -156,7 +157,9 @@ public sealed class ConversationPolicyTests
         // counter's own definition states, because a shop nobody could speak with is a shop nobody can enter.
         ConversationSubject residence = fixture.Conversation.Describe(
             new ConversationTargetRequest(SomewherePlace, fixture.Placement("residence-9")))!;
-        Assert.Equal("Mira", Assert.Single(residence.People).Name);
+        ConversationPerson resident = Assert.Single(residence.People);
+        Assert.Equal("Mira", resident.Name);
+        Assert.Equal("pc05-01", resident.Portrait);
     }
 
     [Fact]
@@ -436,9 +439,9 @@ public sealed class ConversationPolicyTests
                 "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ],
                 "placements": [
                   { "id": "person-0", "kind": "person", "x": 0, "y": 100, "z": 0, "carriedItem": 43, "people": [ "np-2" ] },
-                  { "id": "service-7", "kind": "service", "houseId": 7, "x": 100, "y": 0, "z": 0, "people": [ "np-1" ] },
+                  { "id": "service-7", "kind": "service", "houseId": 7, "portrait": "pc01-01", "x": 100, "y": 0, "z": 0, "people": [ "np-1" ] },
                   { "id": "residence-9", "kind": "residence", "houseId": 9, "name": "House of Ash", "proprietor": "Mira",
-                    "fixture": "House R9", "x": -100, "y": 0, "z": 0 } ] } ] }
+                    "fixture": "House R9", "portrait": "pc05-01", "x": -100, "y": 0, "z": 0 } ] } ] }
             """;
 
         private static string People() =>

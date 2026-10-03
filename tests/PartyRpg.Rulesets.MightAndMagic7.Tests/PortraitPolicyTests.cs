@@ -24,6 +24,7 @@ public sealed class PortraitPolicyTests
             ContentCatalogLoader.Load(source, new ContentLayout("packs", "imports", "bundles")).RequireValid());
 
         Assert.Equal("packs/media/icons/pc01-01.png", portraits.PathOf("human-man"));
+        Assert.Equal("packs/media/icons/pc01-01.png", portraits.PathOf("pc01-01"));
         Assert.Equal("packs/media/icons/pc1501.png", portraits.PathOf("dwarf-woman"));
         Assert.Equal("packs/media/icons/npc123.png", portraits.PathOf("npc123"));
         // A person's portrait is the number of their face in the people table, drawn with that number's interface image.

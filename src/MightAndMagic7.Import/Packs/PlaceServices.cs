@@ -120,6 +120,12 @@ public sealed record PlaceServicePlacement(
     /// <summary>The building's own entrance hours, including households without service definitions.</summary>
     public int? OpenHour { get; init; }
     public int? ClosedHour { get; init; }
+
+    /// <summary>
+    /// The authored interface face key for the keeper this placement presents, or empty when the content
+    /// deliberately leaves its keeper without a face.
+    /// </summary>
+    public string KeeperPortrait { get; init; } = string.Empty;
 }
 
 /// <summary>One building row the import emitted no placement for, with the reason.</summary>
@@ -207,6 +213,17 @@ public sealed record PlaceServiceSummary(
 /// </remarks>
 public static class PlaceServiceEmitter
 {
+    /// <summary>
+    /// Neutral face frames the media writer already emits for party creation. The importer assigns one
+    /// stable authored face to each house placement because the donor's keeper identity lives in a compiled
+    /// room table that is outside the operator data this importer reads.
+    /// </summary>
+    private static readonly string[] KeeperPortraitKeys =
+    [
+        "pc01-01", "pc05-01", "pc09-01", "pc11-01",
+        "pc1301", "pc1501", "pc17-01", "pc1901",
+    ];
+
     /// <summary>The house type strings this import serves as counters, which list is the table's own.</summary>
     public static IReadOnlyList<string> RecognizedKinds => ServiceTable.RecognizedTypes;
 
@@ -343,6 +360,7 @@ public static class PlaceServiceEmitter
             {
                 OpenHour = recognized ? null : openHour,
                 ClosedHour = recognized ? null : closedHour,
+                KeeperPortrait = KeeperPortraitFor(building.Id),
             });
 
             if (!recognized) continue;
@@ -367,6 +385,17 @@ public static class PlaceServiceEmitter
         }
 
         return new PlaceServiceSummary(definitions, placements, refusals);
+    }
+
+    /// <summary>
+    /// Chooses a deterministic authored face for a house placement. The key is content presentation, not
+    /// a claim that the donor's compiled room table gives this identity to the proprietor.
+    /// </summary>
+    private static string KeeperPortraitFor(int buildingId)
+    {
+        if (KeeperPortraitKeys.Length == 0) return string.Empty;
+        int index = buildingId > 0 ? (buildingId - 1) % KeeperPortraitKeys.Length : 0;
+        return KeeperPortraitKeys[index];
     }
 
     /// <summary>

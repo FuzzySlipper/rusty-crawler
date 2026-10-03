@@ -66,6 +66,8 @@ public sealed class ServiceEmissionTests
             Assert.Contains(
                 placement.HeightSource,
                 new[] { PlaceServiceEmitter.TerrainHeightSource, PlaceServiceEmitter.FaceHeightSource });
+            Assert.Equal("pc05-01", placement.KeeperPortrait);
+            Assert.All(services.Placements, item => Assert.NotEmpty(item.KeeperPortrait));
 
             // The house row is a household rather than a counter, which is what the table called it.
             PlaceServicePlacement house = Assert.Single(services.Placements, item => item.BuildingId == 100);
@@ -77,11 +79,13 @@ public sealed class ServiceEmissionTests
                 .Single(placed => placed.GetProperty("id").GetString() == "residence-100");
             Assert.Equal(house.OpenHour, emittedHouse.GetProperty("openHour").GetInt32());
             Assert.Equal(house.ClosedHour, emittedHouse.GetProperty("closedHour").GetInt32());
+            Assert.Equal(house.KeeperPortrait, emittedHouse.GetProperty("portrait").GetString());
             JsonElement emittedCounter = emittedPlaces.RootElement.GetProperty("entries").EnumerateArray()
                 .SelectMany(place => place.TryGetProperty("placements", out var placed) ? placed.EnumerateArray().ToArray() : [])
                 .Single(placed => placed.GetProperty("id").GetString() == "service-98");
             Assert.False(emittedCounter.TryGetProperty("openHour", out _));
             Assert.False(emittedCounter.TryGetProperty("closedHour", out _));
+            Assert.Equal(placement.KeeperPortrait, emittedCounter.GetProperty("portrait").GetString());
             Assert.Null(placement.OpenHour);
             Assert.Null(placement.ClosedHour);
 
