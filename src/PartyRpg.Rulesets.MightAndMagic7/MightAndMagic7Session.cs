@@ -393,7 +393,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             // The world is drawn from the content this game reads it from, by the same door state the collision and
             // the interactions read, under this game's light at the clock's hour. Nothing is drawn for a session over
             // content that carries no scenes, or a session with no engine.
-            View = MightAndMagic7Scene.View(MightAndMagic7Scene.Read(Declared(context.Content), () => owners.World, clock, MightAndMagic7Tuning.Read(Declared(context.Content)), corpses), context.Engine),
+            View = MightAndMagic7Scene.View(MightAndMagic7Scene.Read(Declared(context.Content), () => owners.World, clock, MightAndMagic7Tuning.Read(Declared(context.Content)), corpses, () => composed), context.Engine),
         };
 
         Owners = owners;

@@ -152,6 +152,12 @@ internal static class MightAndMagic7Containers
     /// <param name="state">What the party has already done to it, as this game's own word.</param>
     /// <param name="requires">What the use requires, which is where a lock on a container comes from.</param>
     /// <param name="reach">How far from a target the party may stand and still use it.</param>
+    /// <summary>Whether a pile of items still lies in the world: it holds something and the party has not searched it.</summary>
+    internal static bool PileLies(PlacementDefinition placement, string state) =>
+        string.Equals(placement.Content.Kind, PilePlacementKind, StringComparison.Ordinal)
+        && (placement.Source.GetInt32(ContainingItemField) ?? 0) != 0
+        && !string.Equals(state, SearchedState, StringComparison.Ordinal);
+
     internal static InteractionTargetDefinition? Describe(
         PlacementDefinition placement,
         string state,

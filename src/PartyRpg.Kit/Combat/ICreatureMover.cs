@@ -120,6 +120,10 @@ public interface ICreatureMover : IDisposable
     /// <returns>Where it ended up and whether it moved at all.</returns>
     CreatureMoveOutcome Move(CreatureMoveRequest request);
 
+    /// <summary>Whether a creature is walking now: the mover is carrying it along a path rather than holding it.</summary>
+    /// <param name="creature">The creature.</param>
+    bool IsWalking(CombatantId creature) => false;
+
     /// <summary>Forgets what a mover kept of a creature's motion, which is what leaving the field does to one.</summary>
     /// <param name="creature">The creature to forget.</param>
     void Forget(CombatantId creature);

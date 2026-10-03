@@ -54,11 +54,24 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
     private readonly Dictionary<int, IReadOnlyList<string>> _monsters = [];
     private CorpseGround? _corpses;
 
-    // Presentation memory, not world state: where each creature stood when last drawn, and when each body first lay,
-    // so a moving creature walks and a fresh body falls before it lies still. Forgotten with the place.
-    private readonly Dictionary<string, (PlacePose Pose, double Seconds)> _lastPose = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, double> _fell = new(StringComparer.Ordinal);
+    // Presentation memory, not world state: when each body first lay, so a fresh body falls before it lies still, and
+    // the current place's decorations. Forgotten with the place.
+    private readonly Dictionary<long, double> _fell = [];
+    private readonly List<(string Id, string Sprite, PlacePose Pose)> _decorations = [];
     private PlaceId? _remembered;
+    private Func<MightAndMagic7Combat?> _combat = () => null;
+
+    /// <summary>A map decoration's row in the decoration list, as the importer writes it.</summary>
+    private const string DecorationListField = "descriptionId";
+
+    /// <summary>A map decoration's level flags, as the importer writes them.</summary>
+    private const string DecorationFlagsField = "flags";
+
+    /// <summary>A map sprite object's row in the object list, as the importer writes it.</summary>
+    private const string ObjectListField = "objectDescId";
+
+    /// <summary><c>LEVEL_DECORATION_INVISIBLE</c> (OpenEnroth <c>src/Engine/Objects/Decoration.h:18</c>).</summary>
+    private const int InvisibleDecoration = 0x20;
     private readonly Func<SessionWorld?> _world;
     private readonly GameClock _clock;
     private readonly TuningProfile _tuning;
@@ -81,7 +94,8 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
     /// <param name="world">The session's live world, read when a door is asked about.</param>
     /// <param name="clock">The session's one clock, read when the light is asked about.</param>
     /// <param name="tuning">The selected tuning, which holds the view's and the light's adjustable values.</param>
-    internal static MightAndMagic7Scene? Read(ContentCatalog? catalog, Func<SessionWorld?> world, GameClock clock, TuningProfile tuning, CorpseGround? corpses = null)
+    internal static MightAndMagic7Scene? Read(ContentCatalog? catalog, Func<SessionWorld?> world, GameClock clock, TuningProfile tuning,
+        CorpseGround? corpses = null, Func<MightAndMagic7Combat?>? combat = null)
     {
         if (catalog is null) return null;
         Dictionary<string, string> textures = new(StringComparer.Ordinal);
@@ -90,7 +104,7 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
             textures[entry.Id] = $"{pack.Directory}/{entry.Payload.GetProperty("path").GetString()}";
         }
 
-        MightAndMagic7Scene scene = new(world, clock, tuning) { _corpses = corpses };
+        MightAndMagic7Scene scene = new(world, clock, tuning) { _corpses = corpses, _combat = combat ?? (() => null) };
         foreach ((LoadedPack pack, _, ContentEntry entry) in catalog.Entries(SpriteDefinitionKind))
         {
             JsonElement sprite = entry.Payload;
@@ -179,8 +193,8 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
     /// where the creature fell, falling once and then lying still. A creature a body answers for is drawn as the body.
     /// </para>
     /// <para>
-    /// Every object is named by the content identity the reticle and the save use, so what is drawn is what is aimed
-    /// at; the view draws it under that name.
+    /// Every object is named by its owner's identity — a placement's content identity, which the reticle and the save
+    /// use, or a body's corpse serial — so what is drawn is what is aimed at; the view draws it under that name.
     /// </para>
     /// </remarks>
     public IReadOnlyList<SceneObject> Objects(PlaceId place, double seconds)
@@ -188,30 +202,28 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
         if (_world() is not { } world || world.Place != place) return [];
         if (_remembered != place)
         {
-            // A place entered or re-entered starts with no memory: a body already lying there lies still.
+            // A place entered or re-entered starts with no memory: a body already lying there lies still, and the place's
+            // decorations — which only an event changes — are read once.
             _remembered = place;
-            _lastPose.Clear();
             _fell.Clear();
-            foreach (Corpse body in _corpses?.In(place) ?? []) _fell[body.Content.ToString()] = double.NegativeInfinity;
+            foreach (Corpse body in _corpses?.In(place) ?? []) _fell[body.Serial] = double.NegativeInfinity;
+            _decorations.Clear();
+            foreach (PlacementDefinition placement in ((IInteractionWorld)world).Placements)
+            {
+                if (placement.Content.Kind != MightAndMagic7Interaction.DecorationPlacementKind) continue;
+                if (((placement.Source.GetInt32(DecorationFlagsField) ?? 0) & InvisibleDecoration) != 0) continue;
+                if (Look($"decoration-{placement.Source.GetInt32(DecorationListField)}") is { } sprite)
+                    _decorations.Add((placement.Content.ToString(), sprite, placement.Pose));
+            }
         }
 
-        List<SceneObject> objects = [];
-        IReadOnlyDictionary<PlacementContentId, string> states = States(world, place);
+        List<SceneObject> objects = [.. _decorations.Select(decoration => new SceneObject(decoration.Id, decoration.Sprite, decoration.Pose, seconds))];
         foreach (PlacementDefinition placement in ((IInteractionWorld)world).Placements)
         {
-            string id = placement.Content.ToString();
-            if (placement.Content.Kind == "decoration")
-            {
-                if (((placement.Source.GetInt32("flags") ?? 0) & 0x20) != 0) continue;
-                if (Look($"decoration-{placement.Source.GetInt32("descriptionId")}") is { } sprite)
-                    objects.Add(new SceneObject(id, sprite, placement.Pose, seconds));
-            }
-            else if (placement.Content.Kind == MightAndMagic7Containers.PilePlacementKind)
-            {
-                if (states.TryGetValue(placement.Content, out string? state) && state == MightAndMagic7Containers.SearchedState) continue;
-                if (Look($"object-{placement.Source.GetInt32("objectDescId")}") is { } sprite)
-                    objects.Add(new SceneObject(id, sprite, placement.Pose, seconds));
-            }
+            if (placement.Content.Kind != MightAndMagic7Containers.PilePlacementKind) continue;
+            if (!MightAndMagic7Containers.PileLies(placement, world.Interactions.StateOf(place, placement.Content).State)) continue;
+            if (Look($"object-{placement.Source.GetInt32(ObjectListField)}") is { } sprite)
+                objects.Add(new SceneObject(placement.Content.ToString(), sprite, placement.Pose, seconds));
         }
 
         HashSet<PlacementContentId> bodies = [];
@@ -219,25 +231,23 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
         {
             bodies.Add(body.Content);
             if (Actions(body.Body) is not { } actions) continue;
-            string id = body.Content.ToString();
-            if (!_fell.TryGetValue(id, out double fell)) _fell[id] = fell = seconds;
+            if (!_fell.TryGetValue(body.Serial, out double fell)) _fell[body.Serial] = fell = seconds;
             SceneSprite? dying = actions[Dying].Length > 0 ? Sprite(actions[Dying]) : null;
-            bool falling = dying is not null && seconds - fell < dying.Seconds.Sum();
+            bool falling = dying is not null && seconds - fell < dying.TotalSeconds;
             string sprite = falling ? actions[Dying] : actions[Dead].Length > 0 ? actions[Dead] : actions[Dying];
-            if (sprite.Length > 0) objects.Add(new SceneObject("body:" + id, sprite, body.Body.Pose, falling ? seconds - fell : double.MaxValue, Loop: false));
+
+            // A body is the corpse ground's own record, named by its serial: the creature it was shares its content
+            // identity, and the two must never be drawn as one object.
+            if (sprite.Length > 0)
+                objects.Add(new SceneObject($"corpse:{body.Serial}", sprite, body.Body.Pose, falling ? seconds - fell : double.MaxValue, Loop: false));
         }
 
         foreach (PlacePopulationEntity entity in world.Population.Entities)
         {
             if (!entity.IsAlive || bodies.Contains(entity.Content) || Actions(entity.Placement) is not { } actions) continue;
-            string id = entity.Content.ToString();
-            PlacePose pose = entity.Pose;
-
-            // A creature walks while it is moving: it moved since it was last drawn, or did so within the last half second.
-            bool moving = _lastPose.TryGetValue(id, out var last) && (last.Pose.DistanceTo(pose) > 1 || seconds - last.Seconds < 0.5);
-            if (!_lastPose.TryGetValue(id, out var previous) || previous.Pose.DistanceTo(pose) > 1) _lastPose[id] = (pose, seconds);
-            string sprite = moving && actions[Walking].Length > 0 ? actions[Walking] : actions[Standing];
-            if (sprite.Length > 0) objects.Add(new SceneObject(id, sprite, pose, seconds));
+            bool walking = world.Creatures?.IsWalking(CombatantId.Of(entity.Id)) == true;
+            string sprite = walking && actions[Walking].Length > 0 ? actions[Walking] : actions[Standing];
+            if (sprite.Length > 0) objects.Add(new SceneObject(entity.Content.ToString(), sprite, entity.Pose, seconds));
         }
 
         return objects;
@@ -246,23 +256,10 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
     /// <summary>A decoration's or object's sprite, or null when its look is hidden or content carries none.</summary>
     private string? Look(string look) => _looks.TryGetValue(look, out var found) && !found.Hidden && found.Sprite.Length > 0 ? found.Sprite : null;
 
-    /// <summary>A creature's eight animations, by the monster row its placement names, or null when content has no look.</summary>
+    /// <summary>A creature's or person's eight animations, by the row the fight reads it as, or null when it has no look.</summary>
     private IReadOnlyList<string>? Actions(PlacementDefinition placement) =>
-        placement.Source.GetId(MightAndMagic7Combat.MonsterField) is { Length: > 0 } row && int.TryParse(row, out int monster)
-            ? _monsters.GetValueOrDefault(monster)
-            : null;
+        _combat()?.RowOf(placement) is { } monster ? _monsters.GetValueOrDefault(monster) : null;
 
-    private static IReadOnlyDictionary<PlacementContentId, string> States(SessionWorld world, PlaceId place)
-    {
-        Dictionary<PlacementContentId, string> states = [];
-        foreach (PlacementDefinition placement in ((IInteractionWorld)world).Placements)
-        {
-            if (placement.Content.Kind != MightAndMagic7Containers.PilePlacementKind) continue;
-            states[placement.Content] = world.Interactions.StateOf(place, placement.Content).State;
-        }
-
-        return states;
-    }
 
     /// <inheritdoc />
     public bool IsClosed(PlaceId place, string door)

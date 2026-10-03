@@ -131,12 +131,15 @@ public sealed record SceneSprite(
     bool SelfLit,
     IReadOnlyList<double> Seconds)
 {
+    /// <summary>How long the whole animation runs.</summary>
+    public double TotalSeconds { get; } = Seconds.Sum();
+
     /// <summary>The frame shown a given time into the group's animation: looping, or held at the last frame.</summary>
     /// <param name="seconds">How far into the animation it is.</param>
     /// <param name="loop">Whether the animation repeats.</param>
     public int FrameAt(double seconds, bool loop)
     {
-        double total = Seconds.Sum();
+        double total = TotalSeconds;
         if (Seconds.Count <= 1 || total <= 0) return 0;
         double t = loop ? ((seconds % total) + total) % total : Math.Min(Math.Max(seconds, 0), total);
         for (int frame = 0; frame < Seconds.Count; frame++)

@@ -120,10 +120,15 @@ public sealed class WorldView : IWorldPresenter
             Light(loaded);
         }
 
-        changed |= Objects(party, seconds);
+        List<ulong> moved = [];
+        List<ulong> removed = [];
+        Objects(party, seconds, moved, removed);
 
         Aim(party.PlacePose);
+        // A place or a door that changed republishes the whole scene; otherwise only the objects that moved, appeared
+        // or left are sent, so a walking town costs what walks rather than the whole place.
         if (changed) Publish();
+        else if (moved.Count > 0 || removed.Count > 0) PublishObjects(moved, removed);
     }
 
     /// <inheritdoc />
@@ -352,6 +357,18 @@ public sealed class WorldView : IWorldPresenter
         }
     }
 
+    /// <summary>Sends only the objects that moved, appeared or left, then releases the sprites that left.</summary>
+    private void PublishObjects(List<ulong> moved, List<ulong> removed)
+    {
+        HashSet<ulong> wanted = [.. moved];
+        AppearanceFact[] upserts = [.. _drawn.Values.Where(drawn => wanted.Contains(drawn.ObjectId)).Select(drawn =>
+            new AppearanceFact(drawn.ObjectId, false, 0, new Transform(drawn.Position, Quaternion.Identity, Vector3.One),
+                drawn.Appearance, Visible: true, RenderLayer.Scene))];
+        Graphics.PublishChanges(new AppearanceChangesRequest(upserts, removed.ToArray(), ReadOnlyMemory<MeshJointAttachment>.Empty));
+        foreach (Appearance retired in _retiredSprites) retired.Dispose();
+        _retiredSprites.Clear();
+    }
+
     /// <summary>Lights the place as the game says it is lit now, changing the Engine's lights only when the answer moved.</summary>
     /// <remarks>
     /// The carried light has no inverse-power decay: a place's units are a few hundred to a body, so a physical falloff
@@ -433,12 +450,11 @@ public sealed class WorldView : IWorldPresenter
     /// facing turns to the eye, standing at its feet. Returns whether the published scene must change.
     /// </summary>
     /// <remarks>
-    /// A frame or a view that changes is set on the object's own sprite; only an object that moved, appeared, left or
-    /// changed its group republishes. An object whose group content does not carry is left out and noted once.
+    /// A frame or a view that changes is set on the object's own sprite; an object that moved, appeared, left or changed
+    /// its group is collected for the next publication. An object whose group content does not carry is left out and noted once.
     /// </remarks>
-    private bool Objects(PartyPoseOwner party, double seconds)
+    private void Objects(PartyPoseOwner party, double seconds, List<ulong> moved, List<ulong> removed)
     {
-        bool changed = false;
         HashSet<string> seen = new(StringComparer.Ordinal);
         PlacePose eye = party.PlacePose;
         foreach (SceneObject entity in _loaded is null ? [] : _rule.Objects(party.Place, seconds))
@@ -452,33 +468,51 @@ public sealed class WorldView : IWorldPresenter
             {
                 if (drawn.Cell != cell)
                 {
-                    Graphics.SetSpriteFrame(new SpriteFrameUpdateRequest(drawn.Appearance, cell));
-                    drawn.Cell = cell;
+                    try
+                    {
+                        Graphics.SetSpriteFrame(new SpriteFrameUpdateRequest(drawn.Appearance, cell));
+                        drawn.Cell = cell;
+                    }
+                    catch (EngineCallException refused)
+                    {
+                        Note($"Sprite '{entity.Sprite}' refused frame {cell}, so it keeps the frame it shows: {refused.Message}");
+                    }
                 }
 
                 if (drawn.Position != position)
                 {
                     drawn.Position = position;
-                    changed = true;
+                    moved.Add(drawn.ObjectId);
                 }
 
                 continue;
             }
 
-            Appearance appearance = Graphics.CreateSpriteFromAtlas(Request(sheet, cell));
+            Appearance appearance;
+            try
+            {
+                appearance = Graphics.CreateSpriteFromAtlas(Request(sheet, cell));
+            }
+            catch (EngineCallException refused)
+            {
+                // A group the Engine will not draw is set aside for the session, said once, and its objects not drawn.
+                Note($"Sprite '{entity.Sprite}' could not be drawn, so what shows it is not drawn: {refused.Message}");
+                sheet.Dispose();
+                _sheets[entity.Sprite] = null;
+                continue;
+            }
+
             if (drawn is not null) _retiredSprites.Add(drawn.Appearance);
             _drawn[entity.Id] = new Drawn(entity.Sprite, ObjectIdOf(entity.Id), appearance) { Cell = cell, Position = position };
-            changed = true;
+            moved.Add(_drawn[entity.Id].ObjectId);
         }
 
         foreach (string gone in _drawn.Keys.Where(id => !seen.Contains(id)).ToList())
         {
             _retiredSprites.Add(_drawn[gone].Appearance);
+            removed.Add(_drawn[gone].ObjectId);
             _drawn.Remove(gone);
-            changed = true;
         }
-
-        return changed;
     }
 
     /// <summary>
@@ -516,6 +550,11 @@ public sealed class WorldView : IWorldPresenter
         if (_scenes.Sprite(id) is not { } sprite)
         {
             Note($"Sprite '{id}' is not in the loaded content, so what shows it is not drawn.");
+        }
+        else if (sprite.Columns <= 0 || sprite.CellWidth <= 0 || sprite.CellHeight <= 0 || sprite.Width <= 0 || sprite.Height <= 0
+            || sprite.Scale <= 0 || sprite.Seconds.Count == 0 || sprite.Views is not (1 or 8))
+        {
+            Note($"Sprite '{id}' states no drawable cells, so what shows it is not drawn.");
         }
         // A sprite is sampled texel by texel, as the original's are drawn, so a cell never blends with its neighbour's.
         else if (Texture(sprite.Texture, TextureWrap.Clamp, TextureFilter.Nearest) is { } texture)

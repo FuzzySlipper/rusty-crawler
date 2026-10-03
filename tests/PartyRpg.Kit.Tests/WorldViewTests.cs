@@ -134,7 +134,7 @@ public sealed class WorldViewTests
             Assert.Contains(graphics.Calls.CallsTo(nameof(IGraphicsService.SetSpriteFrame)),
                 call => ((SpriteFrameUpdateRequest)call[0]!).FrameId == 8u);
 
-            // Turned away, it shows its back; moved, it is republished; gone, it is removed.
+            // Turned away, it shows its back; moved, only it is sent; gone, it is removed.
             rule.Things = [rule.Things[0] with { Feet = new PlacePose(500, 200, 0, 0, 0), Seconds = 0 }];
             view.Present(party, 0.7);
             Assert.Contains(graphics.Calls.CallsTo(nameof(IGraphicsService.SetSpriteFrame)),
@@ -142,10 +142,13 @@ public sealed class WorldViewTests
             int published = graphics.Snapshots.Count;
             rule.Things = [rule.Things[0] with { Feet = new PlacePose(450, 200, 0, 0, 0) }];
             view.Present(party, 0.8);
-            Assert.Equal(published + 1, graphics.Snapshots.Count);
+            Assert.Equal(published, graphics.Snapshots.Count);
+            AppearanceChangesRequest step = (AppearanceChangesRequest)graphics.Calls.CallsTo(nameof(IGraphicsService.PublishChanges))[^1][0]!;
+            Assert.Equal(new Vector3(450, 0, -200), Assert.Single(step.Upserts.ToArray()).Transform.Translation);
             rule.Things = [];
             view.Present(party, 0.9);
-            Assert.DoesNotContain(graphics.Snapshots[^1], fact => fact.ObjectId >= 1UL << 44);
+            AppearanceChangesRequest gone = (AppearanceChangesRequest)graphics.Calls.CallsTo(nameof(IGraphicsService.PublishChanges))[^1][0]!;
+            Assert.Single(gone.Removals.ToArray());
         });
 
     [Fact]

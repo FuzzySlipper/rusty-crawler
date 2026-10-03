@@ -1942,6 +1942,19 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     private MonsterFacts? PersonFacts(CombatSubject subject) =>
         IsPerson(subject) && subject.Placement is { } placement ? PersonFacts(placement) : null;
 
+    /// <summary>
+    /// The monster row a placement fights as — the row a creature names, or for a person the row it names or the shipped
+    /// peasant — or null when it is neither; the one reading a fight and a drawing share.
+    /// </summary>
+    internal int? RowOf(PlacementDefinition placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        if (PersonFacts(placement) is { } person) return person.Id;
+        return int.TryParse(placement.Source.GetId(MonsterField), NumberStyles.None, CultureInfo.InvariantCulture, out int id) && _monsters.ContainsKey(id)
+            ? id
+            : null;
+    }
+
     /// <summary>The monster row a person placement fights as, which is the row it names or the shipped peasant.</summary>
     private MonsterFacts? PersonFacts(PlacementDefinition placement)
     {
