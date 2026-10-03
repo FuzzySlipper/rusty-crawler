@@ -113,9 +113,6 @@ public sealed class EngineCreatureMotion : ICreatureMover
     /// <summary>How many creatures this mover has moved at least once.</summary>
     public int Walkers => _walkers.Count;
 
-    /// <inheritdoc />
-    public bool IsWalking(CombatantId creature) => _walkers.ContainsKey(creature);
-
     /// <summary>The creatures the engine could not step, each with why it is held.</summary>
     public IReadOnlyDictionary<CombatantId, Refusal> Held => _held;
 

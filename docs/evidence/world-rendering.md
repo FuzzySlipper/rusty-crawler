@@ -49,8 +49,8 @@ discovery. Falls on that route cost hit points (movement's own rule).
 
 ## Limits
 
-People, creatures, objects and bodies are not drawn yet (#9218: the Temple's Giant Bats were engaged but unseen);
-interaction and combat changes beyond a door part's state are #9219, as is the audit of the presentation-only event
-steps the ruleset passes over. Distance fog and tone mapping are not in the pinned Engine pair's camera service, so
+People, creatures, objects and bodies are drawn by #9218 ([reading](world-objects.md)); interaction and combat
+changes are #9219's ([reading](world-interaction.md)), whose audit routed the event steps that change a place's look
+to #9254. Distance fog and tone mapping are not in the pinned Engine pair's camera service, so
 none is applied. The door faces keep their texture coordinates as the door moves (the donor slides them). No GPU
 timing or frame-rate claim follows from these captures.

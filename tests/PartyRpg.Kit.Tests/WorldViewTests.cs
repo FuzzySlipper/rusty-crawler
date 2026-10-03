@@ -152,6 +152,26 @@ public sealed class WorldViewTests
         });
 
     [Fact]
+    public void A_burst_the_rule_reports_is_emitted_once_where_it_happened()
+    {
+        (IPresentationService presentation, RecordingEngineService<IPresentationService> emitted) = RecordingEngineService<IPresentationService>.Create();
+        WithView((view, rule, _, _, party) =>
+        {
+            view.Present(party, 0);
+            Assert.Empty(emitted.Calls);
+
+            rule.Due.Add(new SceneBurst(new PlacePose(500, 200, 96, 0, 0), new Vector3(1, 0, 0), 8, 14, 0.3f, 120, "blow-struck"));
+            view.Present(party, 0.1);
+            view.Present(party, 0.2);
+            PresentationParticleDescriptor burst = (PresentationParticleDescriptor)Assert.Single(emitted.CallsTo(nameof(IPresentationService.EmitParticles)))[0]!;
+            Assert.Equal("blow-struck", burst.SignalId);
+            Assert.Equal(new Vector3(500, 96, -200), burst.Anchor.Position);
+            Assert.Equal(8u, burst.BurstCount);
+            Assert.Equal((new Vector3(-120), new Vector3(120)), (burst.VelocityMin, burst.VelocityMax));
+        }, presentation: presentation);
+    }
+
+    [Fact]
     public void Disposing_a_view_that_never_drew_asks_nothing_of_the_engine()
     {
         RecordingUiService ui = new();
@@ -161,7 +181,8 @@ public sealed class WorldViewTests
         view.Dispose();
     }
 
-    private static void WithView(Action<WorldView, Rule, RecordingGraphicsService, RecordingEngineService<ICameraViewService>, PartyPoseOwner> test, bool refuseImages = false)
+    private static void WithView(Action<WorldView, Rule, RecordingGraphicsService, RecordingEngineService<ICameraViewService>, PartyPoseOwner> test, bool refuseImages = false,
+        IPresentationService? presentation = null)
     {
         byte[] mesh = Mesh();
         RecordingGraphicsService graphics = new((method, arguments) =>
@@ -175,7 +196,7 @@ public sealed class WorldViewTests
             nameof(IContentService.ReadBytes) => (true, (ReadOnlyMemory<byte>)mesh.AsMemory((int)((ContentReadBytesRequest)arguments[0]!).Offset)),
             _ => (false, null),
         });
-        FakeEngineContext engine = new(new RecordingUiService(), content: content, graphics: graphics, cameras: cameras);
+        FakeEngineContext engine = new(new RecordingUiService(), content: content, graphics: graphics, cameras: cameras, presentation: presentation);
         Rule rule = new();
         using WorldView view = new(engine, new Scenes(), rule, Space);
         PartyPoseOwner party = new(new PartyPose(Place, new PlacePose(100, 200, 0, 0, 0)), Facing);
@@ -231,5 +252,14 @@ public sealed class WorldViewTests
         public IReadOnlyList<SceneObject> Things { get; set; } = [];
 
         public IReadOnlyList<SceneObject> Objects(PlaceId place, double seconds) => Things;
+
+        public List<SceneBurst> Due { get; } = [];
+
+        public IReadOnlyList<SceneBurst> Bursts(PlaceId place, double seconds)
+        {
+            SceneBurst[] due = [.. Due];
+            Due.Clear();
+            return due;
+        }
     }
 }

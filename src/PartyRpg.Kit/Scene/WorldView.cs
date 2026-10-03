@@ -68,6 +68,7 @@ public sealed class WorldView : IWorldPresenter
     private readonly Dictionary<string, Sheet?> _sheets = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Drawn> _drawn = new(StringComparer.Ordinal);
     private readonly List<Appearance> _retiredSprites = [];
+    private readonly List<Sheet> _setAside = [];
 
     /// <summary>Creates the view. Nothing is drawn until the first <see cref="Present"/>.</summary>
     /// <param name="engine">
@@ -123,6 +124,7 @@ public sealed class WorldView : IWorldPresenter
         List<ulong> moved = [];
         List<ulong> removed = [];
         Objects(party, seconds, moved, removed);
+        if (_loaded is not null) Bursts(party.Place, seconds);
 
         Aim(party.PlacePose);
         // A place or a door that changed republishes the whole scene; otherwise only the objects that moved, appeared
@@ -145,6 +147,7 @@ public sealed class WorldView : IWorldPresenter
         foreach (Drawn drawn in _drawn.Values) drawn.Appearance.Dispose();
         foreach (Appearance retired in _retiredSprites) retired.Dispose();
         foreach (Sheet? sheet in _sheets.Values) sheet?.Dispose();
+        foreach (Sheet sheet in _setAside) sheet.Dispose();
         _drawn.Clear();
         _camera?.Dispose();
         _ambient?.Dispose();
@@ -357,6 +360,50 @@ public sealed class WorldView : IWorldPresenter
         }
     }
 
+    /// <summary>
+    /// Emits the bursts the rule reports as Engine particle bursts at their points; a burst the Engine refuses is noted
+    /// once and the update goes on, since a mark that cannot be shown changes nothing it marks.
+    /// </summary>
+    private void Bursts(PlaceId place, double seconds)
+    {
+        foreach (SceneBurst burst in _rule.Bursts(place, seconds))
+        {
+            Vector3 at = _space.GroundPosition(burst.At);
+            Color start = new(burst.Colour.X, burst.Colour.Y, burst.Colour.Z, 1f);
+            Color end = new(burst.Colour.X, burst.Colour.Y, burst.Colour.Z, 0f);
+            uint count = (uint)Math.Clamp(burst.Count, 1, 256);
+            try
+            {
+                PresentationParticleEmissionReceipt receipt = _engine.Presentation.EmitParticles(new PresentationParticleDescriptor
+                {
+                    SignalId = burst.Label,
+                    Visible = true,
+                    Anchor = new PresentationAnchor(PresentationAnchorKind.World, at, 0, Vector3.Zero),
+                    Visual = PresentationParticleVisual.Cube,
+                    BurstCount = count,
+                    MaxParticles = count,
+                    LifetimeMinSeconds = burst.Seconds * 0.6f,
+                    LifetimeMaxSeconds = burst.Seconds,
+                    SizeCurve = new PresentationParticleScalarKey[] { new(0, burst.Size), new(1, burst.Size * 0.3f) },
+
+                    // Particles fly out every way at up to the burst's speed and fall back at twice it a second, so a
+                    // burst sprays from its point rather than sitting on it.
+                    VelocityMin = new Vector3(-burst.Speed),
+                    VelocityMax = new Vector3(burst.Speed),
+                    Acceleration = new Vector3(0, -2 * burst.Speed, 0),
+                    ColorCurve = new PresentationParticleColorKey[] { new(0, start), new(1, end) },
+                    Seed = (ulong)(Math.Abs(seconds * 1000) % 9_000_000_000_000_000),
+                });
+                if (receipt.Outcome == PresentationParticleEmissionOutcome.Dropped)
+                    Note($"A '{burst.Label}' burst was dropped by the Engine's particle budget.");
+            }
+            catch (EngineCallException refused)
+            {
+                Note($"A '{burst.Label}' burst could not be shown: {refused.Message}");
+            }
+        }
+    }
+
     /// <summary>Sends only the objects that moved, appeared or left, then releases the sprites that left.</summary>
     private void PublishObjects(List<ulong> moved, List<ulong> removed)
     {
@@ -440,9 +487,20 @@ public sealed class WorldView : IWorldPresenter
         }
     }
 
+    /// <summary>Keeps a note once and reports it where the session's other composition notes go.</summary>
     private void Note(string note)
     {
-        if (!_notes.Contains(note, StringComparer.Ordinal)) _notes.Add(note);
+        if (_notes.Contains(note, StringComparer.Ordinal)) return;
+        _notes.Add(note);
+        try
+        {
+            _engine.Diagnostics?.Publish(new DiagnosticsPublishRequest(
+                DiagnosticsSeverity.Warning, DiagnosticsDisposition.Degraded, Source: "scene", Code: "scene-note", Message: note, Correlation: string.Empty));
+        }
+        catch (EngineCallException)
+        {
+            // The note is kept in Notes; a diagnostics sink that refuses it must not stop the update it describes.
+        }
     }
 
     /// <summary>
@@ -496,8 +554,9 @@ public sealed class WorldView : IWorldPresenter
             catch (EngineCallException refused)
             {
                 // A group the Engine will not draw is set aside for the session, said once, and its objects not drawn.
+                // The atlas is kept until the view is released: sprites already cut from it may still be drawn.
                 Note($"Sprite '{entity.Sprite}' could not be drawn, so what shows it is not drawn: {refused.Message}");
-                sheet.Dispose();
+                _setAside.Add(sheet);
                 _sheets[entity.Sprite] = null;
                 continue;
             }

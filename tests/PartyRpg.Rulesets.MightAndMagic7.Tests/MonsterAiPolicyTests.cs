@@ -278,7 +278,7 @@ public sealed class MonsterAiPolicyTests
     }
 
     /// <summary>One content set, its world, and the fight and policy composed over it.</summary>
-    private sealed class Fixture
+    internal sealed class Fixture
     {
         private Fixture(ContentCatalog catalog, (string Path, string Text)[] files, MightAndMagic7MonsterAi ai, MightAndMagic7Combat combat)
         {
@@ -329,12 +329,18 @@ public sealed class MonsterAiPolicyTests
             _session = MightAndMagic7Ruleset.Instance.CreateSession(RulesetTestContext.RulesetContext(context, ui, combat: true));
             _session.Start();
             _session.Update(RulesetTestContext.Update(1, 1));
-            _fight = ((MightAndMagic7Session)_session).Combat!;
+            // The suite's helpers read the last fight through a static, which a suite running in parallel can replace,
+            // so the caller is given this session's own fight.
+            CombatState fight = ((MightAndMagic7Session)_session).Combat!;
+            _fight = fight;
             _ai = Ai;
-            return _fight;
+            return fight;
         }
 
         private IGameSession? _session;
+
+        /// <summary>The session <see cref="Fight"/> composed, which another suite reads the fight's owners from.</summary>
+        internal MightAndMagic7Session Session => (MightAndMagic7Session)_session!;
 
         /// <summary>What the session's own random service answers, when a test states it.</summary>
         private long? EngineRoll { get; init; }

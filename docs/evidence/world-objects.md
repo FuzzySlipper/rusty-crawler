@@ -36,8 +36,8 @@ balance; the fight panel reports the party down.
 
 ## Limits
 
-Creatures choose between their standing and walking groups from their own movement; attack, hit and fidget groups are
-not driven yet (#9219 owns combat feedback). Ordinary-play motion was harder to frame than the staged burst: the
+Creatures choose between their standing and walking groups from their own movement; attack and hit groups and the
+blow bursts are #9219's ([world interaction reading](world-interaction.md)); fidget groups are not driven. Ordinary-play motion was harder to frame than the staged burst: the
 attacked town's people flee, and chasing one walked the party off the dock into water, where the water rule drowned
 two members — movement's rule, recorded rather than worked around. Decorations that events hide or change, and
-sprite-swap event steps, are #9219's audit.
+sprite-swap event steps, are routed by #9219's audit to #9254.

@@ -656,12 +656,13 @@ that reaches a move takes it through the one transition path instead (the hostel
 47); a run that reaches neither keeps the party outside with what it said (`InteractionOutcome.KeptOut`, a shop closed
 while Harmondale is besieged); and a run refused at a step this game does not read opens the house as before, the
 refusal its residue. **Presentation, passed over**: the
-product draws a place's imported geometry but does not yet interpret the steps that change how it looks, and plays no
+product draws a place's imported geometry but does not yet interpret the steps that change how it looks (their
+operands are not imported; rusty-crawler#9254 receives the texture, sprite, light and face-visibility changes), and plays no
 sound, so `set-texture`, `set-sprite`, `play-sound`, `character-animation`,
 `toggle-indoor-light`, `show-movie` (the three effects the donor's player hangs on a movie's name — the arbiter's
 alignment and the crossing's week of rest, `OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:288-300` — are the
 executable's and are not kept: this build's path is the class a promotion chooses), and a `set-faces-bit` that only hides a face group or makes it fluid change nothing and the
-event's gameplay steps still run — a decision, not a deferral (a fluid face is not water a party drowns in, and its
+event's gameplay steps still run — fluid by decision, hiding routed to #9254 for drawing (a fluid face is not water a party drowns in, and its
 footsteps, splash and sinking corpses are not modelled); a `set-faces-bit` that sets or clears passability
 keeps `face-passable:<group>` on the same interaction ledger and updates collision. Zero is no face group. The variables, each through its owner: `quest-bit` (the
 party record `errand:<bit>` the conversation already reads), `member-bit` (a party record — the donor's is per
@@ -954,4 +955,15 @@ corpse ground where the creature fell, falling once (the look's dying group) and
 already lying when the party arrives lies still. A view is chosen around the object's facing by the donor's octant rule
 (OpenEnroth `src/Engine/Graphics/Renderer/BaseRenderer.cpp:105-106`), which the kit's view applies in radians. Objects
 are drawn under the content identity the reticle and the save use.
+
+What the fight resolved shows on what it touched, read from the fight's own `CombatState.RecentBlows` (each applied
+order with a serial that only grows): a creature that struck plays its melee or ranged group once, a creature struck
+plays its hit group once, and a creature walks while the director's last decision for it closes or backs away and it
+has moved since the last frame (a turn-based creature keeps that decision while it waits, so it stands). Every blow the
+fight resolves against a creature or person of the population sprays one brief Engine particle burst from three-fifths
+of its look's height — red for a hit, grey for a miss, pale blue for a spell; a blow on a party member has no point in
+the world and shows only as the striker's attack. The colours, counts, speeds and the burst itself are ours (the
+donor's spell sprites are not drawn); nothing about a blow is decided here. Doors, levers and piles show the
+interaction ledger's state, so a save and a revisit rebuild them as they were. The [world interaction
+reading](../../docs/evidence/world-interaction.md) records a lever pulled, a creature struck and the state after resume.
 

@@ -21,6 +21,7 @@ public sealed class FakeEngineContext : IEngineContext
     private readonly IContentService? _content;
     private readonly IGraphicsService? _graphics;
     private readonly ICameraViewService? _cameras;
+    private readonly IPresentationService? _presentation;
     private readonly TestRandomService _random = new();
 
     public FakeEngineContext(
@@ -29,7 +30,8 @@ public sealed class FakeEngineContext : IEngineContext
         ISpatialService? spatial = null,
         IContentService? content = null,
         IGraphicsService? graphics = null,
-        ICameraViewService? cameras = null)
+        ICameraViewService? cameras = null,
+        IPresentationService? presentation = null)
     {
         Ui = ui;
         _persistence = persistence;
@@ -37,6 +39,7 @@ public sealed class FakeEngineContext : IEngineContext
         _content = content;
         _graphics = graphics;
         _cameras = cameras;
+        _presentation = presentation;
     }
 
     /// <summary>The random service this context answers with, which a test states the roll of.</summary>
@@ -87,7 +90,8 @@ public sealed class FakeEngineContext : IEngineContext
     /// </summary>
     public IGraphicsService Graphics => _graphics ?? Unsupported<IGraphicsService>();
 
-    public IPresentationService Presentation => Unsupported<IPresentationService>();
+    /// <summary>Absent unless a test asks for a recording one: the world view emits a resolved blow's burst through it.</summary>
+    public IPresentationService Presentation => _presentation ?? Unsupported<IPresentationService>();
 
     public IAnimationService Animation => Unsupported<IAnimationService>();
 

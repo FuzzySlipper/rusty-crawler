@@ -87,6 +87,11 @@ public interface ISceneRule
     /// <param name="place">The place.</param>
     /// <param name="seconds">The session's admitted time, which an animation is read against.</param>
     IReadOnlyList<SceneObject> Objects(PlaceId place, double seconds);
+
+    /// <summary>The bursts to emit now: what the place's owners resolved since the last time the view asked.</summary>
+    /// <param name="place">The place.</param>
+    /// <param name="seconds">The session's admitted time.</param>
+    IReadOnlyList<SceneBurst> Bursts(PlaceId place, double seconds) => [];
 }
 
 /// <summary>
@@ -159,3 +164,16 @@ public sealed record SceneSprite(
 /// <param name="Seconds">How far into the group's animation it is.</param>
 /// <param name="Loop">Whether that animation repeats; one that does not holds its last frame.</param>
 public sealed record SceneObject(string Id, string Sprite, PlacePose Feet, double Seconds, bool Loop = true);
+
+/// <summary>
+/// A brief burst at a point in the world that marks what a resolved act did there: a blow that landed, one that missed,
+/// a spell that struck. It is emitted once and the Engine retires it; nothing keeps it.
+/// </summary>
+/// <param name="At">Where, in the place's own coordinates; its height is the burst's centre.</param>
+/// <param name="Colour">Its colour, linear RGB.</param>
+/// <param name="Count">How many particles it throws.</param>
+/// <param name="Size">How large each particle starts, in place units.</param>
+/// <param name="Seconds">How long the burst lasts.</param>
+/// <param name="Speed">How fast its particles fly out from the point, in place units a second, before they fall.</param>
+/// <param name="Label">What it marks, for the Engine's report of the emission.</param>
+public sealed record SceneBurst(PlacePose At, Vector3 Colour, int Count, float Size, float Seconds, float Speed, string Label);

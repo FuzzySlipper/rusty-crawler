@@ -544,3 +544,7 @@ when it first draws. `LoadedPack.Directory` lets a ruleset name a file beside a 
 canonical identity — as a cylindrical billboard cut from its `SceneSprite` atlas (an Engine sprite atlas per group,
 opened once and sampled nearest), showing the frame its time selects and the view its facing turns to the eye; a frame
 or view change is set on its sprite, and only an object that moved, appeared, left or changed group republishes. The product disables the Engine's default light rig, so the scene is lit only by those lights.
+Each `SceneBurst` the rule reports (`ISceneRule.Bursts`, empty by default) is emitted once as an Engine particle burst at
+its point; a refused or budget-dropped burst is noted once and changes nothing it marks. `CombatState.RecentBlows`
+keeps the fight's last applied orders, each with a growing serial, for a presentation to read without re-deciding;
+nothing saves it. The view's notes are also published as `scene-note` diagnostics.

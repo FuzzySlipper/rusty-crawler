@@ -46,7 +46,13 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
     internal const string LookDefinitionKind = "look";
 
     /// <summary>A monster look's animations, in the donor's <c>ActorAnimation</c> order (OpenEnroth <c>ActorEnums.h:80-88</c>).</summary>
-    private const int Standing = 0, Walking = 1, Dying = 5, Dead = 6;
+    private const int Standing = 0, Walking = 1, Melee = 2, Ranged = 3, Hit = 4, Dying = 5, Dead = 6;
+
+    /// <summary>The height a blow's mark assumes for a creature content gives no look, about a person's.</summary>
+    private const int UnlookedHeight = 160;
+
+    /// <summary>The least time a one-shot action shows for, so a group with no frame lengths still shows at all.</summary>
+    private const double ShortestAction = 0.25;
 
     private readonly Dictionary<PlaceId, PlaceScene> _scenes = [];
     private readonly Dictionary<string, SceneSprite> _sprites = new(StringComparer.Ordinal);
@@ -60,6 +66,18 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
     private readonly List<(string Id, string Sprite, PlacePose Pose)> _decorations = [];
     private PlaceId? _remembered;
     private Func<MightAndMagic7Combat?> _combat = () => null;
+    private Func<CombatState?> _fight = () => null;
+    private Func<CombatDirector?> _director = () => null;
+
+    // What the fight resolved, as presentation remembers it: the last blow shown, when each creature last struck and
+    // was struck, the bursts not yet emitted, and each drawn creature's row. Forgotten with the place.
+    private long _seenBlow = -1;
+    private readonly Dictionary<CombatantId, (double Start, int Action)> _acting = [];
+    private readonly Dictionary<CombatantId, double> _struck = [];
+    private readonly List<SceneBurst> _bursts = [];
+    private readonly Dictionary<PlacementContentId, int?> _rows = [];
+    private readonly Dictionary<int, int> _heights = [];
+    private readonly Dictionary<CombatantId, (PlacePose Pose, PlacementDefinition Placement)> _lastSeen = [];
 
     /// <summary>A map decoration's row in the decoration list, as the importer writes it.</summary>
     private const string DecorationListField = "descriptionId";
@@ -95,7 +113,8 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
     /// <param name="clock">The session's one clock, read when the light is asked about.</param>
     /// <param name="tuning">The selected tuning, which holds the view's and the light's adjustable values.</param>
     internal static MightAndMagic7Scene? Read(ContentCatalog? catalog, Func<SessionWorld?> world, GameClock clock, TuningProfile tuning,
-        CorpseGround? corpses = null, Func<MightAndMagic7Combat?>? combat = null)
+        CorpseGround? corpses = null, Func<MightAndMagic7Combat?>? combat = null, Func<CombatState?>? fight = null,
+        Func<CombatDirector?>? director = null)
     {
         if (catalog is null) return null;
         Dictionary<string, string> textures = new(StringComparer.Ordinal);
@@ -104,7 +123,7 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
             textures[entry.Id] = $"{pack.Directory}/{entry.Payload.GetProperty("path").GetString()}";
         }
 
-        MightAndMagic7Scene scene = new(world, clock, tuning) { _corpses = corpses, _combat = combat ?? (() => null) };
+        MightAndMagic7Scene scene = new(world, clock, tuning) { _corpses = corpses, _combat = combat ?? (() => null), _fight = fight ?? (() => null), _director = director ?? (() => null) };
         foreach ((LoadedPack pack, _, ContentEntry entry) in catalog.Entries(SpriteDefinitionKind))
         {
             JsonElement sprite = entry.Payload;
@@ -128,7 +147,10 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
             if (look.TryGetProperty("actions", out JsonElement actions))
             {
                 if (int.TryParse(entry.Id.AsSpan("monster-".Length), out int monster))
+                {
                     scene._monsters[monster] = [.. actions.EnumerateArray().Select(action => action.GetString() ?? string.Empty)];
+                    if (look.TryGetProperty("height", out JsonElement height)) scene._heights[monster] = height.GetInt32();
+                }
                 continue;
             }
 
@@ -206,6 +228,12 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
             // decorations — which only an event changes — are read once.
             _remembered = place;
             _fell.Clear();
+            _acting.Clear();
+            _struck.Clear();
+            _bursts.Clear();
+            _rows.Clear();
+            _lastSeen.Clear();
+            _seenBlow = _fight()?.RecentBlows is { Count: > 0 } before ? before[^1].Serial : 0;
             foreach (Corpse body in _corpses?.In(place) ?? []) _fell[body.Serial] = double.NegativeInfinity;
             _decorations.Clear();
             foreach (PlacementDefinition placement in ((IInteractionWorld)world).Placements)
@@ -242,23 +270,99 @@ internal sealed class MightAndMagic7Scene : IPlaceSceneSource, ISceneRule
                 objects.Add(new SceneObject($"corpse:{body.Serial}", sprite, body.Body.Pose, falling ? seconds - fell : double.MaxValue, Loop: false));
         }
 
+        // Where each creature stood when the fight last resolved, so a blow that fells it still marks where it stood, and
+        // where it stood the frame before, so only a creature that actually moved walks. What the population no longer
+        // holds (a creature gone, or a place repopulated under new identities) is forgotten.
+        Dictionary<CombatantId, PlacePose> previous = _lastSeen.ToDictionary(seen => seen.Key, seen => seen.Value.Pose);
+        HashSet<CombatantId> present = [];
+        foreach (PlacePopulationEntity entity in world.Population.Entities)
+        {
+            if (!entity.IsAlive) continue;
+            CombatantId id = CombatantId.Of(entity.Id);
+            present.Add(id);
+            _lastSeen[id] = (entity.Pose, entity.Placement);
+        }
+
+        Absorb(seconds);
+        foreach (CombatantId gone in _lastSeen.Keys.Where(id => !present.Contains(id)).ToList()) _lastSeen.Remove(gone);
+        foreach (CombatantId gone in _acting.Keys.Where(id => !present.Contains(id)).ToList()) _acting.Remove(gone);
+        foreach (CombatantId gone in _struck.Keys.Where(id => !present.Contains(id)).ToList()) _struck.Remove(gone);
+        Dictionary<CombatantId, CreatureActivity> doing = [];
+        foreach (CreatureActivity activity in _director()?.Activity ?? []) doing[activity.Creature] = activity;
         foreach (PlacePopulationEntity entity in world.Population.Entities)
         {
             if (!entity.IsAlive || bodies.Contains(entity.Content) || Actions(entity.Placement) is not { } actions) continue;
-            bool walking = world.Creatures?.IsWalking(CombatantId.Of(entity.Id)) == true;
-            string sprite = walking && actions[Walking].Length > 0 ? actions[Walking] : actions[Standing];
-            if (sprite.Length > 0) objects.Add(new SceneObject(entity.Content.ToString(), sprite, entity.Pose, seconds));
+            CombatantId id = CombatantId.Of(entity.Id);
+
+            // What the creature shows is what the fight last made of it: its own blow while that animation runs, a blow
+            // it took while its flinch runs, walking while the director's last decision for it closes or backs away and it
+            // has moved since the last frame (a turn-based creature keeps that decision while it waits), standing otherwise.
+            (string Sprite, double Seconds, bool Loop) shown = (actions[Standing], seconds, true);
+            if (_acting.TryGetValue(id, out var act) && Running(actions[act.Action], seconds - act.Start))
+                shown = (actions[act.Action], seconds - act.Start, false);
+            else if (_struck.TryGetValue(id, out double struck) && Running(actions[Hit], seconds - struck))
+                shown = (actions[Hit], seconds - struck, false);
+            else if (doing.TryGetValue(id, out CreatureActivity moving) && moving.Applied
+                && moving.Action is CreatureActivityKind.Closing or CreatureActivityKind.BackingAway && actions[Walking].Length > 0
+                && previous.TryGetValue(id, out PlacePose was) && (was.X, was.Y, was.Z) != (entity.Pose.X, entity.Pose.Y, entity.Pose.Z))
+                shown = (actions[Walking], seconds, true);
+            if (shown.Sprite.Length > 0) objects.Add(new SceneObject(entity.Content.ToString(), shown.Sprite, entity.Pose, shown.Seconds, shown.Loop));
         }
 
         return objects;
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// A blow the fight resolved against a creature marks where it landed: a brief red flash for one that struck, a grey
+    /// one for a miss, and a pale blue one for a spell, sprayed from three-fifths of the creature's height. The colours, counts,
+    /// sizes and speeds are ours, a presentation reading of the blow rather than a rule anybody adjusts;
+    /// the donor shows a struck creature's flinch, which the creature's own sprite does here, and a spell's own sprite
+    /// effect, which these bursts stand in for.
+    /// </remarks>
+    public IReadOnlyList<SceneBurst> Bursts(PlaceId place, double seconds)
+    {
+        if (_bursts.Count == 0 || _remembered != place) return [];
+        SceneBurst[] due = [.. _bursts];
+        _bursts.Clear();
+        return due;
+    }
+
+    /// <summary>Takes in the blows the fight resolved since the last update: who struck, whom, and what came of it.</summary>
+    private void Absorb(double seconds)
+    {
+        if (_fight() is not { } fight) return;
+        foreach (CombatBlow blow in fight.RecentBlows)
+        {
+            if (blow.Serial <= _seenBlow || blow.Result.Initiated is not { } initiated) continue;
+            _seenBlow = blow.Serial;
+            _acting[initiated.Actor] = (seconds, initiated.Kind == AttackKind.Melee ? Melee : Ranged);
+            if (blow.Result.Resolution is not { } resolution) continue;
+            if (!_lastSeen.TryGetValue(resolution.Target, out var target)) continue;
+            if (resolution.Hit) _struck[resolution.Target] = seconds;
+            int height = _combat()?.RowOf(target.Placement) is { } row && _heights.TryGetValue(row, out int h) ? h : UnlookedHeight;
+            PlacePose middle = target.Pose with { Z = target.Pose.Z + (height * 0.6) };
+            _bursts.Add(initiated.Kind == AttackKind.Spell
+                ? new SceneBurst(middle, new Vector3(0.6f, 0.8f, 1f), 16, 10, 0.6f, 160, "spell-struck")
+                : resolution.Hit
+                    ? new SceneBurst(middle, new Vector3(0.9f, 0.1f, 0.05f), 12, 7, 0.4f, 120, "blow-struck")
+                    : new SceneBurst(middle, new Vector3(0.75f, 0.75f, 0.75f), 5, 5, 0.25f, 60, "blow-missed"));
+        }
+    }
+
+    /// <summary>Whether a one-shot animation is still running this far into it.</summary>
+    private bool Running(string sprite, double elapsed) =>
+        sprite.Length > 0 && Sprite(sprite) is { } group && elapsed >= 0 && elapsed < Math.Max(group.TotalSeconds, ShortestAction);
+
     /// <summary>A decoration's or object's sprite, or null when its look is hidden or content carries none.</summary>
     private string? Look(string look) => _looks.TryGetValue(look, out var found) && !found.Hidden && found.Sprite.Length > 0 ? found.Sprite : null;
 
     /// <summary>A creature's or person's eight animations, by the row the fight reads it as, or null when it has no look.</summary>
-    private IReadOnlyList<string>? Actions(PlacementDefinition placement) =>
-        _combat()?.RowOf(placement) is { } monster ? _monsters.GetValueOrDefault(monster) : null;
+    private IReadOnlyList<string>? Actions(PlacementDefinition placement)
+    {
+        if (!_rows.TryGetValue(placement.Content, out int? row)) _rows[placement.Content] = row = _combat()?.RowOf(placement);
+        return row is { } monster ? _monsters.GetValueOrDefault(monster) : null;
+    }
 
 
     /// <inheritdoc />

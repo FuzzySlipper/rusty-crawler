@@ -209,8 +209,10 @@ internal sealed class MightAndMagic7Fixtures
 
     /// <summary>
     /// The steps that change only what a player sees or hears: a texture, a sprite, a sound, a character's
-    /// portrait reacting, an interior light, a movie. The product draws no world and plays no sound, so a run passes
-    /// over them and the event's other steps still run.
+    /// portrait reacting, an interior light, a movie. A run passes over them and the event's other steps still run: the
+    /// importer does not yet carry the texture and sprite steps' operands, and the product plays no sound or movie. The
+    /// world-visible ones (texture, sprite, light, and the face-visibility bit) are routed to rusty-crawler#9254 with
+    /// their counts (<c>docs/evidence/world-interaction.md</c>).
     /// </summary>
     /// <remarks>
     /// The donor's player hangs three effects on a movie's name rather than on a step of the program — the alignment

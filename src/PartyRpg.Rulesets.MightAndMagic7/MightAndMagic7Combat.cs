@@ -1949,10 +1949,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     internal int? RowOf(PlacementDefinition placement)
     {
         ArgumentNullException.ThrowIfNull(placement);
-        if (PersonFacts(placement) is { } person) return person.Id;
-        return int.TryParse(placement.Source.GetId(MonsterField), NumberStyles.None, CultureInfo.InvariantCulture, out int id) && _monsters.ContainsKey(id)
-            ? id
-            : null;
+        return (PersonFacts(placement) ?? Creature(placement))?.Id;
     }
 
     /// <summary>The monster row a person placement fights as, which is the row it names or the shipped peasant.</summary>

@@ -1,3 +1,4 @@
+using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Scene;
 using PartyRpg.Kit.Time;
@@ -75,6 +76,40 @@ public sealed class ScenePolicyTests
     }
 
     [Fact]
+    public void A_blow_the_fight_resolved_shows_on_the_creature_it_struck_and_marks_it_once()
+    {
+        MonsterAiPolicyTests.Fixture fixture = MonsterAiPolicyTests.Fixture.Of(engineRoll: 0);
+        CombatState fight = fixture.Fight();
+        MightAndMagic7Session session = fixture.Session;
+        MightAndMagic7Scene scene = MightAndMagic7Scene.Read(Content(), () => session.World, MightAndMagic7Time.Compose(), MightAndMagic7Tuning.Read(null),
+            combat: () => fixture.Combat, fight: () => session.Combat, director: () => session.Owners.Director)!;
+        PlaceId place = session.World!.Place;
+        string beast = fixture.Combatant(fight, "beast").Subject.Placement!.Content.ToString();
+
+        // Before any blow the creature stands, and there is nothing to mark.
+        Assert.Equal("stand", scene.Objects(place, 0).Single(drawn => drawn.Id == beast).Sprite);
+        Assert.Empty(scene.Bursts(place, 0));
+
+        CombatantId member = fight.Combatants.First(actor => actor.Side == CombatSide.Party).Id;
+        CombatResult blow = fight.Order(new AttackOrder(member, AttackKind.Melee, fixture.Combatant(fight, "beast").Id));
+        Assert.True(blow.IsApplied, blow.Code);
+        bool hit = blow.Resolution!.Hit;
+
+        // The next frame shows what the blow did: a creature struck flinches, from the start of its flinch, and one
+        // burst marks where it stood; the mark is given once.
+        SceneObject struck = scene.Objects(place, 1).Single(drawn => drawn.Id == beast);
+        Assert.Equal(hit ? "hit" : "stand", struck.Sprite);
+        if (hit) Assert.Equal((0d, false), (struck.Seconds, struck.Loop));
+        SceneBurst mark = Assert.Single(scene.Bursts(place, 1));
+        Assert.Equal(hit ? "blow-struck" : "blow-missed", mark.Label);
+        Assert.True(mark.At.Z > 0);
+        Assert.Empty(scene.Bursts(place, 1.1));
+
+        // Once its flinch has run, it stands again.
+        Assert.Equal("stand", scene.Objects(place, 5).Single(drawn => drawn.Id == beast).Sprite);
+    }
+
+    [Fact]
     public void Content_without_render_entries_draws_nothing()
     {
         InMemoryContentSource source = new InMemoryContentSource()
@@ -103,9 +138,12 @@ public sealed class ScenePolicyTests
                 """
                 {"id":"frame-12","path":"sprites/frame-12.png","width":256,"height":96,"columns":8,"cellWidth":32,"cellHeight":48,
                  "octants":8,"scale":2,"centred":false,"lit":false,"seconds":[0.5,0.25]}
-                """))
+                """,
+                """{"id":"stand","path":"sprites/stand.png","width":32,"height":48,"columns":1,"cellWidth":32,"cellHeight":48,"octants":1,"scale":1,"centred":false,"lit":false,"seconds":[1]}""",
+                """{"id":"hit","path":"sprites/hit.png","width":64,"height":48,"columns":2,"cellWidth":32,"cellHeight":48,"octants":1,"scale":1,"centred":false,"lit":false,"seconds":[0.25,0.25]}"""))
             .Add("packs/media/looks.json", TestPacks.Document("looks", "look",
                 """{"id":"monster-151","height":160,"radius":40,"actions":["frame-12","frame-12","","","","","",""]}""",
+                """{"id":"monster-7","height":120,"radius":30,"actions":["stand","stand","","","hit","","",""]}""",
                 """{"id":"decoration-2","sprite":"","hidden":true}"""))
             .Add("packs/media/textures.json", TestPacks.Document("textures", "texture",
                 """{"id":"grastyl","path":"textures/grastyl.png"}""",

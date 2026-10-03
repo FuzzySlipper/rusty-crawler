@@ -57,6 +57,8 @@ public sealed partial class CombatState : IGameTimeObserver
     private readonly Dictionary<CombatantId, Combatant> _byId = [];
     private readonly HashSet<CombatantId> _provoked = [];
     private readonly List<Combatant> _combatants = [];
+    private readonly List<CombatBlow> _blows = [];
+    private long _blowSerial;
     private AttackInitiation? _lastAttack;
     private CombatResult? _lastOrder;
     private CombatResolution? _lastResolution;
@@ -263,6 +265,16 @@ public sealed partial class CombatState : IGameTimeObserver
     /// while recovering must be readable as a refusal rather than as a fight in which nothing was asked.
     /// </remarks>
     public CombatResult? LastOrder => _lastOrder;
+
+    /// <summary>
+    /// The fight's most recent applied orders, oldest first, each with a serial that only grows: a typed record of
+    /// completed blows that a presentation reads to show who struck, whom, and whether it landed, without re-deciding
+    /// anything. Bounded to the last <see cref="RecentBlowLimit"/>; nothing saves it.
+    /// </summary>
+    public IReadOnlyList<CombatBlow> RecentBlows => _blows;
+
+    /// <summary>How many applied orders <see cref="RecentBlows"/> keeps.</summary>
+    public const int RecentBlowLimit = 32;
 
     /// <summary>
     /// Re-reads the world: which actors are in the fight, on which side, how far off, and how they attack.
@@ -921,6 +933,12 @@ public sealed partial class CombatState : IGameTimeObserver
     private CombatResult Report(CombatResult result)
     {
         _lastOrder = result;
+        if (result.IsApplied && result.Initiated is not null)
+        {
+            _blows.Add(new CombatBlow(++_blowSerial, result));
+            if (_blows.Count > RecentBlowLimit) _blows.RemoveAt(0);
+        }
+
         ReconcileSelection();
         _diagnostics?.Publish(new DiagnosticsPublishRequest(
             DiagnosticsSeverity.Info,

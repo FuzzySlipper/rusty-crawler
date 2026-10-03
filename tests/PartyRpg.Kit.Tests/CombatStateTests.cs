@@ -233,6 +233,35 @@ public sealed class CombatStateTests
     }
 
     [Fact]
+    public void Applied_blows_are_recorded_in_order_with_growing_serials_and_refusals_are_not()
+    {
+        using PartyEntity party = Party();
+        using SessionWorld world = World(party, monsterAt: 100);
+        CombatState combat = Fight(world, party);
+        Arrive(world);
+        combat.Step();
+        Assert.Empty(combat.RecentBlows);
+
+        CombatantId member = combat.Combatants[0].Id;
+        CombatResult first = combat.Order(new AttackOrder(member, AttackKind.Melee, null));
+        Assert.Equal("recovering", combat.Order(new AttackOrder(member, AttackKind.Melee, null)).Code);
+        CombatBlow only = Assert.Single(combat.RecentBlows);
+        Assert.Same(first, only.Result);
+        Assert.Equal(member, only.Result.Initiated!.Actor);
+
+        // The record keeps only the latest blows, and a serial never repeats, so a reader can tell what is new.
+        for (int blow = 0; blow < CombatState.RecentBlowLimit + 3; blow++)
+        {
+            combat.Observe(Advance(1000));
+            Assert.True(combat.Order(new AttackOrder(member, AttackKind.Melee, null)).IsApplied);
+        }
+
+        Assert.Equal(CombatState.RecentBlowLimit, combat.RecentBlows.Count);
+        Assert.Equal(CombatState.RecentBlowLimit + 4, combat.RecentBlows[^1].Serial);
+        Assert.True(combat.RecentBlows.Zip(combat.RecentBlows.Skip(1)).All(pair => pair.Second.Serial == pair.First.Serial + 1));
+    }
+
+    [Fact]
     public void Ordinary_payload_and_declared_cycle_order_only_the_durable_selected_member()
     {
         using RecordingUiProjectionChannel channel = new();
