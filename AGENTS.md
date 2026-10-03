@@ -368,6 +368,18 @@ still be written here when a campaign needs one.
 
 ## Coverage execution and drift
 
+**A scrolling command panel is not a game-feature implementation.** Do not land features by
+adding commands, rows, buttons or collapsible sections to a growing panel. A game feature lands only
+through an original-game-adjacent interface or visible world control, reachable in ordinary play:
+the adventure HUD, a character or inventory screen, spellbook, town counter, conversation, book,
+rest screen, or an actual world interaction. The layout and art may be ours; the interface must
+express the feature as part of playing this game. Console/debug commands may expose the same
+canonical owners for agent convenience, but neither they nor a scrolling-panel substitute satisfy
+feature acceptance. This applies to existing and new features: mechanism completion does not prove
+player-facing completion. Bounded scrolling within a deliberate screen's list is fine; a scrolling
+command dump is not the screen. Evidence must show the ordinary visible control, its actual effect,
+and useful feedback; diagnostic access cannot stand in for that proof.
+
 **Build foundations first, one stone at a time.** Do not build vertical slices: a
 slice leaves stubs, placeholder values, and feature-local shortcuts that a later
 reconciliation campaign has to hunt down. The endpoint here is known, so each

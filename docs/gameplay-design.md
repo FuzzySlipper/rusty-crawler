@@ -333,6 +333,15 @@ values and reports intents, and owns no state, no rules, and no loop.
 **Fidelity.** The information architecture matches; layout, art, and
 interaction details are ours.
 
+**Landing a feature includes its interface.** The adventure HUD and distinct character,
+spellbook, service, conversation, book, rest and options screens are the ordinary player routes.
+Appending a command or control to one large scrolling panel does not implement a game feature.
+Agent console/debug commands are useful access to the same owners, but cannot satisfy this
+acceptance requirement. Bounded lists within a designed screen may scroll. The visible route must
+fit the original game's information and interaction shape, with our own layout/art and the shared
+party inventory, and show the real result and refusal where the player acts. The current general
+panel proves mechanisms; its replacement and world presentation still need player-facing acceptance.
+
 ### 3.12 Rules the shipped data does not carry — Ours
 
 Three rule families a designer would expect in the tables are not there; the

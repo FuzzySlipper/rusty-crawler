@@ -65,3 +65,17 @@ Cures and training therefore choose the member they were priced for. The bank am
 product for a fresh quote through `service.amount`; deposit and withdrawal buttons send that published
 quantity until the next projection replaces them. This is one transient counter selection, with no purse,
 holding, price arithmetic or eligibility in the companion. Counters without an offer show no action for it.
+
+## Player-facing acceptance
+
+The current all-sections panel is a mechanism-inspection surface. Its controls and contract tests
+remain useful, but it does not satisfy the game-feature landing rule in the repository's
+[AGENTS.md](../../AGENTS.md). Adding another row, command, button or collapsible section to that
+scrolling panel is not an ordinary feature implementation.
+
+The product must instead present a persistent adventure HUD and recognizable contextual screens
+or visible world controls, following [the interface design](../../docs/gameplay-design.md#311-interface-surfaces--match-information-architecture--ours-presentation).
+A screen may scroll a bounded list; it must organize the gameplay decision, show its actual
+result/refusal and preserve relevant party/world context. The companion continues to render the
+one product projection and report semantic actions; it acquires no gameplay or screen authority,
+clock or world renderer. Console/debug commands may call the existing canonical owners for agents.

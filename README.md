@@ -35,6 +35,13 @@ Bundle assembles. Host launches.**
 > them reports no world and no party. [`AGENTS.md`](AGENTS.md) states the shape and lists the residue with
 > each receiver; the project READMEs under [`src/`](src/README.md) hold the per-mechanism detail.
 
+The current DOM panel exposes these mechanisms over an empty world frame; it is not the completed
+player interface. The [ordinary-play assessment](docs/evidence/product-assessment-2026-10-02.md)
+records the visible gaps. A game feature lands through a recognizable game screen or visible world
+control, not by adding commands to a scrolling panel; agent console access remains useful. The
+[interface design](docs/gameplay-design.md#311-interface-surfaces--match-information-architecture--ours-presentation)
+and the blanket rule in `AGENTS.md` bind this presentation work.
+
 ## Ownership
 
 - Rusty Engine guarantees reusable infrastructure and admitted update services.
