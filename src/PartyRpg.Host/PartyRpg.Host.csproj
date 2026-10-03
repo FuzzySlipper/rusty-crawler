@@ -17,7 +17,7 @@
          ../ui/tsconfig.json, which the companion suite's own build reads too, so the tested and the shipped
          main.js are compiled the same way. -->
     <RustyEngineProductUiSourceRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../ui'))</RustyEngineProductUiSourceRoot>
-    <RustyEngineProductUiBuildCommand>npm --prefix &quot;$(MSBuildThisFileDirectory)../..&quot; exec -- tsc -p &quot;$(MSBuildThisFileDirectory)../ui/tsconfig.json&quot; --outDir &quot;$(RustyEngineProductUiRoot)&quot;</RustyEngineProductUiBuildCommand>
+    <RustyEngineProductUiBuildCommand>node &quot;$(MSBuildThisFileDirectory)../../node_modules/typescript/bin/tsc&quot; -p &quot;$(MSBuildThisFileDirectory)../ui/tsconfig.json&quot; --outDir &quot;$(RustyEngineProductUiRoot)&quot;</RustyEngineProductUiBuildCommand>
     <RustyEngineProductContentRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../content'))</RustyEngineProductContentRoot>
     <RustyEngineProductUiEntry>main.js</RustyEngineProductUiEntry>
     <RustyEngineProductUiProjectionStream>crawler.hud</RustyEngineProductUiProjectionStream>
@@ -27,6 +27,9 @@
          a click on the game view focuses keyboard input without pointer lock, and Escape (the conversation's
          leave key) is never also the browser's pointer-lock exit. -->
     <RustyEngineProductInputCursorMode>unlocked</RustyEngineProductInputCursorMode>
+    <!-- The world is lit by the ruleset's own lights (the sun by the clock's hour, an interior's fill and the light the
+         party carries), so the Engine's default neutral rig would only wash night and interiors out. -->
+    <RustyEngineProductDefaultWorldLights>disabled</RustyEngineProductDefaultWorldLights>
     <RustyEngineProductFixedStepHz>60</RustyEngineProductFixedStepHz>
     <RustyEngineProductFixedStepMaxCatchUpSteps>4</RustyEngineProductFixedStepMaxCatchUpSteps>
     <RustyEngineWatchPaths>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'));$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../PartyRpg.Kit'));$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../PartyRpg.Rulesets.MightAndMagic7'));$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../ui'));$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../content'))</RustyEngineWatchPaths>
