@@ -86,7 +86,7 @@ Owns:
     off-hand weapon, a shield's and the armour's ticks at the share their own rung leaves, less the speed bonus,
     an expert sword's, axe's or bow's level, armsmaster (not for a shot or a blaster), and haste, floored at
     thirty for a blow and five for a shot. A swift weapon takes twenty fewer ticks through its actual working item property; further
-    original special-item powers are #9148.
+    selected fixed item Speed bonuses enter that same reader.
   - **armour class** (`Character.cpp:1875-1887`): the speed bonus, every working passive piece's dice and
     modifier (`:2299-2304`), the skill bonus of the shield, leather, chain, plate, staff, sword and spear worn,
     dodging while nothing heavier than leather is (`:2596-2648`), and the stone skin a spell adds. Working ordinary armour properties add their strength through the same sum (approximate repertoire).
@@ -112,8 +112,8 @@ Owns:
     hundred (`:1988-1990`). Faithful. The donor's stored base starts at nothing and is raised by a map event's
     permanent resistance (`:4788-4817`), which `MightAndMagic7Fixtures` writes into the member's own stored
     resistances (the kit's `CharacterResistances`, saved with the member and capped at a byte), and by a genie
-    lamp this build does not grant (#9148); a Lich's floor is read as a floor under the stored figure. Followers
-    have presence and gold-finding policy below; further profession terms are routed to #9151 and special-item resistance powers to #9148. A special attack's saving throw reads the same sum.
+    lamp used through the ordinary carried-item action (our always-resistance adaptation); a Lich's floor is read as a floor under the stored figure. Followers
+    have presence and gold-finding policy below; further profession terms are routed to #9151 and working fixed special-item resistances enter this same sum. A special attack's saving throw reads the same sum.
   - **the scores every sum reads** (`Character.cpp:729-765`, `GetActualStat`): the score the character carries
     at the share their age leaves of it (`MightAndMagic7Ageing`, the donor's table at `:222-232`), plus a potion's
     boost of that score on them and the party's day of the gods, which adds to all seven (`:2360-2387`). Faithful
@@ -127,7 +127,7 @@ Owns:
     spell's or the potion's (`Character.cpp:5987-6009`), stated as the fight's plan divisor; and a character
     carrying pain reflection turns the harm a creature's blow or missile did them back onto that creature through
     its own resistance (`:5875-5900`, `:6042-6062`), through the kit's `ICombatReflectionRule`. Faithful; the items
-    that shield their wearer wait for #9148.
+    such as the working Elfbane halve a hostile missile once through that same divisor.
   - **what a spell leaves on a creature** (the kit's `CreatureEffects`, held on the creature and counted down by
     the fight's own clock advances): a paralysis is the fight's gate refusing every action (`Actor.cpp:169-176`), a
     slowing doubles the creature's recovery (`Actor.cpp:1296`) and divides its pace (`Indoor.cpp:814-816`), a

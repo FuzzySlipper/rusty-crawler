@@ -4523,14 +4523,16 @@ function equipment(overrides = {}) {
     available: true,
     slots: ['off hand', 'main hand', 'bow', 'armour'],
     members: [
-      { index: 0, member: '1', name: 'Roderick', worn: [{ slot: 'main hand', item: '21', definition: '1', name: 'Crude Longsword' }] },
-      { index: 1, member: '2', name: 'Aelina', worn: [] },
+      { index: 0, member: '1', name: 'Roderick', powers: '', worn: [{ slot: 'main hand', item: '21', definition: '1', name: 'Crude Longsword' }] },
+      { index: 1, member: '2', name: 'Aelina', powers: '', worn: [] },
     ],
     items: [
       { item: '22', definition: '66', name: 'Leather Armor', slots: ['armour'] },
       { item: '23', definition: '15', name: 'Dagger', slots: ['main hand', 'off hand'] },
     ],
     canEquip: true,
+    uses: [],
+    useOutcome: { outcome: '', code: '', message: '' },
     outcome: {
       outcome: '',
       code: '',
@@ -4644,6 +4646,31 @@ test('companions render authored portraits and claim the published conversation 
     h.emit(snapshot('running', 2, 120, 120, movement(), { party: party() }));
     assert.equal(section.hidden, true);
     assert.equal(section.querySelectorAll('button').length, 0);
+    ui.dispose();
+  } finally { h.restore(); }
+});
+
+
+test('ordinary item controls send real instance and member and display the product gift without keeping it', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+    h.emit(snapshot('running', 1, 60, 60, movement(), { equipment: equipment({
+      uses: [{ item: '91', name: 'Genie Lamp — permanent resistance gift', action: 'Use' }],
+      useOutcome: { outcome: '', code: '', message: '' },
+    }) }));
+    const row = h.panel().querySelector('.crawler-item-use');
+    row.querySelector('.crawler-item-use-member').value = '1';
+    row.querySelector('.crawler-item-use-button').click();
+    assert.deepEqual(h.claims.at(-1).value.data, { action: 'party.item.use', member: 1, item: '91' });
+    h.emit(snapshot('running', 2, 60, 60, movement(), { equipment: equipment({
+      uses: [],
+      useOutcome: { outcome: 'used', code: 'item-use-applied', message: 'Aelina gained permanent Fire resistance +2; lamp consumed.' },
+      members: [{ index: 1, member: '2', name: 'Aelina', worn: [], powers: 'permanent Fire resistance 2' }],
+    }) }));
+    assert.equal(h.panel().querySelector('.crawler-item-use'), null);
+    assert.match(h.panel().querySelector('.crawler-item-use-result').textContent, /lamp consumed/);
+    assert.equal(h.panel().querySelector('.crawler-item-powers').textContent, 'permanent Fire resistance 2');
     ui.dispose();
   } finally { h.restore(); }
 });

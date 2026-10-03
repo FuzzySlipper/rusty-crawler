@@ -94,6 +94,8 @@ public sealed class SessionCompositionParityTests
             !ReferenceEquals(owners.Mixing!.Party, party) ? "mixes for a party the session does not play" : null),
         (nameof(SessionOwners.Outfitting), owners => owners.Outfitting, (owners, party) =>
             !ReferenceEquals(owners.Outfitting!.Party, party) ? "dresses a party the session does not play" : null),
+        (nameof(SessionOwners.ItemUses), owners => owners.ItemUses, (owners, party) =>
+            !ReferenceEquals(owners.ItemUses!.Party, party) ? "uses items of a party the session does not play" : null),
         // The standing policy is a rule rather than an owner, read over the party the session plays.
         ("Standing", owners => owners.Rules.Standing, (owners, party) =>
             owners.Rules.Standing!.Read(party).Band.Length == 0 ? "reads no standing band for the party" : null),

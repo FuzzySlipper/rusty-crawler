@@ -25,6 +25,7 @@
     "party.attack",
     "party.cast",
     "party.equip",
+    "party.item.use",
     "party.mix",
     "party.next-member",
     "party.quick-spell",

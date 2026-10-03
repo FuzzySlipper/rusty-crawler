@@ -526,3 +526,5 @@ cannot pay it again. [Focused evidence](../../docs/evidence/counted-deeds.md) co
 unchanged ordinary marks, the actual JSON save, and repeated settlement refusal.
 
 An instance property is `ItemEnchantment`: the ruleset identity, positive strength and optional absolute elapsed-clock deadline. Canonical item mutations preserve it, and the current source-generated save carries it with hardening and reduced charge capacity. The kit interprets no property word; ruleset spell effects apply and expire it, and figure/combat policy reads its meaning. Casting, combat and the magic projection share the instance capacity.
+
+`PartyItemUse` applies named non-spell uses of real shared-pack instances through the compiled `IItemUseRule`. The game judges and mutates canonical owners; this workflow keeps only the last answer, with no inventory, timer or saved ledger. `party.item.use` shares the inventory screen's declared payload contract. Equipment projections publish the rule's current power words, permanent gifts and usable rows; the DOM echoes instance and member identities.

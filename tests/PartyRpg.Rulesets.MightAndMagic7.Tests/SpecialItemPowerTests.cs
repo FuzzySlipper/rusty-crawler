@@ -82,14 +82,19 @@ public sealed class SpecialItemPowerTests
     public void An_ordinary_lamp_use_consumes_the_instance_and_carries_the_permanent_gift_through_save()
     {
         InMemoryPersistenceService persistence = new();
-        var (context, ui) = Context(persistence);
+        var (context, ui) = Context(persistence, "Body");
         using IGameSession session = Session(context, ui);
         var live = (MightAndMagic7Session)session;
         ItemInstance lamp = Take(live.Party!, "616");
+        var policy = (MightAndMagic7Combat)live.Owners.Rules.Combat!.Rule;
+        var (member, beast) = Subjects(live);
+        int resisted = policy.PlanOf(beast, member, AttackKind.Ranged).Resistance.Points;
         Use(session, lamp, 2);
         Assert.Null(live.Party!.FindItem(lamp.Id));
         Assert.True(live.Owners.ItemUses!.Last!.Applied);
         ResistanceScore gift = Assert.Single(live.Party.Members[0].Resistances.Scores);
+        Assert.Equal(MightAndMagic7Damage.Body, gift.Kind);
+        Assert.Equal(resisted + 1, policy.PlanOf(beast, member, AttackKind.Ranged).Resistance.Points);
         Assert.Equal(1, gift.Points); // first calendar week
         Assert.Contains(gift.Kind.Value, Equipment(ui).Field("members").Item(0).Field("powers").AsString());
         Assert.Equal("used", Equipment(ui).Field("useOutcome").Field("outcome").AsString());
@@ -97,7 +102,7 @@ public sealed class SpecialItemPowerTests
         Assert.False(live.Owners.ItemUses.Last!.Applied);
         Assert.Equal(gift, Assert.Single(live.Party.Members[0].Resistances.Scores));
         MightAndMagic7Ruleset.Instance.Save(session);
-        var (againContext, againUi) = Context(persistence);
+        var (againContext, againUi) = Context(persistence, "Body");
         using IGameSession resumed = Session(againContext, againUi, true);
         var again = (MightAndMagic7Session)resumed;
         Assert.Null(again.Party!.FindItem(lamp.Id));
@@ -139,7 +144,7 @@ public sealed class SpecialItemPowerTests
         var session = resume ? MightAndMagic7Ruleset.Instance.ResumeSession(composition) : MightAndMagic7Ruleset.Instance.CreateSession(composition);
         session.Start(); session.Update(RulesetTestContext.Update(1, 1)); return session;
     }
-    private static (ProductCreateContext, RecordingUiService) Context(InMemoryPersistenceService? persistence = null)
+    private static (ProductCreateContext, RecordingUiService) Context(InMemoryPersistenceService? persistence = null, string attackKind = "Fire")
     {
         var content = EquipmentPolicyTests.Content().Select(file =>
         {
@@ -161,7 +166,7 @@ public sealed class SpecialItemPowerTests
             if (file.Path.EndsWith("/skills.json", StringComparison.Ordinal)) json["entries"]!.AsArray().Add(JsonNode.Parse("""{"id":"Axe"}"""));
             if (file.Path.EndsWith("/party.json", StringComparison.Ordinal))
                 json["entries"]![0]!["members"]![0]!["skills"]!.AsArray().Add(JsonNode.Parse("""{"id":"Axe","level":1,"tier":1,"pointsSpent":1}"""));
-            if (file.Path.EndsWith("/monsters.json", StringComparison.Ordinal)) json["entries"]![0]!["attack"]!["kind"] = "Fire";
+            if (file.Path.EndsWith("/monsters.json", StringComparison.Ordinal)) json["entries"]![0]!["attack"]!["kind"] = attackKind;
             return (Path: file.Path, Text: json.ToJsonString());
         }).ToList();
         content.Add(($"{RulesetTestContext.ContentDirectory}/content-packs/world/spells.json", """{"documentId":"spells","definitionKind":"spell","entries":[{"id":"2","name":"Fire Bolt","school":"Fire"}]}"""));

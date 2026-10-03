@@ -1072,13 +1072,15 @@
             "definition": "1",
             "name": "Crude Longsword"
           }
-        ]
+        ],
+        "powers": ""
       },
       {
         "index": 1,
         "member": "2",
         "name": "Aelina",
-        "worn": []
+        "worn": [],
+        "powers": "permanent Fire resistance 2"
       }
     ],
     "items": [
@@ -1100,6 +1102,18 @@
         ]
       }
     ],
+    "uses": [
+      {
+        "item": "24",
+        "name": "Genie Lamp \u2014 permanent resistance gift",
+        "action": "Use"
+      }
+    ],
+    "useOutcome": {
+      "outcome": "used",
+      "code": "item-use-applied",
+      "message": "Aelina uses the Genie Lamp: permanent Fire resistance \u002B2; the lamp is consumed."
+    },
     "canEquip": true,
     "outcome": {
       "outcome": "refused",

@@ -128,6 +128,7 @@ public sealed class ProjectionContractTests
         AlchemyActions.Mix,
         EquipActions.Equip,
         EquipActions.Unequip,
+        EquipActions.UseItem,
         PartyRpg.Kit.Progression.SkillRaiseActions.Raise,
     ];
 
@@ -540,7 +541,7 @@ public sealed class ProjectionContractTests
             ["off hand", "main hand", "bow", "armour"],
             [
                 new EquipmentMemberSnapshot(0, "1", "Roderick", [new EquipmentWornSnapshot("main hand", "21", "1", "Crude Longsword")]),
-                new EquipmentMemberSnapshot(1, "2", "Aelina", []),
+                new EquipmentMemberSnapshot(1, "2", "Aelina", [], "permanent Fire resistance 2"),
             ],
             [
                 new EquipmentItemSnapshot("22", "66", "Leather Armor", ["armour"]),
@@ -556,7 +557,11 @@ public sealed class ProjectionContractTests
                 string.Empty,
                 string.Empty,
                 string.Empty,
-                string.Empty)));
+                string.Empty))
+        {
+            Uses = [new EquipmentUseSnapshot("24", "Genie Lamp — permanent resistance gift", "Use")],
+            UseOutcome = new ItemUseResult(true, "item-use-applied", "Aelina uses the Genie Lamp: permanent Fire resistance +2; the lamp is consumed."),
+        });
 
     /// <summary>The same session a moment later, paced turn-based with a round under way and the party's turn out.</summary>
     private static SessionSnapshot TurnBased()

@@ -330,5 +330,4 @@ verification limits. Preservation uses the existing member effect and health own
 potion drinker remains unconscious after otherwise lethal wounds, until the original deadline. The current
 party save carries damage past zero; expiry neither heals nor resurrects. The spell keeps this game's
 caster-only carrier, approximating the donor's ally/party targeting. The [Preservation reading](docs/evidence/preservation.md)
-states the checks and live limits. World-targeted Telekinesis and further original special-item powers are
-explicit receivers #9145 and #9148.
+states the checks and live limits. World-targeted Telekinesis remains receiver #9145. Selected fixed artifact/relic powers and ordinary Genie Lamp permanent resistance use actual equipment and custody; unknown fixed powers are named. The [special-item reading](docs/evidence/special-item-powers.md) states the approximate repertoire.

@@ -24,9 +24,9 @@ public sealed record ItemUseResult(bool Applied, string Code, string Message)
 public sealed class PartyItemUse(PartyEntity party, IItemUseRule rule)
 {
     /// <summary>The same party every inventory and equipment action addresses.</summary>
-    public PartyEntity Party { get; } = party;
+    public PartyEntity Party { get; } = party ?? throw new ArgumentNullException(nameof(party));
     /// <summary>The game's policy and words for item uses and powers.</summary>
-    public IItemUseRule Rule { get; } = rule;
+    public IItemUseRule Rule { get; } = rule ?? throw new ArgumentNullException(nameof(rule));
     /// <summary>The last use's answer, which has no saved state of its own.</summary>
     public ItemUseResult? Last { get; private set; }
     /// <summary>Changes when a new answer is admitted.</summary>
@@ -36,14 +36,29 @@ public sealed class PartyItemUse(PartyEntity party, IItemUseRule rule)
     {
         ItemUseResult result;
         if (member < 0 || member >= Party.Members.Count)
-            result = ItemUseResult.Refused(new("item-use-member-absent", "Choose a member of this party."));
+            result = ItemUseResult.Refused(new(ItemUseCodes.MemberAbsent, "Choose a member of this party."));
         else if (Party.FindItem(item) is not { } held || !held.Custody.IsInSharedInventory)
-            result = ItemUseResult.Refused(new("item-use-item-absent", "Choose an item in the party's shared pack."));
+            result = ItemUseResult.Refused(new(ItemUseCodes.ItemAbsent, "Choose an item in the party's shared pack."));
         else if (Rule.ActionOf(held) is null)
-            result = ItemUseResult.Refused(new("item-use-unsupported", "This item has no ordinary use in this ruleset."));
+            result = ItemUseResult.Refused(new(ItemUseCodes.Unsupported, "This item has no ordinary use in this ruleset."));
         else result = Rule.Use(Party, Party.Members[member], held);
         Last = result;
         Stamp = ChangeStamp.Next();
         return result;
     }
+}
+
+/// <summary>The named reasons ordinary carried-item use can refuse.</summary>
+public static class ItemUseCodes
+{
+    /// <summary>The refusal code item-use-member-absent.</summary>
+    public const string MemberAbsent = "item-use-member-absent";
+    /// <summary>The refusal code item-use-item-absent.</summary>
+    public const string ItemAbsent = "item-use-item-absent";
+    /// <summary>The refusal code item-use-unsupported.</summary>
+    public const string Unsupported = "item-use-unsupported";
+    /// <summary>The refusal code item-use-screen-open.</summary>
+    public const string ScreenOpen = "item-use-screen-open";
+    /// <summary>The refusal code item-use-unowned.</summary>
+    public const string OwnerAbsent = "item-use-unowned";
 }

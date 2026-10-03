@@ -134,7 +134,7 @@ public sealed record EquipmentSnapshot(
         {
             Uses = itemUses is null ? [] : [.. owner.Party.Inventory.Items
                 .Where(item => itemUses.Rule.ActionOf(item) is not null)
-                .Select(item => new EquipmentUseSnapshot(item.Id.ToString(), itemUses.Rule.Describe(item), itemUses.Rule.ActionOf(item)!))],
+                .Select(item => new EquipmentUseSnapshot(item.Id.ToString(), owner.NameOf(item.Definition) + " — " + itemUses.Rule.Describe(item), itemUses.Rule.ActionOf(item)!))],
             UseOutcome = itemUses?.Last,
         };
     }

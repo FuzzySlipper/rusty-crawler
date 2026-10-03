@@ -19,3 +19,5 @@ does not read source-shaped game data.
 Item properties, hardening and charge capacity live on Kit item instances; the ruleset supplies their
 meaning through `MightAndMagic7ItemMagic`. Combat plans carry independently resisted damage parts and
 explicit hit observers through the existing resolution; the UI prints its resulting sentence.
+
+Non-spell carried-item uses enter Kit `PartyItemUse` and the compiled item policy; fixed powers are read from actual worn definitions and condition, while permanent gifts write the existing character resistance owner. No second modifier store or save schema is introduced.

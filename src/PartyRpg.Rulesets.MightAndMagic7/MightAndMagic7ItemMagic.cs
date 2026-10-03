@@ -23,14 +23,14 @@ internal enum ItemMagicShape { Enchant, Recharge, Harden, Fire, Frost, Poison, S
 internal sealed class MightAndMagic7ItemMagic : IItemUseRule
 {
     private readonly Dictionary<ItemDefinitionId, ItemFacts> _items = [];
-    private readonly MightAndMagic7Spells _spells;
+    private readonly MightAndMagic7Spells? _spells;
     private readonly GameClock? _clock;
     private readonly IRandomService? _random;
     private readonly Func<PartyEntity?> _party;
     private readonly TuningProfile _tuning;
     private const string Attempts = "item:enchant-attempts";
 
-    internal MightAndMagic7ItemMagic(ContentCatalog? catalog, MightAndMagic7Spells spells, GameClock? clock,
+    internal MightAndMagic7ItemMagic(ContentCatalog? catalog, MightAndMagic7Spells? spells, GameClock? clock,
         IRandomService? random, Func<PartyEntity?> party)
     {
         _spells = spells;
@@ -52,6 +52,8 @@ internal sealed class MightAndMagic7ItemMagic : IItemUseRule
         (Active(item) is { } property ? $" — {property.Property} {property.Strength}" : string.Empty) +
         (item.State.IsHardened ? " — hardened" : string.Empty) +
         (PowerText(item) is { Length: > 0 } powers ? $" — {powers}" : string.Empty);
+
+    string IItemUseRule.Describe(ItemInstance item) => PowerText(item);
 
     public string Describe(PartyMember member)
     {
@@ -77,7 +79,7 @@ internal sealed class MightAndMagic7ItemMagic : IItemUseRule
         if (item.State.Damage > 0) return Refuse(MightAndMagic7Codes.ItemMagicBroken, $"Repair {facts.Name} before applying {application.Spell.Name}.");
         if (shape == ItemMagicShape.Recharge)
         {
-            if (_spells.Reading(item.Definition) is not { ConsumedByUse: false } reading)
+            if (_spells?.Reading(item.Definition) is not { ConsumedByUse: false } reading)
                 return Refuse(MightAndMagic7Codes.ItemMagicKind, $"{facts.Name} is not a charged wand.");
             int capacity = item.State.ChargeCapacity ?? reading.Charges;
             int refilled = RechargedCapacity(application, capacity);
@@ -103,11 +105,11 @@ internal sealed class MightAndMagic7ItemMagic : IItemUseRule
     {
         ItemInstance item = Target(application)!; // Judge ran in this same admitted casting.
         ItemFacts facts = _items[item.Definition];
-        int rank = Math.Max(1, _spells.LevelOf(application));
+        int rank = Math.Max(1, _spells!.LevelOf(application));
         int mastery = MightAndMagic7Spells.MasteryOf(application.Caster, application.Spell);
         if (shape == ItemMagicShape.Recharge)
         {
-            int capacity = item.State.ChargeCapacity ?? _spells.Reading(item.Definition)!.Value.Charges;
+            int capacity = item.State.ChargeCapacity ?? _spells!.Reading(item.Definition)!.Value.Charges;
             item.Recharge(RechargedCapacity(application, capacity));
             return Outcome(application, item, $"recharged to {item.State.ChargeCapacity} charge(s)");
         }
@@ -159,7 +161,7 @@ internal sealed class MightAndMagic7ItemMagic : IItemUseRule
 
     internal static IReadOnlyList<SaveProblem> Problems(SessionSave save, ContentCatalog? catalog)
     {
-        if (MightAndMagic7Spells.Read(catalog) is not { } spells) return [];
+        MightAndMagic7Spells? spells = MightAndMagic7Spells.Read(catalog);
         MightAndMagic7ItemMagic owner = new(catalog, spells, null, null, () => null);
         List<SaveProblem> problems = [];
         foreach (ItemSave item in save.Party.Items)
@@ -178,7 +180,7 @@ internal sealed class MightAndMagic7ItemMagic : IItemUseRule
             }
             if (item.State.Enchantment?.DueElapsedMilliseconds is { } due && due <= save.Clock.ElapsedMilliseconds)
                 problems.Add(new(MightAndMagic7Codes.SaveItemDeadline, item.Id.ToString(), $"item {item.Id} carries a property whose clock deadline has already passed"));
-            SpellItemReading? carried = spells.Reading(item.Definition);
+            SpellItemReading? carried = spells?.Reading(item.Definition);
             bool charged = carried is { ConsumedByUse: false };
             int maximum = charged ? item.State.ChargeCapacity ?? carried!.Value.Charges : 0;
             if (item.State.ChargesSpent > maximum || (item.State.ChargeCapacity is { } capacity && (!charged || capacity > carried!.Value.Charges)))
@@ -262,12 +264,13 @@ internal sealed class MightAndMagic7ItemMagic : IItemUseRule
 
     public ItemUseResult Use(PartyEntity party, PartyMember member, ItemInstance item)
     {
+        if (ActionOf(item) is null) return ItemUseResult.Refused(new(ItemUseCodes.Unsupported, "This item has no ordinary use in this ruleset."));
         if (!MightAndMagic7Conditions.CanAct(member))
-            return ItemUseResult.Refused(new("item-use-member-incapable", $"{member.Profile.Name} must recover before using the lamp."));
+            return ItemUseResult.Refused(new(MightAndMagic7Codes.ItemUseMemberIncapable, $"{member.Profile.Name} must recover before using the lamp."));
         if (item.State.Damage > 0)
-            return ItemUseResult.Refused(new("item-use-broken", "Repair the Genie Lamp before using it."));
+            return ItemUseResult.Refused(new(MightAndMagic7Codes.ItemUseBroken, "Repair the Genie Lamp before using it."));
         if (_clock is null || _random is null)
-            return ItemUseResult.Refused(new("item-use-owner-absent", "The Genie Lamp needs the session clock and keyed rolls."));
+            return ItemUseResult.Refused(new(MightAndMagic7Codes.ItemUseOwnerAbsent, "The Genie Lamp needs the session clock and keyed rolls."));
         if (party.JudgeItemRemoval(item.Id) is { } kept) return ItemUseResult.Refused(kept);
         DamageKindId[] kinds = [MightAndMagic7Damage.Fire, MightAndMagic7Damage.Air, MightAndMagic7Damage.Water,
             MightAndMagic7Damage.Earth, MightAndMagic7Damage.Mind, MightAndMagic7Damage.Body];
@@ -277,7 +280,7 @@ internal sealed class MightAndMagic7ItemMagic : IItemUseRule
         int value = _clock.Calendar.WeekOfMonth(_clock.Now);
         int before = member.Resistances.Of(kind);
         if ((long)before + value > int.MaxValue)
-            return ItemUseResult.Refused(new("item-use-resistance-full", "This permanent resistance cannot be raised further."));
+            return ItemUseResult.Refused(new(MightAndMagic7Codes.ItemUseResistanceFull, "This permanent resistance cannot be raised further."));
         ItemRemoval removed = party.ConsumeItem(item.Id);
         if (!removed.Removed) return ItemUseResult.Refused(removed.Refusal!);
         member.Resistances.Set(kind, before + value);
@@ -296,7 +299,7 @@ internal sealed class MightAndMagic7ItemMagic : IItemUseRule
         CultureInfo.InvariantCulture, out ulong id) && id != 0 ? application.Party.FindItem(new ItemInstanceId(id)) : null;
     private int RechargedCapacity(SpellApplication application, int capacity)
     {
-        int rank = Math.Max(1, _spells.LevelOf(application));
+        int rank = Math.Max(1, _spells!.LevelOf(application));
         int mastery = MightAndMagic7Spells.MasteryOf(application.Caster, application.Spell);
         long percent = application.Source is not null ? 30L + rank : (mastery >= 4 ? 80L : mastery >= 3 ? 70L : 50L) + rank;
         return (int)((long)capacity * Math.Min(100, percent) / 100);

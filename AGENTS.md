@@ -134,7 +134,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   promotions; the first training step of a service visit includes rest on the one clock (the light/dark choice lives in the character's class and is irreversible). Skills have four
   masteries under this game's ceilings; promotion requires recovery from a laid-out condition; item spells change the actual instance's property, hardening and charge capacity through the same casting workflow; nine schools and 99 spells share one casting workflow whose eight
   effect categories each reach their owner, stated per spell in `docs/magic-coverage.md`; alchemy mixes the
-  shipped recipes. Preservation on the caster or potion drinker keeps below-empty health unconscious until
+  shipped recipes. Fixed special-item powers read actual working equipment; a consumed lamp writes permanent member resistance through ordinary item use (approximate repertoire). Preservation on the caster or potion drinker keeps below-empty health unconscious until
   its member effect expires; saves carry the wound's deficit and the original deadline. Counted deeds accumulate on party records through once-only quest turn-in; town-hall
   bounties add gold earned, and bound Knight arena opponents earn one win on settlement through those same
   owners ([arena reading](docs/evidence/arena-bouts.md)); current quest/fight saves preserve pending earning.

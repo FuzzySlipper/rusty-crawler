@@ -46,3 +46,5 @@ What is published here is text only: no game data, no screenshots, no saves, and
 | [`training-rest.md`](training-rest.md) | An imported training counter rests and restores the party on the first successful step, omits rest on the second, and rests again after leaving and returning. |
 | [`bundle-selection-and-party-start.md`](bundle-selection-and-party-start.md) | With two scenario packs on disk only the bundle's plays; its start word picks creation or its own party; a broken unselected pack is refused as not selected; two selected starts are refused by name. |
 | [`playtest-observe.md`](playtest-observe.md) | `playtest.observe`, `playtest.action`, `playtest.look` and `interaction.inspect` read the running product's place, pose, hostiles and controls without the panel. |
+
+| [`special-item-powers.md`](special-item-powers.md) | Selected fixed powers, ordinary Genie Lamp consumption, current-save composition and bounded product evidence. |

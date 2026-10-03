@@ -7,6 +7,18 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// </remarks>
 public static class MightAndMagic7Codes
 {
+    /// <summary>The refusal code item-use-member-incapable.</summary>
+    public const string ItemUseMemberIncapable = "item-use-member-incapable";
+
+    /// <summary>The refusal code item-use-broken.</summary>
+    public const string ItemUseBroken = "item-use-broken";
+
+    /// <summary>The refusal code item-use-owner-absent.</summary>
+    public const string ItemUseOwnerAbsent = "item-use-owner-absent";
+
+    /// <summary>The refusal code item-use-resistance-full.</summary>
+    public const string ItemUseResistanceFull = "item-use-resistance-full";
+
     /// <summary>The refusal code <c>camp-hostiles-near</c>.</summary>
     public const string CampHostilesNear = "camp-hostiles-near";
 

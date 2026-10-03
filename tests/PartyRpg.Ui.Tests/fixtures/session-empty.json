@@ -336,6 +336,12 @@
     "slots": [],
     "members": [],
     "items": [],
+    "uses": [],
+    "useOutcome": {
+      "outcome": "",
+      "code": "",
+      "message": ""
+    },
     "canEquip": false,
     "outcome": {
       "outcome": "",

@@ -29,7 +29,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// becoming a Lich, which lifts the four elements to at least twenty and sets mind and body to two hundred
 /// (<c>:4025-4042</c>). This build stores the base on the member (<see cref="CharacterResistances"/>, carried in
 /// the save): a map event's permanent resistance writes it (<see cref="MightAndMagic7Fixtures"/>); this build's
-/// item use grants nothing for the lamp (#8513). A Lich's stored base is read with its promotion's figures as a
+/// ordinary item use grants the lamp's approximate resistance gift through that same owner. A Lich's stored base is read with its promotion's figures as a
 /// floor — the four elements at least twenty, mind, body and spirit at least two hundred — rather than as values
 /// the promotion wrote once, because the class is what this build keeps of having become one. Faithful for every
 /// character the donor would leave at its stored figures; a Lich's gift below the floor is lost in the floor, which
