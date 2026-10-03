@@ -106,7 +106,7 @@ public sealed class FollowerPolicyTests
     [Fact]
     public void Sacrifice_refuses_story_before_payment_then_removes_actual_hired_aim_and_fills_pools_without_curing()
     {
-        using Mission mission = new();
+        using Mission mission = new([27, 32]);
         PartyEntity party = mission.Live.Party!;
         mission.UseAt(1000);
         int before = party.Members[0].Resources.SpellPoints.Current;
@@ -122,8 +122,11 @@ public sealed class FollowerPolicyTests
         var spell = mission.Live.Owners.Rules.Magic!.Spells!.Catalog.Read(new("96"));
         var aims = ((ISpellAimRule)mission.Live.Owners.Rules.Magic.Effects!).AimsOf(spell);
         Assert.Equal("npc-1", Assert.Single(aims).Aim);
+        var combat = (MightAndMagic7Combat)mission.Live.Owners.Rules.Combat!.Rule;
+        int beforeLuck = combat.ActualAttribute(party.Members[0], new("Luck"));
         mission.Action("party.cast", "npc-1", "96");
         Assert.Null(mission.Live.Owners.Casting!.Last!.Refusal);
+        Assert.Equal(beforeLuck - 5, combat.ActualAttribute(party.Members[0], new("Luck")));
         Assert.Equal(["npc-4"], party.Followers.All.Select(follower => follower.Definition.Value));
         Assert.All(party.Members, member =>
         {
@@ -136,10 +139,13 @@ public sealed class FollowerPolicyTests
         Assert.Empty(((ISpellAimRule)mission.Live.Owners.Rules.Magic.Effects!).AimsOf(spell));
     }
 
-    [Fact]
-    public void Actual_luck_and_damage_resistance_read_joined_professions_and_restore_only_identity()
+    [Theory]
+    [InlineData(27, 5)]
+    [InlineData(28, 20)]
+    [InlineData(47, 10)]
+    public void Actual_luck_and_damage_resistance_read_joined_professions_and_restore_only_identity(int profession, int bonus)
     {
-        using Mission mission = new([27, 37]);
+        using Mission mission = new([profession, 37]);
         PartyEntity party = mission.Live.Party!;
         PartyMember member = party.Members[0];
         var combat = (MightAndMagic7Combat)mission.Live.Owners.Rules.Combat!.Rule;
@@ -150,18 +156,20 @@ public sealed class FollowerPolicyTests
         var target = mission.Live.Combat.Combatants.First(actor => actor.Subject.IsMember).Subject;
         int resistanceBefore = combat.PlanOf(from, target, AttackKind.Ranged).Resistance.Points;
         mission.Choose("follower-hire");
-        Assert.Equal(before + 5, combat.ActualAttribute(member, luck));
+        Assert.Equal(before + bonus, combat.ActualAttribute(member, luck));
         mission.Turn("npc-2"); mission.Choose("follower-hire");
         Assert.Equal(resistanceBefore + 20, combat.PlanOf(from, target, AttackKind.Ranged).Resistance.Points);
-        Assert.Contains("Luck +5", mission.Live.Inspect().Party.Followers[0].Benefits);
+        Assert.Contains($"Luck +{bonus}", mission.Live.Inspect().Party.Followers[0].Benefits);
         Assert.Contains("resistance +20", mission.Live.Inspect().Party.Followers[1].Benefits);
         MightAndMagic7Ruleset.Instance.Save(mission.Session);
-        var (context, ui) = RulesetTestContext.Create(mission.Persistence, Content([27, 37]));
-        using var resumed = MightAndMagic7Ruleset.Instance.ResumeSession(RulesetTestContext.RulesetContext(context, ui) with { Start = SessionStart.Resume });
-        resumed.Start(); var again = (MightAndMagic7Session)resumed;
+        var (context, ui) = RulesetTestContext.Create(mission.Persistence, Content([profession, 37]));
+        using var resumed = MightAndMagic7Ruleset.Instance.ResumeSession(RulesetTestContext.RulesetContext(context, ui, combat: true) with { Start = SessionStart.Resume });
+        resumed.Start(); resumed.Update(RulesetTestContext.Update(1, 1)); var again = (MightAndMagic7Session)resumed;
         var restored = (MightAndMagic7Combat)again.Owners.Rules.Combat!.Rule;
-        Assert.Equal(before + 5, restored.ActualAttribute(again.Party!.Members[0], luck));
+        Assert.Equal(before + bonus, restored.ActualAttribute(again.Party!.Members[0], luck));
         Assert.Equal(party.Followers.All, again.Party.Followers.All);
+        var restoredTarget = again.Combat!.Combatants.First(actor => actor.Subject.IsMember).Subject;
+        Assert.Equal(resistanceBefore + 20, restored.PlanOf(from, restoredTarget, AttackKind.Ranged).Resistance.Points);
         mission.Choose("follower-dismiss");
         Assert.Equal(resistanceBefore, combat.PlanOf(from, target, AttackKind.Ranged).Resistance.Points);
         mission.Action("conversation.follower", "npc-1"); mission.Choose("follower-dismiss");
