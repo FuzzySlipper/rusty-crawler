@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "packId": "mm7-new-game",
+  "kind": "scenario",
+  "provenance": {
+    "description": "Authored for this repository: where an ordinary new game begins. A newly created party arrives at the first region's own party-start entry point, as the original's new game does. It names imported identities only; it carries no game data.",
+    "game": "mightandmagic7",
+    "build": "authored"
+  },
+  "documents": [
+    {
+      "path": "new-game.json",
+      "documentId": "new-game-start",
+      "definitionKind": "scenario-start"
+    }
+  ]
+}

@@ -14,6 +14,15 @@ export interface CompositionView {
   readonly contentPacks: number;
   /** Which start the party took: `creation`, `scenario` (the party the scenario fixes), or `resumed`. */
   readonly partyStart: string;
+  /** The requested bundle whose packs are absent, and how an operator produces them; null when the session plays. */
+  readonly setup: SetupView | null;
+}
+
+/** A requested bundle the product could not play because the packs it names are not in the content root. */
+export interface SetupView {
+  readonly bundle: string;
+  readonly missingPacks: readonly string[];
+  readonly guidance: string;
 }
 
 export interface SessionView {
@@ -239,6 +248,11 @@ export function readComposition(f: Fields): CompositionView {
     bundle: f.text('bundle'),
     contentPacks: f.number('contentPacks'),
     partyStart: f.text('partyStart'),
+    setup: f.nullable('setup', (entry) => ({
+      bundle: entry.text('bundle'),
+      missingPacks: entry.words('missingPacks'),
+      guidance: entry.text('guidance'),
+    })),
   };
 }
 

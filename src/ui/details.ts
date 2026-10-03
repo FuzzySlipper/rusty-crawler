@@ -93,6 +93,13 @@ export function mountDetails(host: Host): Details {
   const bundle = element('p', 'crawler-bundle');
   const place = element('p', 'crawler-place');
 
+  // What the product needs before it can play: the bundle it asked for, the packs it lacks, and the bundle's own
+  // guidance, printed as the product published them. Hidden whenever the session plays what it selected.
+  const setup = section('crawler-setup');
+  const setupState = element('p', 'crawler-setup-state');
+  const setupGuidance = element('p', 'crawler-setup-guidance');
+  setup.append(head('Game content is not prepared'), setupState, setupGuidance);
+
   const details = element('dl');
   const rows = {} as Record<RowKey, HTMLElement>;
   for (const [key, label] of ROWS) {
@@ -171,7 +178,18 @@ export function mountDetails(host: Host): Details {
       composition.bundle === ''
         ? 'No game bundle selected'
         : `${composition.bundle} · ${composition.contentPacks} pack${plural(composition.contentPacks)}`;
-    place.textContent = world.places === 0 ? 'No world loaded' : `${world.name}${world.kind === '' ? '' : ` · ${world.kind}`}`;
+    place.textContent =
+      composition.setup !== null
+        ? 'No world: game content is not prepared'
+        : world.places === 0
+          ? 'No world loaded'
+          : `${world.name}${world.kind === '' ? '' : ` · ${world.kind}`}`;
+    setup.hidden = composition.setup === null;
+    setupState.textContent =
+      composition.setup === null
+        ? ''
+        : `${composition.setup.bundle} needs ${composition.setup.missingPacks.join(', ')}, which ${composition.setup.missingPacks.length === 1 ? 'is' : 'are'} not in the content root.`;
+    setupGuidance.textContent = composition.setup?.guidance ?? '';
     panel.dataset.mode = mode;
     panel.dataset.ruleset = composition.ruleset;
     panel.dataset.bundle = composition.bundle;
@@ -360,7 +378,7 @@ export function mountDetails(host: Host): Details {
   };
 
   return {
-    top: [title, ruleset, bundle, place],
+    top: [title, ruleset, bundle, place, setup],
     bottom: [details, companions, action, saveButton, useButton, saveResult, useResult, useResidue, hint],
     awards,
     render,

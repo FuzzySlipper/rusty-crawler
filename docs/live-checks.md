@@ -33,8 +33,10 @@ rusty dev --project src/PartyRpg.Host/PartyRpg.Host.csproj \
 A check usually stages the operator's imported packs, a bundle that names them, and often a hand-written
 **scenario** pack (which place the party starts in, where, and with what party) or a **variant** of an
 imported pack with unwanted records dropped. All of it lives under `content/partyrpg/imports/<pack>/`
-(ignored) and `content/partyrpg/bundles/partyrpg-default/bundle.json` (tracked). Generated game data is never
-committed.
+(ignored) and a bundle (tracked). Generated game data is never committed. An ordinary run plays the default
+`mm7-new-game` bundle — the imported tables and world from the authored opening, through creation — and needs
+nothing staged beyond `mm7import write`. A check with its own scenario names it in `partyrpg-default` and serves
+with `RUSTY_CRAWLER_BUNDLE=partyrpg-default`, so the new game's start and the check's never collide.
 
 - **A pack's directory name must equal its `packId`.** The loader refuses a mismatch by name.
 - **A scenario says which start it takes.** Its `scenario-start` entry's `"party": "scenario"` plays the party

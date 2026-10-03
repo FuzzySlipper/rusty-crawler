@@ -20,6 +20,12 @@ public sealed record ContentBootstrapResult(
 {
     /// <summary>Whether the content is usable as it stands.</summary>
     public bool IsValid => Issues.Count == 0;
+
+    /// <summary>
+    /// The requested bundle when the only thing wrong with it is that packs it names are absent, or null. Such a
+    /// bundle selects nothing, and the content root is otherwise valid.
+    /// </summary>
+    public MissingContent? Missing { get; init; }
 }
 
 /// <summary>
@@ -108,6 +114,17 @@ public static class ContentBootstrap
         }
         catch (ContentValidationException error)
         {
+            // A bundle over packs generated from the operator's own data names packs a checkout cannot ship. When
+            // their absence is all that is wrong, nothing is selected and the absence is the result's own fact,
+            // so the product can show the bundle's setup guidance rather than either refusing to start or presenting
+            // an empty session as the game. Any other defect in the bundle stays a refusal.
+            if (error.Issues.All(issue => issue.Code == BundleCatalog.PackMissingCode))
+            {
+                IReadOnlyList<string> absent = [.. bundle.ContentPacks.Where(pack => catalog.Find(pack) is null)];
+                return Unselected(source, layout, catalog, bundles, [], $"bundle '{bundle.BundleId}' names packs that are not present, so nothing is selected")
+                    with { Missing = new MissingContent(bundle, absent) };
+            }
+
             return Unselected(source, layout, catalog, bundles, error.Issues, $"bundle '{bundle.BundleId}' did not resolve, so nothing is selected");
         }
 

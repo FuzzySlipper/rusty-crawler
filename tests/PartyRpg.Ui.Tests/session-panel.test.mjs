@@ -664,6 +664,7 @@ function snapshot(mode, seconds = 0, steps = 0, _updates = 0, facts = undefined,
       contentPacks: 2,
       // Which start the party took is the composition's own word; a case names another to see it printed.
       partyStart: blocks?.partyStart ?? 'scenario',
+      setup: null,
     },
     session: { mode, simulationSeconds: seconds, admittedSteps: steps },
     world: world(),
@@ -1584,6 +1585,7 @@ test('reports an unselected bundle and counts a single pack in the singular', ()
         bundle: '',
         contentPacks: 0,
         partyStart: 'scenario',
+        setup: null,
       },
       session: { mode: 'running', simulationSeconds: 0, admittedSteps: 0 },
       world: world(),
@@ -1597,12 +1599,46 @@ test('reports an unselected bundle and counts a single pack in the singular', ()
         bundle: 'partyrpg-default',
         contentPacks: 1,
         partyStart: 'scenario',
+        setup: null,
       },
       session: { mode: 'running', simulationSeconds: 0, admittedSteps: 0 },
       world: world(),
     });
     assert.equal(readPanel(h).bundle, 'partyrpg-default · 1 pack');
 
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('a bundle whose packs are absent shows its setup guidance instead of a world', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+    h.emit({
+      composition: {
+        ruleset: 'mightandmagic7',
+        title: 'Might and Magic VII: For Blood and Honor',
+        bundle: '',
+        contentPacks: 0,
+        partyStart: 'scenario',
+        setup: { bundle: 'mm7-new-game', missingPacks: ['mm7-tables', 'mm7-world'], guidance: 'Write the packs first.' },
+      },
+      session: { mode: 'running', simulationSeconds: 0, admittedSteps: 0 },
+      world: world(),
+    });
+    const setup = h.panel()?.querySelector('.crawler-setup');
+    assert.equal(setup?.hidden, false);
+    assert.equal(readPanel(h).place, 'No world: game content is not prepared');
+    assert.equal(
+      setup?.querySelector('.crawler-setup-state')?.textContent,
+      'mm7-new-game needs mm7-tables, mm7-world, which are not in the content root.',
+    );
+    assert.equal(setup?.querySelector('.crawler-setup-guidance')?.textContent, 'Write the packs first.');
+
+    h.emit(snapshot('running'));
+    assert.equal(h.panel()?.querySelector('.crawler-setup')?.hidden, true);
     ui.dispose();
   } finally {
     h.restore();

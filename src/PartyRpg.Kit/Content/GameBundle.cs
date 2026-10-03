@@ -11,13 +11,19 @@ namespace PartyRpg.Kit.Content;
 /// <param name="ContentPacks">The packs the bundle includes, in load order.</param>
 /// <param name="TuningPack">The tuning pack the bundle includes, when it has one.</param>
 /// <param name="Description">A human-readable statement of what the bundle is.</param>
+/// <param name="Setup">
+/// What an operator does to produce the packs the bundle names when they are absent, or empty when the bundle states
+/// nothing. A bundle over packs generated from the operator's own data cannot ship those packs, so it says how to make
+/// them, and a product started without them shows this instead of an empty world.
+/// </param>
 public sealed record GameBundle(
     int SchemaVersion,
     string BundleId,
     string Ruleset,
     IReadOnlyList<string> ContentPacks,
     string? TuningPack,
-    string Description)
+    string Description,
+    string Setup = "")
 {
     /// <summary>The schema version this build writes and accepts.</summary>
     public const int CurrentSchemaVersion = 1;

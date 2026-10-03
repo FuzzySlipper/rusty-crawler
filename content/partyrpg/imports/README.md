@@ -7,7 +7,9 @@ data, so they are not committed: run
 dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll write --install /path/to/mm7 --output content/partyrpg/imports
 ```
 
-To load them, add their pack ids to the [`partyrpg-default` bundle](../bundles/partyrpg-default/bundle.json).
+The default [`mm7-new-game` bundle](../bundles/mm7-new-game/bundle.json) already names `mm7-tables` and
+`mm7-world`, so a product started after a write plays them; until they exist it starts with the bundle's setup
+guidance instead of a world. A live check that stages its own scenario names it in a bundle of its own choosing.
 The bundle is the one place that decides what plays: a pack it does not name is still read and validated,
 but it contributes no definitions, no placements, and no scenario start; a broken pack it does not name
 still stops the product, with a refusal that says the pack is not selected and where it was read from, so

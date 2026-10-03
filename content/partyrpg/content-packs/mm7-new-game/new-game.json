@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "documentId": "new-game-start",
+  "definitionKind": "scenario-start",
+  "entries": [
+    {
+      "id": "new-game",
+      "place": "1",
+      "entryPoint": "Party Start",
+      "party": "creation"
+    }
+  ]
+}

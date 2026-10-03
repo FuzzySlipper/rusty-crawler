@@ -289,4 +289,10 @@ internal static class ProductIdentity
     /// an operator unable to tell a resumed session from a new one.
     /// </remarks>
     internal const string StartVariable = "RUSTY_CRAWLER_START";
+
+    /// <summary>
+    /// The environment variable that selects which built-in bundle a run plays: unset for the ordinary new game, or
+    /// the empty-content shell for diagnosing the host. Read once where the product is created, like the start switch.
+    /// </summary>
+    internal const string BundleVariable = "RUSTY_CRAWLER_BUNDLE";
 }

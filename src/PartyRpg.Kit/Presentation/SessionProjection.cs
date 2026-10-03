@@ -163,6 +163,9 @@ public static class SessionProjection
     /// <summary>The composition's field naming which start the party took: creation, scenario, or resumed.</summary>
     public const string PartyStartField = "partyStart";
 
+    /// <summary>The composition's setup object: the requested bundle whose packs are absent, or null when it plays.</summary>
+    public const string SetupField = "setup";
+
     /// <summary>The world object's wire name.</summary>
     public const string WorldField = "world";
 
@@ -350,7 +353,13 @@ public static class SessionProjection
             (TitleField, builder.String(composition.Title)),
             (BundleField, builder.String(composition.Bundle is { } bundle ? bundle : string.Empty)),
             (ContentPacksField, builder.Number(composition.ContentPacks)),
-            (PartyStartField, builder.String(WireName(composition.PartyStart))));
+            (PartyStartField, builder.String(WireName(composition.PartyStart))),
+            (SetupField, composition.Setup is { } setup
+                ? builder.Object(
+                    ("bundle", builder.String(setup.Bundle)),
+                    ("missingPacks", builder.Array([.. setup.MissingPacks.Select(builder.String)])),
+                    ("guidance", builder.String(setup.Guidance)))
+                : builder.Null()));
 
     /// <summary>The wire name for the start a session's party took.</summary>
     /// <param name="start">The start the session states.</param>

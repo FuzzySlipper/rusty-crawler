@@ -429,6 +429,9 @@ internal sealed class MightAndMagic7Session : IGameSession
             {
                 Bundle = context.Selection.BundleId,
                 ContentPacks = context.Selection.PackCount,
+                Setup = context.Selection.Unavailable is { } wanted
+                    ? new ContentSetup(wanted, context.Selection.MissingPacks, context.Selection.Setup)
+                    : null,
             };
             SessionControls controls = new()
             {
@@ -464,7 +467,10 @@ internal sealed class MightAndMagic7Session : IGameSession
                 world = resumed.World;
                 start = resumed;
             }
-            else if (NewPartyStart(context) == SessionPartyStart.Creation)
+            // A bundle whose packs are absent offers no creation: a party accepted into no world would read as the
+            // start of an expedition that cannot happen, so the session holds nobody and its composition carries
+            // the bundle's setup guidance instead.
+            else if (context.Selection.Unavailable is null && NewPartyStart(context) == SessionPartyStart.Creation)
             {
                 // The session creates its party. The flow is this game's, the factory is the one every party
                 // comes from, and what the accepted party plays is composed by the same entry the scenario's party

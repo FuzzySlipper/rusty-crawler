@@ -31,8 +31,8 @@ Bundle assembles. Host launches.**
 > original due times for sleep, running spell effects and shelf restocks, as the
 > [save/resume reading](docs/evidence/deadline-persistence.md) records. The service
 > panel reaches cures, training, provisions, rooms, bank deposits and withdrawals, and fares, with offers priced
-> for the chosen patient or amount by the service owner. The shipped bundle selects no packs, so a product without
-> them reports no world and no party. [`AGENTS.md`](AGENTS.md) states the shape and lists the residue with
+> for the chosen patient or amount by the service owner. The default `mm7-new-game` bundle plays the imported packs from the
+> first region's party start; a product without them shows how to generate them instead of a world. [`AGENTS.md`](AGENTS.md) states the shape and lists the residue with
 > each receiver; the project READMEs under [`src/`](src/README.md) hold the per-mechanism detail.
 
 The current DOM panel exposes these mechanisms over an empty world frame; it is not the completed

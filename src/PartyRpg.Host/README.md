@@ -24,9 +24,13 @@ Implemented today:
 - `ProductIdentity` declares the product id, title, projection stream and contract, and the two
   input names once; the project file declares the same values, and the host suite (`ControlDeclarationTests`,
   which reads the constants by reference and the project file as XML) fails when the two drift.
-- `BuiltInBundles` is the compiled list of bundles the product will start from, and `ProductStart` reads
-  whether a start is fresh or resumed from `RUSTY_CRAWLER_START` (a resume with nothing saved is refused by
-  name rather than starting fresh).
+- `BuiltInBundles` is the compiled list of bundles the product will start from: the default `mm7-new-game`
+  and the empty shell `partyrpg-default`, chosen by `RUSTY_CRAWLER_BUNDLE` (unset is the default; any other
+  value is refused by name). `ProductStart` reads whether a start is fresh or resumed from `RUSTY_CRAWLER_START`
+  (a resume with nothing saved is refused by name rather than starting fresh). When the selected bundle's only
+  defect is that packs it names are absent, the selection carries them and the bundle's `setup` text; the
+  session offers no creation and publishes them as `composition.setup`, which the panel shows in place of a
+  world. Any other content defect still stops the product with every problem named.
 - The project file declares the product metadata and 25 input intents, each digital with its key: pause
   (`session.pause-toggle`, P) and save (`session.save`, F); the movement intents (W/S/A/D, Q/E, Space, and
   flight's `party.ascend` and `party.descend` on the up and down arrows, held — the original's Page Up and Insert

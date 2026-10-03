@@ -26,18 +26,39 @@ public sealed class BundleSelectionTests
     }
 
     [Fact]
-    public void A_bundle_that_names_a_pack_which_is_not_there_stops_the_product()
+    public void A_bundle_whose_only_defect_is_absent_packs_selects_nothing_and_names_them_with_its_setup()
     {
         InMemoryContentSource source = new InMemoryContentSource()
-            .Add("bundles/default/bundle.json", Bundle("default", "partyrpg", """["absent-pack"]"""));
+            .Add("packs/places/pack.json", Pack("places", "definitions", "places", "place"))
+            .Add("packs/places/places.json", """{ "documentId": "places", "definitionKind": "place", "entries": [ { "id": "1" } ] }""")
+            .Add("bundles/default/bundle.json", """
+                { "schemaVersion": 1, "bundleId": "default", "ruleset": "partyrpg",
+                  "contentPacks": ["absent-pack", "places", "other-absent"], "setup": "Generate them." }
+                """);
+
+        ContentBootstrapResult result = ContentBootstrap.Load(source, Layout, "default");
+
+        // Absent packs are a state the product reports, not a defect it refuses to start over: nothing is selected,
+        // and the result names what is missing and how the bundle says to produce it.
+        Assert.True(result.IsValid);
+        Assert.Null(result.Selection);
+        Assert.NotNull(result.Missing);
+        Assert.Equal(["absent-pack", "other-absent"], result.Missing.Packs);
+        Assert.Equal("Generate them.", result.Missing.Bundle.Setup);
+        Assert.Equal("default", BundleSelection.Missing(result.Missing).Unavailable);
+    }
+
+    [Fact]
+    public void A_bundle_with_absent_packs_and_another_defect_still_stops_the_product()
+    {
+        InMemoryContentSource source = new InMemoryContentSource()
+            .Add("bundles/default/bundle.json", Bundle("default", "partyrpg", """["absent-pack", "absent-pack"]"""));
 
         ContentBootstrapResult result = ContentBootstrap.Load(source, Layout, "default");
 
         Assert.False(result.IsValid);
-        Assert.Null(result.Selection);
-        ContentValidationIssue issue = Assert.Single(result.Issues);
-        Assert.Equal("bundle-pack-missing", issue.Code);
-        Assert.Contains("absent-pack", issue.Message);
+        Assert.Null(result.Missing);
+        Assert.Contains(result.Issues, issue => issue.Code == "bundle-pack-repeated");
     }
 
     [Fact]

@@ -105,7 +105,7 @@ internal static class ProductTestContext
     /// </summary>
     internal static (string Path, string Text)[] DoorWorld() =>
     [
-        Bundle("partyrpg-default", "world", "creation-tables"),
+        Bundle(BuiltInBundles.Default, "world", "creation-tables"),
         .. CreationTables(),
         ($"{ContentDirectory}/content-packs/world/pack.json",
             """

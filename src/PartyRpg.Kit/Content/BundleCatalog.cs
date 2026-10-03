@@ -18,6 +18,9 @@ public sealed record ResolvedBundle(GameBundle Bundle, IReadOnlyList<LoadedPack>
 /// </remarks>
 public sealed class BundleCatalog
 {
+    /// <summary>The issue code a bundle naming an absent pack raises.</summary>
+    public const string PackMissingCode = "bundle-pack-missing";
+
     private BundleCatalog(IReadOnlyList<GameBundle> bundles, IReadOnlyList<ContentValidationIssue> issues)
     {
         Bundles = bundles;
@@ -91,7 +94,7 @@ public sealed class BundleCatalog
             if (pack is null)
             {
                 issues.Add(new ContentValidationIssue(
-                    "bundle-pack-missing",
+                    PackMissingCode,
                     $"bundle '{bundle.BundleId}' includes pack '{packId}', which is not present.",
                     bundle.BundleId));
                 continue;
@@ -188,7 +191,8 @@ public sealed class BundleCatalog
             ruleset,
             packs,
             tuning.Length == 0 ? null : tuning,
-            Read(root, "description"));
+            Read(root, "description"),
+            Read(root, "setup"));
     }
 
     private static string Read(JsonElement element, string property) =>

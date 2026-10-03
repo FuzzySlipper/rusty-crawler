@@ -359,7 +359,7 @@ public sealed class ProductLifecycleTests
             return name == ProductIdentity.StartVariable ? "resume" : null;
         });
 
-        Assert.Equal([ProductIdentity.StartVariable], asked);
+        Assert.Equal([ProductIdentity.BundleVariable, ProductIdentity.StartVariable], asked);
         Assert.Equal(SessionStart.Resume, resumed.StartMode);
         resumed.Start();
         Assert.Equal(SessionMode.Running, resumed.Mode);

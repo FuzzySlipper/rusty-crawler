@@ -4,7 +4,8 @@
     "title": "Might and Magic VII: For Blood and Honor",
     "bundle": "",
     "contentPacks": 0,
-    "partyStart": "scenario"
+    "partyStart": "scenario",
+    "setup": null
   },
   "session": {
     "mode": "starting",

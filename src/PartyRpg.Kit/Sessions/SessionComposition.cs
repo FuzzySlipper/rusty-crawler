@@ -39,6 +39,12 @@ public readonly record struct SessionComposition(RulesetId Ruleset, string Title
     /// </summary>
     public SessionPartyStart PartyStart { get; init; }
 
+    /// <summary>
+    /// The bundle the host asked for whose packs are absent, the packs it lacks, and its own guidance for producing
+    /// them; empty when the session plays what it selected. A session in this state holds no world, and says why.
+    /// </summary>
+    public ContentSetup? Setup { get; init; }
+
     /// <summary>Reads the composition a ruleset declares.</summary>
     public static SessionComposition From(IGameRuleset ruleset)
     {
@@ -46,3 +52,9 @@ public readonly record struct SessionComposition(RulesetId Ruleset, string Title
         return new SessionComposition(ruleset.Id, ruleset.Title);
     }
 }
+
+/// <summary>A requested bundle the session could not play because the packs it names are absent.</summary>
+/// <param name="Bundle">The bundle the host asked for.</param>
+/// <param name="MissingPacks">The packs it names that the content root lacks.</param>
+/// <param name="Guidance">The bundle's own statement of how an operator produces them, empty when it states none.</param>
+public sealed record ContentSetup(string Bundle, IReadOnlyList<string> MissingPacks, string Guidance);

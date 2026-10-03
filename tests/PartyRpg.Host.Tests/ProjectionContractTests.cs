@@ -235,7 +235,7 @@ public sealed class ProjectionContractTests
     private static readonly SessionComposition Composition = new(
         new RulesetId("mightandmagic7"),
         "Might and Magic VII: For Blood and Honor",
-        "partyrpg-default",
+        BuiltInBundles.Default,
         2);
 
     private static ControlKeys Keys() => ProductControlKeys.Read(ProductTestContext.DeclaredInput());

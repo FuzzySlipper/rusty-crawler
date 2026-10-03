@@ -74,7 +74,7 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
     /// <param name="context">The Engine's creation context.</param>
     /// <param name="variables">Reads one named variable, or null when it is unset.</param>
     internal CrawlerProduct(ProductCreateContext context, Func<string, string?> variables)
-        : this(context, BuiltInRulesets.Default, bundleId: null, start: ProductStart.From(variables))
+        : this(context, BuiltInRulesets.Default, BuiltInBundles.Parse(variables(ProductIdentity.BundleVariable)), ProductStart.From(variables))
     {
     }
 
@@ -172,7 +172,9 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
     /// <remarks>
     /// Content that is present and wrong stops the product here, naming every problem at once, rather
     /// than starting and meeting the defect later as a missing monster. Content that is absent yields
-    /// no selection instead: a checkout whose packs have not been generated yet still runs.
+    /// no selection instead: a checkout whose packs have not been generated yet still runs, and when the bundle
+    /// it asked for names packs that are absent the selection carries which ones and the bundle's own setup
+    /// guidance, which the session shows in place of a world.
     /// </remarks>
     private static (BundleSelection Selection, ContentCatalog? Content) SelectBundle(ProductCreateContext context, string bundleId, RulesetId ruleset)
     {
@@ -188,9 +190,11 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
                 bootstrap.Issues);
         }
 
-        return bootstrap.Selection is { } selection
-            ? (new BundleSelection(selection.Bundle.BundleId, selection.Packs.Count), bootstrap.Catalog)
-            : (BundleSelection.None, (ContentCatalog?)null);
+        if (bootstrap.Selection is { } selection)
+            return (new BundleSelection(selection.Bundle.BundleId, selection.Packs.Count), bootstrap.Catalog);
+        return bootstrap.Missing is { } missing
+            ? (BundleSelection.Missing(missing), null)
+            : (BundleSelection.None, null);
     }
 
     /// <summary>The mode the session is in.</summary>

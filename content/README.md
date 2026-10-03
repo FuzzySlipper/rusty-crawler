@@ -9,7 +9,7 @@ Layout:
 
 | Path | Holds |
 | --- | --- |
-| `partyrpg/bundles/` | Game-bundle declarations: which ruleset, content packs, and tuning profiles a launchable product selects. The shipped `partyrpg-default` selects none until the operator names imported packs. |
+| `partyrpg/bundles/` | Game-bundle declarations: which ruleset, content packs, and tuning profiles a launchable product selects. The default `mm7-new-game` names the imported `mm7-tables` and `mm7-world` and the authored `mm7-new-game` opening, with setup guidance shown when the imported packs are absent; `partyrpg-default` selects nothing and is the empty shell for diagnosing the host (`RUSTY_CRAWLER_BUNDLE=partyrpg-default`). |
 | `partyrpg/content-packs/` | The authored root: **definitions**, **tuning** profiles, and **scenario** state that are ours rather than imported. None is committed today. |
 | `partyrpg/imports/<pack>/` | Packs `mm7import write` produces offline from an operator-supplied installation: tables, places and their collision artifacts, placements, encounters, maps, and the provenance that records game, build, source file, and transformation. Generated and never committed. |
 
@@ -25,5 +25,6 @@ Boundary rules:
 - Definitions are data, not code: if content seems to need behavior, the
   behavior belongs in the ruleset and the content should carry the values.
 
-What is checked in is this README, the two directory READMEs, and the default bundle; every pack the
+What is checked in is this README, the two directory READMEs, the two bundles, and the authored
+`mm7-new-game` scenario pack, which names imported identities and carries no game data; every other pack the
 product plays is generated from the operator's own data.
