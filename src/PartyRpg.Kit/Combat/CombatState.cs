@@ -490,7 +490,7 @@ public sealed partial class CombatState : IGameTimeObserver
                 actor.Name,
                 new Refusal(CombatCodes.Recovering, string.Create(
                     CultureInfo.InvariantCulture,
-                    $"{actor.Name} is still recovering: {actor.Recovery.Milliseconds}ms of game time must pass before it can act again."))));
+                    $"{actor.Name} is still recovering: {actor.Recovery.TotalSeconds:0.0}s before they can act again."))));
         }
 
         // What the actor's conditions leave it able to do is the ruleset's answer, asked before anything is
@@ -895,6 +895,21 @@ public sealed partial class CombatState : IGameTimeObserver
 
     /// <summary>Whether an actor is one of the party or a creature standing with it.</summary>
     private static bool OnPartysSide(Combatant combatant) => combatant.Side is CombatSide.Party or CombatSide.Ally;
+
+    /// <summary>What an order from this actor would strike now: the nearest standing opponent within its reach.</summary>
+    /// <param name="actor">The actor whose order is asked about.</param>
+    /// <returns>The target, or null when the actor is not in this fight or nothing stands within its reach.</returns>
+    public Combatant? AimOf(CombatantId actor) => _byId.TryGetValue(actor, out Combatant? combatant) ? Nearest(combatant) : null;
+
+    /// <summary>Whether an order was given by one of the party's own members rather than by a creature.</summary>
+    /// <remarks>
+    /// It is read from who gave the order rather than from who stands in the fight now, so a member who has since died
+    /// and left the fight's actors is still the author of what they did.
+    /// </remarks>
+    /// <param name="order">The order's result.</param>
+    /// <returns>Whether its actor is one of the party's members.</returns>
+    public bool IsPartys(CombatResult order) =>
+        order is not null && _party.Members.Any(member => CombatantId.Of(member.Id) == order.Actor);
 
     /// <summary>
     /// The creature a party member should attack: the nearest one that is not on the party's own side,

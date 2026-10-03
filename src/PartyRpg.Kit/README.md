@@ -147,7 +147,9 @@ grouped by mechanism: `CombatRules`, `ProgressionRules`, `MagicRules`, `AlchemyR
 (the session states which start that was as `SessionComposition.PartyStart` — creation, scenario, or resumed —
 and the composition block publishes it as `partyStart`; which start a new session takes is the ruleset's);
 the update applies a player's acts through `SessionActs`, drives the fight in either pacing through
-`CombatDriver` and `ActControl`, hands a conversation's offer to its owner through the exhaustive
+`CombatDriver` and `ActControl` (in real time a held act control waits while the acting member recovers and orders
+again once they are ready, while a fresh press is always ordered and so answered with the recovery it is waiting on),
+hands a conversation's offer to its owner through the exhaustive
 `ConversationHandoffRouter` over the closed `HandoffOwner` list (`HandoffOwner.Use` runs what a topic set going as
 one use of the speaker's placement through `SessionWorld.Answer`, hands what it taught to the knowledge owner, puts
 what it said into the conversation as the person's answer through `PartyConversations.Hear` — an answer handing to
@@ -169,7 +171,9 @@ rest a service provides (`PartyRest.SleepInRoom`, used by rooms and a training v
 each advancing the one clock by a game-time period, settling the day through the party's own ledger, and
 holding the debt of sleep as a deadline the clock brings due; a completed night asks `IRestRule.Unrestored`
 which members may benefit, fills and clears only those members, then asks `IRestRule.Rested` what each keeps;
-the result names every member left as they were and the rule's reason) — the compiled ruleset and session contracts, the pack envelope with its
+the result names every member left as they were and the rule's reason; `PartyRest.Judge` runs the same checks a stop
+runs and moves nothing, so the rest block publishes each stop's period, charge or refusal and the members a night would
+leave as they are, and each stop control is offered exactly when that judgment would take it) — the compiled ruleset and session contracts, the pack envelope with its
 catalog loader, validator and bundle resolution (`ContentCatalog.Selected` is the one place a bundle's
 selection becomes the content a session reads: the packs it named contribute, and the packs it did not
 are not loaded at all, though a broken one still refuses the start with its issue marked `NotSelected` and the
@@ -300,7 +304,10 @@ over every party component, member component and held item, each of which takes 
 quest, journal, knowledge, map, progression, casting, mixing and outfitting owners' own), and the few live facts it
 shows besides — the clock's hour for an errand's condition, its minute for the calendar book, the party's pose for
 the drawing, the running effects and the fight's sides for the spellbook, and no keeping at all while a detection
-marks the map; with its controls block,
+marks the map; the spellbook's targets carry the 250-unit step each stands within, which its key reads; the
+`feedback` block (`FeedbackSnapshot`, kept by `ActionFeedback`) is the answer to the party's latest act — it watches
+each owner's own last result and takes the new one, numbered and naming the act, its actor and its subject, so a
+screen's one answer line is never an older owner's result; a creature's blow stays the fight's news; with its controls block,
 `ControlsSnapshot`: each stand-alone control's action, whether the session would take it now, and the key the host bound it
 to as `ControlKeys` — so the panel prints every verdict and works none out), the admitted-input router that turns
 engine events into session commands, the population owner that fills a place from its placements and
@@ -351,8 +358,8 @@ placed (`CreatureComposer` over the game's `ICreatureVitals`, which also attache
 leaves on a creature — a paralysis, a slowing, a fear, a charm — counted down by the fight's own clock advances
 and read by the game's answers), so a fight keeps no tally of its own beside
 it; where a placed entity stands is its own too (`PlacePopulationEntity.Pose`, moved only by `MoveTo`); a death
-is reported once, from the wound that caused it, to the `ICreatureDeathObserver`s `CombatRules` names; and `CombatState.Vitals`, `IsDown`, and `LastResolution` are
-what the panel reads; no scene, no second population, no per-kind cooldown, no per-kind damage class, and
+is reported once, from the wound that caused it, to the `ICreatureDeathObserver`s `CombatRules` names; and `CombatState.Vitals`, `IsDown`, `LastResolution` and `AimOf` (what an actor's order would strike now) are
+what the panel reads, the fight block naming the selected member's aim and listing its foes nearest first; no scene, no second population, no per-kind cooldown, no per-kind damage class, and
 no timer); the second pacing of that same state is a reading of it rather than a second fight
 (`Combat/` — `CombatPacing` on the state, and a `TurnBasedPacing` that orders the fight's actors by ascending
 remaining recovery with the fight's own order breaking ties, lengths a round by the longest recovery any

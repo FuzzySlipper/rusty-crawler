@@ -9,7 +9,8 @@ namespace PartyRpg.Kit.Sessions;
 /// <param name="Attacked">Whether the act control ordered an attack.</param>
 /// <param name="Skipped">Whether a committed turn forfeits the round's turn.</param>
 /// <param name="Waited">Whether a committed turn defers to the round's end.</param>
-internal readonly record struct FightOrders(bool Attacked, bool Skipped, bool Waited);
+/// <param name="Fresh">Whether the act control came down this update, rather than staying down from an earlier one.</param>
+internal readonly record struct FightOrders(bool Attacked, bool Skipped, bool Waited, bool Fresh = false);
 
 /// <summary>
 /// What the act control's key means from one update to the next: a hold in real time, a press in a paced fight.
@@ -34,10 +35,10 @@ internal sealed class ActControl
     private bool _suppressed;
     private bool _seenDown;
 
-    /// <summary>Reads the key for one update and says whether it orders anything.</summary>
+    /// <summary>Reads the key for one update: whether it orders anything, and whether it came down this update.</summary>
     /// <param name="down">Whether the control is down this update.</param>
     /// <param name="paced">Whether the fight is paced, so only a press orders.</param>
-    public bool Orders(bool down, bool paced)
+    public (bool Orders, bool Pressed) Read(bool down, bool paced)
     {
         bool pressed = down && !_held && !_suppressed;
         if (_suppressed)
@@ -53,7 +54,7 @@ internal sealed class ActControl
 
         bool orders = paced ? pressed : down && !_suppressed;
         _held = down;
-        return orders;
+        return (orders, pressed);
     }
 
     /// <summary>Drops the hold at a change of pacing: a key down now must come up before it orders again.</summary>
@@ -101,8 +102,9 @@ internal sealed partial class CombatDriver(SessionOwners owners, MovementInput? 
         SelectMembers(input);
         bool down = _input is not null && owners.Combat is not null && _input.Read(input) && !screenOwnsControls;
         bool paced = !screenOwnsControls && owners.Combat is { Pacing: CombatPacing.TurnBased };
-        bool attacked = _act.Orders(down, paced);
-        return paced ? new FightOrders(attacked, turn.Skip, turn.Wait) : new FightOrders(attacked, false, false);
+        (bool attacked, bool pressed) = _act.Read(down, paced);
+        pressed |= down && _input!.Struck;
+        return paced ? new FightOrders(attacked, turn.Skip, turn.Wait, pressed) : new FightOrders(attacked, false, false, pressed);
     }
 
     /// <summary>Switches the pacing of the fight, and changes nothing else about it.</summary>
@@ -159,13 +161,17 @@ internal sealed partial class CombatDriver(SessionOwners owners, MovementInput? 
                 "A turn was passed or deferred while this fight had no turn to give: the pacing is not turn-based, nothing is being fought, or the party has nobody left who can act.");
         }
 
+        // A held control keeps attacking as the acting member recovers: while they are still recovering, the hold waits
+        // rather than asking again, so the answer to the attack it made is not buried under a refusal every update. A
+        // press is always asked, and a press made too early is answered with the recovery it is waiting on.
+        bool attacks = orders.Attacked && (orders.Fresh || combat.Selected is not { IsReady: false });
         if (owners.Director is { } director && owners.World is { } world)
         {
             director.Step(world.Place, seconds);
-            if (orders.Attacked) combat.Engage();
+            if (attacks) combat.Engage();
             director.Observe(world.Place);
         }
-        else if (orders.Attacked)
+        else if (attacks)
         {
             combat.Engage();
         }

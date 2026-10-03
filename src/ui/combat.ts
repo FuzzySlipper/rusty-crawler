@@ -110,6 +110,9 @@ export interface CombatView {
   /** Which pacing the one fight is being played in: `realtime` or `turnbased`. */
   readonly pacing: string;
   readonly turn: TurnView;
+  /** What the selected member's attack would strike now, as its row's id; empty when nothing stands within reach. */
+  readonly aim: string;
+  readonly aimName: string;
 }
 
 function readFighter(f: Fields): FighterView {
@@ -184,6 +187,8 @@ export function readCombat(f: Fields): CombatView {
     byParty: f.flag('byParty'),
     pacing: f.text('pacing', 'realtime'),
     turn: readTurn(f.object('turn')),
+    aim: f.text('aim'),
+    aimName: f.text('aimName'),
   };
 }
 

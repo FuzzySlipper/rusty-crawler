@@ -244,6 +244,50 @@ public sealed class SessionDiagnosticsTests
     }
 
     [Fact]
+    public void The_latest_answer_is_the_one_to_the_latest_act_numbered_and_named_and_a_stop_is_judged_before_it_is_pressed()
+    {
+        GameClock clock = TestClock.At(hour: 22);
+        using PartyEntity party = TestParty.OfFour();
+        using Hall hall = Hall.Build(party, clock);
+        using RecordingUiProjectionChannel channel = new();
+        using PartyRpgSession session = new(
+            Composition,
+            channel,
+            new SessionOwners(clock, new RecordingDiagnosticsService()),
+            new SessionParty.Playing(World: hall.World, Party: party),
+            new SessionRules { Rest = new RoofedNights() },
+            new SessionControls
+            {
+                Rest = new RestIntentNames("test.rest", "test.camp", "test.wait-dawn", "test.wait-hour", "test.wait-short", Contract),
+            });
+        session.Start();
+
+        // Before anything is done, nothing has been answered; each stop is offered or refused by the mechanism's own
+        // judgment, and the camp control follows it.
+        ProjectedNode first = channel.Latest();
+        Assert.Equal(0d, first.Field("feedback").Field("serial").AsNumber());
+        ProjectedNode camp = first.Field("rest").Field("offers").Item(1);
+        Assert.Equal(("camp", false, "camp-under-a-roof"), (camp.Field("kind").AsString(), camp.Field("offered").AsBoolean(), camp.Field("code").AsString()));
+        Assert.Equal("8 hour(s)", first.Field("rest").Field("offers").Item(0).Field("period").AsString());
+        Assert.False(first.Field("controls").Field("camp").Field("enabled").AsBoolean());
+        Assert.True(first.Field("controls").Field("rest").Field("enabled").AsBoolean());
+
+        // A night is the latest answer, named as a stop.
+        session.Update(Admitted.Update(1, 0, Admitted.Digital("test.rest")));
+        ProjectedNode rested = channel.Latest().Field("feedback");
+        Assert.Equal((1d, "stop", "rest", "applied"), (rested.Field("serial").AsNumber(), rested.Field("source").AsString(), rested.Field("subject").AsString(), rested.Field("outcome").AsString()));
+
+        // A refused camp pressed anyway replaces it, with its own code and sentence.
+        session.Update(Admitted.Update(2, 0, Admitted.Digital("test.camp")));
+        ProjectedNode refused = channel.Latest().Field("feedback");
+        Assert.Equal((2d, "camp", "refused", "camp-under-a-roof"), (refused.Field("serial").AsNumber(), refused.Field("subject").AsString(), refused.Field("outcome").AsString(), refused.Field("code").AsString()));
+
+        // An update that answers nothing leaves the latest answer where it stood.
+        session.Update(Admitted.Update(3, 0));
+        Assert.Equal(2d, channel.Latest().Field("feedback").Field("serial").AsNumber());
+    }
+
+    [Fact]
     public void A_passage_bought_where_the_session_holds_no_world_is_reported_as_fare_no_world()
     {
         RecordingDiagnosticsService diagnostics = new();

@@ -331,6 +331,7 @@ function rest(overrides = {}) {
     tired: false,
     fatigueDue: '1168-01-02 09:00',
     fatigueLanded: 0,
+    offers: [],
     ...overrides,
   };
 }
@@ -379,6 +380,8 @@ function combat(overrides = {}) {
     byParty: true,
     pacing: 'realtime',
     turn: round(),
+    aim: '',
+    aimName: '',
     ...overrides,
   };
 }
@@ -730,6 +733,8 @@ function snapshot(mode, seconds = 0, steps = 0, _updates = 0, facts = undefined,
   // The controls are published in every mode, and every case here reads them: a case that names none gets the
   // controls the mode it names would offer, bound to the keys the host's project declares.
   value.controls = blocks?.controls ?? controls(mode);
+  // The latest answer is published in every mode: a case that names none has answered nothing yet.
+  value.feedback = blocks?.feedback ?? { serial: 0, source: '', actor: '', subject: '', outcome: 'none', code: '', message: '' };
   return value;
 }
 

@@ -51,6 +51,7 @@ public sealed class PartyRpgSession : IGameSession
     private readonly SessionActs _acts;
     private readonly CombatDriver _fight;
     private readonly SaveRequests _saves;
+    private readonly ActionFeedback _feedback = new();
     private readonly bool _resumed;
     private readonly HashSet<string> _contracts;
     private readonly ControlKeys _keys;
@@ -692,6 +693,7 @@ public sealed class PartyRpgSession : IGameSession
             _readings.Equipment(_owners.Outfitting, party, _owners.ItemUses, _owners.Rules.ItemReadings, _itemPictures, Quests))
         {
             Character = _readings.Character(Party, party, _owners.Rules.CharacterSheet, Clock),
+            Feedback = _feedback.Observe(_owners, _saves.State),
         };
     }
 

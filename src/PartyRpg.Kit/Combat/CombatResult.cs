@@ -78,16 +78,16 @@ public sealed record CombatResult
     public static CombatResult Applied(AttackInitiation initiation, CombatResolution? resolution = null)
     {
         ArgumentNullException.ThrowIfNull(initiation);
-        string how = initiation.Ability.Length > 0
-            ? $"{AttackKinds.WireName(initiation.Kind)}: {initiation.Ability}"
-            : AttackKinds.WireName(initiation.Kind);
+        // The sentence a player reads names how the attack was made and the recovery it costs in the game seconds the
+        // fight's panel counts; the ability an attack used is the initiation's own fact, not a word for a player.
+        string how = AttackKinds.WireName(initiation.Kind);
         string attempt = initiation.HasTarget
             ? string.Create(
                 CultureInfo.InvariantCulture,
-                $"{initiation.ActorName} attacks {initiation.TargetName} ({how}) and must recover {initiation.Recovery.Milliseconds}ms of game time.")
+                $"{initiation.ActorName} attacks {initiation.TargetName} ({how}) and recovers for {initiation.Recovery.TotalSeconds:0.0}s.")
             : string.Create(
                 CultureInfo.InvariantCulture,
-                $"{initiation.ActorName} attacks nothing in reach ({how}) and must recover {initiation.Recovery.Milliseconds}ms of game time.");
+                $"{initiation.ActorName} attacks nothing in reach ({how}) and recovers for {initiation.Recovery.TotalSeconds:0.0}s.");
         string message = resolution is null ? attempt : $"{attempt} {resolution.Message}";
         return new CombatResult(initiation.Actor, initiation.ActorName, refusal: null, message, initiation, resolution);
     }

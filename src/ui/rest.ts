@@ -43,6 +43,22 @@ export interface RestView {
   readonly fatigueDue: string;
   /** How many times the debt has fallen due since the session began. */
   readonly fatigueLanded: number;
+  /** Each stop as the mechanism would judge it now, in the order the controls are offered. */
+  readonly offers: readonly RestOfferView[];
+}
+
+/** One stop as the rest mechanism would judge it now: how long, what it would cost, or why it would be refused. */
+export interface RestOfferView {
+  readonly kind: string;
+  readonly offered: boolean;
+  /** How long it would last, as the product words it; empty when it would be refused. */
+  readonly period: string;
+  /** What it would take from the larder, as the product words it; empty when nothing. */
+  readonly charge: string;
+  readonly code: string;
+  readonly reason: string;
+  /** The members a completed sleep would leave as they are, each with the product's reason. */
+  readonly unrestored: readonly string[];
 }
 
 export function readRest(f: Fields): RestView {
@@ -66,6 +82,15 @@ export function readRest(f: Fields): RestView {
     tired: f.flag('tired'),
     fatigueDue: f.text('fatigueDue'),
     fatigueLanded: f.number('fatigueLanded'),
+    offers: f.list('offers', (entry) => ({
+      kind: entry.text('kind'),
+      offered: entry.flag('offered'),
+      period: entry.text('period'),
+      charge: entry.text('charge'),
+      code: entry.text('code'),
+      reason: entry.text('reason'),
+      unrestored: entry.words('unrestored'),
+    })),
   };
 }
 
@@ -75,29 +100,44 @@ export interface RestReading {
   readonly controls: readonly [ControlView, ControlView, ControlView, ControlView, ControlView];
 }
 
-/** The five stop buttons' words, in the order the controls arrive. */
-const LABELS = ['Rest & heal 8 hours', 'Make camp', 'Wait until dawn', 'Wait an hour', 'Wait 5 minutes'] as const;
+/**
+ * The five stops in the order their controls arrive: the kind each is published as, its button's words, and the
+ * shorter word an answer to it is headed by.
+ */
+export const STOPS = [
+  { kind: 'rest', label: 'Rest & heal 8 hours', act: 'Rest' },
+  { kind: 'camp', label: 'Make camp', act: 'Camp' },
+  { kind: 'wait-dawn', label: 'Wait until dawn', act: 'Wait until dawn' },
+  { kind: 'wait-hour', label: 'Wait an hour', act: 'Wait an hour' },
+  { kind: 'wait-five-minutes', label: 'Wait 5 minutes', act: 'Wait 5 minutes' },
+] as const;
 
 /** Mounts the stop controls. */
 export function mountRest(host: Host): Section<RestReading> {
   const { panel, claim } = host;
   const rest = section('crawler-rest');
   const state = element('p', 'crawler-rest-state');
+  // Each stop is an option of its own: its button, and beside it what the mechanism says it would take — how long and
+  // what it costs — or why it would be refused, and whom a night would leave as they are.
   const actions = element('div', 'crawler-actions');
-  const buttons = LABELS.map((label) => {
+  const options = STOPS.map(({ label }) => {
+    const option = element('div', 'crawler-rest-option');
     const stop = button(label);
     stop.addEventListener('click', () => {
       if (stop.dataset.action !== undefined && stop.dataset.action !== '') claim(stop.dataset.action);
     });
-    actions.append(stop);
-    return stop;
+    const judged = element('p', 'crawler-rest-judgment');
+    const left = element('ul', 'crawler-rest-unrestored');
+    option.append(stop, judged, left);
+    actions.append(option);
+    return { option, stop, judged, left };
   });
   const outcome = result('crawler-rest-result');
   rest.append(head('Rest, camp, and wait'), state, actions, outcome);
 
   /**
-   * The buttons follow the product's answer for each stop rather than the mode, because a stop is an instant: a
-   * held session still lets the party sleep. What a night cost is written out in full — the larder and what it
+   * The buttons follow the product's answer for each stop, which judges the stop itself and whether the session would
+   * take one now, rather than anything this screen reads of the mode. What a night cost is written out in full — the larder and what it
    * cleared — because "the party rested" and "it rested and it cost two portions" are different facts.
    */
   const render = ({ rest: view, controls }: RestReading): void => {
@@ -112,10 +152,26 @@ export function mountRest(host: Host): Section<RestReading> {
       : view.tired
         ? `Tired${view.fatigueDue === '' ? '' : ` · next sleep due ${view.fatigueDue}`}${view.fatigueLanded > 0 ? ` · landed ${view.fatigueLanded}×` : ''}`
         : `Rested${view.fatigueDue === '' ? '' : ` · next sleep due ${view.fatigueDue}`}`;
-    buttons.forEach((stop, index) => {
+    options.forEach(({ option, stop, judged, left }, index) => {
       stop.dataset.id = controls[index].action;
       stop.dataset.action = controls[index].action;
       stop.disabled = !controls[index].enabled;
+      // Each option reads the judgment published for its own kind, so the order of the two lists cannot pair a stop
+      // with another's answer.
+      const offer = view.offers.find((judged) => judged.kind === STOPS[index].kind);
+      option.dataset.offered = offer === undefined ? 'unknown' : offer.offered ? 'yes' : 'no';
+      judged.dataset.code = offer?.code ?? '';
+      judged.textContent = offer === undefined
+        ? ''
+        : offer.offered
+          ? `${offer.period}${offer.charge === '' ? ' · costs nothing' : ` · costs ${offer.charge}`}`
+          : offer.reason;
+      left.replaceChildren(...(offer?.unrestored ?? []).map((line) => {
+        const item = element('li');
+        item.textContent = `Not restored — ${line}`;
+        return item;
+      }));
+      left.hidden = left.childElementCount === 0;
     });
     outcome.hidden = view.message === '';
     outcome.dataset.outcome = view.outcome;

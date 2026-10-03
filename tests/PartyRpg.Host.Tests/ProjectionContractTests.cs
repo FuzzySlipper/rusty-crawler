@@ -352,7 +352,17 @@ public sealed class ProjectionContractTests
         },
         new RestSnapshot(
             true, "rest", "applied", string.Empty, "The party rests for 8 hour(s).", "1168-01-01 22:00", "1168-01-02 06:00",
-            28800, 2, 2, "portions", false, true, 2, "weak", string.Empty, false, "1168-01-03 06:00", 0),
+            28800, 2, 2, "portions", false, true, 2, "weak", string.Empty, false, "1168-01-03 06:00", 0)
+        {
+            Offers =
+            [
+                new RestOfferSnapshot("rest", true, "8 hour(s)", "2 portions", string.Empty, string.Empty, ["Aelina: unconscious, which a night does not end"]),
+                new RestOfferSnapshot("camp", false, string.Empty, string.Empty, "camp-hostiles-near", "A beast stands near enough that the party will not camp.", []),
+                new RestOfferSnapshot("wait-dawn", true, "7 hour(s) 30 minute(s)", string.Empty, string.Empty, string.Empty, []),
+                new RestOfferSnapshot("wait-hour", true, "1 hour(s)", string.Empty, string.Empty, string.Empty, []),
+                new RestOfferSnapshot("wait-five-minutes", true, "5 minute(s)", string.Empty, string.Empty, string.Empty, []),
+            ],
+        },
         new ConversationSnapshot(
             Available: true,
             Open: true,
@@ -400,7 +410,11 @@ public sealed class ProjectionContractTests
             Resistance: "0",
             Condition: string.Empty,
             TargetDown: false,
-            ByParty: true),
+            ByParty: true)
+        {
+            Aim = "actor:1",
+            AimName = "A beast",
+        },
         new ProgressionSnapshot(
             true,
             [new ProgressionMemberSnapshot(0, "1", "Roderick", 1, 7000, 5, 1000, 10, 5, 2), new ProgressionMemberSnapshot(1, "2", "Aelina", 1, 0, 0, 1000, 0, 0, 2)],
@@ -608,6 +622,7 @@ public sealed class ProjectionContractTests
             ],
         })
         {
+            Feedback = new FeedbackSnapshot(7, FeedbackSources.Attack, "Roderick", "A beast", "applied", string.Empty, "Roderick hits A beast (melee): 5 Phys damage landed."),
             Character = new CharacterSnapshot(true,
             [
                 new CharacterMemberSnapshot(0, "1", "Roderick",

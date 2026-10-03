@@ -62,7 +62,8 @@ export const STYLES = `
 .crawler-bar { height: 0.45rem; margin-top: 0.25rem; background: #000; border: 1px solid #3a3226; }
 .crawler-bar-fill { height: 100%; background: #3fae4b; }
 .crawler-bar-spell .crawler-bar-fill { background: #3f6fd1; }
-.crawler-member-state { align-self: end; font-size: 0.68rem; color: #d6a76a; line-height: 1.2; overflow: hidden; }
+/* The state line sits under the bars whether or not a member has a spell bar, so every card reads it in one place. */
+.crawler-member-state { grid-column: 2; grid-row: 4; align-self: start; margin-top: 0.2rem; font-size: 0.68rem; color: #d6a76a; line-height: 1.2; overflow: hidden; }
 .crawler-member[data-state='recovering'] .crawler-member-state { color: #9fb6d6; }
 .crawler-purse { display: flex; flex-direction: column; justify-content: center; gap: 0.15rem; font-variant-numeric: tabular-nums; }
 .crawler-coins { color: #f2cf5b; font-weight: 600; }
@@ -96,11 +97,31 @@ export const STYLES = `
 .crawler-hud-message { position: absolute; top: 0.6rem; left: 50%; transform: translateX(-50%); max-width: 34rem; text-align: center; pointer-events: none; }
 .crawler-hud-message p { margin: 0 0 0.25rem; padding: 0.2rem 0.6rem; background: rgba(10, 9, 7, 0.72); border-radius: 0.2rem; }
 .crawler-facing { color: #f0e4c4; }
-.crawler-said { color: #e8c98a; font-size: 0.82rem; }
+.crawler-hud-said { color: #e8c98a; font-size: 0.82rem; }
+.crawler-hud-said[data-outcome='refused'] { color: #f0b49a; }
 
 /* The fight, beside the world while the party is in one. */
-.crawler-fight { position: absolute; top: 0.6rem; left: 0.6rem; width: 19rem; max-height: calc(100vh - 10rem); overflow-y: auto; }
-.crawler-fight > .crawler-combat { padding: 0.45rem 0.6rem; background: rgba(18, 16, 14, 0.86); border: 1px solid #5a4b31; border-radius: 0.25rem; }
+.crawler-fight { position: absolute; top: 0.6rem; left: 0.6rem; width: 19rem; }
+.crawler-fight-panel { padding: 0.45rem 0.6rem; background: rgba(18, 16, 14, 0.86); border: 1px solid #5a4b31; border-radius: 0.25rem; color: #cfc3a2; font-size: 0.75rem; }
+.crawler-fight-panel[hidden] { display: none; }
+.crawler-fight-panel p { margin: 0 0 0.25rem; }
+.crawler-fight-pace { color: #d8cba6; font-size: 0.8rem; }
+.crawler-fight-actor[data-state='recovering'] { color: #e2c48a; }
+.crawler-fight-actor[data-state='down'], .crawler-fight-selection:not([data-code='']) { color: #f0b49a; }
+.crawler-fight-target { color: #f0e4c4; }
+.crawler-fight-controls { display: flex; flex-wrap: wrap; gap: 0.2rem; margin: 0.15rem 0 0.3rem; }
+.crawler-session .crawler-fight-controls button { width: auto; padding: 0.2rem 0.4rem; font-size: 0.75rem; }
+.crawler-session .crawler-fight-controls button[hidden] { display: none; }
+.crawler-fight-foes { margin: 0 0 0.2rem; padding: 0; list-style: none; }
+.crawler-fight-foe { display: flex; justify-content: space-between; gap: 0.4rem; padding: 0.05rem 0.2rem; }
+.crawler-fight-foe[data-aim='yes'] { background: rgba(226, 196, 138, 0.16); color: #f0e4c4; }
+.crawler-fight-foe[data-down='yes'] { opacity: 0.55; text-decoration: line-through; }
+.crawler-fight-foe-facts { color: #b9ad8c; white-space: nowrap; }
+.crawler-fight-more { color: #9c917a; }
+.crawler-fight-last { padding: 0.2rem 0.35rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; }
+.crawler-fight-last[hidden], .crawler-fight-more[hidden], .crawler-fight-selection[hidden] { display: none; }
+.crawler-fight-last[data-by-party='no'] { border-color: rgba(226, 170, 96, 0.85); color: #ecd6ac; }
+.crawler-fight-last[data-outcome='refused'] { border-color: rgba(226, 120, 96, 0.8); color: #e8c8b0; }
 
 /* A screen over the world: a book the player opened, or what the product put in front of the party. */
 .crawler-screens { position: absolute; inset: 0.6rem 13.4rem 9rem 0.6rem; pointer-events: none; }
@@ -386,7 +407,14 @@ export const STYLES = `
 .crawler-rest[hidden] { display: none; }
 .crawler-rest .crawler-step-head { margin: 0 0 0.2rem; color: #d8cba6; font-size: 0.82rem; }
 .crawler-rest-state { margin: 0 0 0.25rem; color: #b9ad8c; font-size: 0.72rem; }
-.crawler-rest .crawler-actions { display: flex; flex-wrap: wrap; gap: 0.2rem; }
+.crawler-rest .crawler-actions { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: 0.4rem; }
+.crawler-rest-option { padding: 0.35rem 0.45rem; border: 1px solid #5a4b31; border-radius: 0.2rem; background: rgba(30, 26, 20, 0.6); }
+.crawler-rest-option[data-offered='no'] { border-color: rgba(226, 120, 96, 0.55); }
+.crawler-rest-option button { width: 100%; }
+.crawler-rest-judgment { margin: 0.25rem 0 0; color: #cfc3a2; font-size: 0.74rem; }
+.crawler-rest-option[data-offered='no'] .crawler-rest-judgment { color: #f0b49a; }
+.crawler-rest-unrestored { margin: 0.2rem 0 0; padding: 0; list-style: none; color: #e2c48a; font-size: 0.72rem; }
+.crawler-rest-unrestored[hidden] { display: none; }
 .crawler-rest .crawler-actions button { width: auto; padding: 0.2rem 0.4rem; font-size: 0.75rem; }
 .crawler-rest-result { margin: 0.3rem 0 0; padding: 0.25rem 0.4rem; border-left: 2px solid rgba(150, 200, 226, 0.8); color: #cfe0e8; font-size: 0.75rem; }
 .crawler-rest-result[hidden] { display: none; }

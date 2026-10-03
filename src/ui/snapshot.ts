@@ -14,6 +14,7 @@ import { readCombat, type CombatView } from './combat.js';
 import { readConversation, type ConversationView } from './conversation.js';
 import { readCreation, type CreationView } from './creation.js';
 import { readEquipment, type EquipmentView } from './equipment.js';
+import { readFeedback, type FeedbackView } from './feedback.js';
 import { readJournal, type JournalView } from './journal.js';
 import { readMagic, type MagicView } from './magic.js';
 import { readMap, type MapView } from './map.js';
@@ -71,6 +72,8 @@ export interface SnapshotView {
   readonly map: MapView;
   readonly journal: JournalView;
   readonly controls: ControlsView;
+  /** The answer to the party's latest act. */
+  readonly feedback: FeedbackView;
 }
 
 /** One projection as read: every block, or nothing when it names no session; and every problem met reading it. */
@@ -114,6 +117,7 @@ export function readSnapshot(value: unknown): Reading {
     map: read('map', readMap),
     journal: read('journal', readJournal),
     controls: read('controls', readControls),
+    feedback: read('feedback', readFeedback),
   };
   return { snapshot, problems };
 }

@@ -247,7 +247,7 @@ public sealed class MagicPolicyTests
         {
             session.Update(RulesetTestContext.Update(step, 1));
             combat = ProjectedNode.Of(ui.Latest().Value).Field("combat");
-            if (!combat.Field("message").AsString().Contains("spell1", StringComparison.Ordinal)) continue;
+            if (combat.Field("byParty").AsBoolean() || combat.Field("kind").AsString() != "spell") continue;
             cast = true;
             Assert.Equal("Fire", combat.Field("damageKind").AsString());
             Assert.InRange(combat.Field("damageRolled").AsNumber(), 1, 24);

@@ -86,8 +86,8 @@ The fixture runner passes over steps that only change what a player sees or hear
 
 ## Limits
 
-- The top message line can show a creature's later blow instead of the cast's own result (`37`–`41`). The book keeps
-  the cast's result, and placing feedback where the action was taken is #9226's.
+- In these frames the top message line can show a creature's later blow instead of the cast's own result (`37`–`41`).
+  Since #9226 the line is the answer to the party's latest act ([reading](combat-rest-feedback.md)).
 - Fidget groups are not driven.
 - Door faces keep their texture coordinates as the door moves.
 - No frame-rate claim follows from these captures.

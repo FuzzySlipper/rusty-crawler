@@ -456,6 +456,52 @@ public sealed class CombatStateTests
     }
 
     [Fact]
+    public void A_held_act_control_waits_through_the_members_recovery_rather_than_being_refused_every_update()
+    {
+        using RecordingUiProjectionChannel channel = new();
+        using PartyEntity party = Party();
+        using SessionWorld world = World(party, monsterAt: 100);
+        using PartyRpgSession session = new(
+            new SessionComposition(new RulesetId("test.ruleset"), "Test"),
+            channel,
+            new SessionOwners(TestClock.Create()),
+            new SessionParty.Playing(World: world, Party: party),
+            rules: new SessionRules { Combat = Capabilities.Combat(new TestCombatRule(new SeededRandom())) },
+            controls: new SessionControls { Combat = new CombatIntentNames("test.attack", "test.actions") });
+        Arrive(world);
+        session.Start();
+        session.Update(Admitted.Update(1, 1));
+
+        // The key comes down and the member attacks; held while they recover, it asks for nothing, so the answer to
+        // the attack stays the fight's last order instead of a refusal published every update.
+        session.Update(Admitted.Update(2, 1, Held()));
+        ProjectedNode attacked = channel.Latest().Field("combat");
+        Assert.Equal("applied", attacked.Field("outcome").AsString());
+        session.Update(Admitted.Update(3, 1, Held()));
+        Assert.Equal("applied", channel.Latest().Field("combat").Field("outcome").AsString());
+        Assert.Equal(attacked.Field("message").AsString(), channel.Latest().Field("combat").Field("message").AsString());
+        Assert.Equal(1d, channel.Latest().Field("feedback").Field("serial").AsNumber());
+    }
+
+    [Fact]
+    public void Whose_order_it_was_is_read_from_who_gave_it()
+    {
+        using PartyEntity party = Party();
+        using SessionWorld world = World(party, monsterAt: 100);
+        CombatState combat = Fight(world, party);
+        Arrive(world);
+        combat.Step();
+
+        // A member's order is the party's, judged by the member who gave it rather than by the fight's current actors,
+        // so a member who later leaves the fight is still its author; a creature's is not.
+        CombatResult members = combat.Order(new AttackOrder(combat.Combatants[0].Id, AttackKind.Melee, null));
+        Assert.True(combat.IsPartys(members));
+        Combatant creature = combat.Combatants.First(actor => actor.Subject.Member is null);
+        CombatResult creatures = combat.Order(new AttackOrder(creature.Id, AttackKind.Melee, combat.Combatants[0].Id));
+        Assert.False(combat.IsPartys(creatures));
+    }
+
+    [Fact]
     public void The_act_control_is_read_from_a_held_mapping_a_press_and_a_panel_claim()
     {
         CombatInput reader = new(new CombatIntentNames("test.attack", "test.actions"));

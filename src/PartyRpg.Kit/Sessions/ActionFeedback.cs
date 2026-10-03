@@ -1,0 +1,90 @@
+using PartyRpg.Kit.Combat;
+using PartyRpg.Kit.Presentation;
+
+namespace PartyRpg.Kit.Sessions;
+
+/// <summary>
+/// Keeps the answer to the party's latest act: it watches each owner's own last result and takes whichever is new.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Each owner replaces its last result with a new one when it answers an act, so a result that is not the one seen
+/// last is an answer given since. The owners are read in the order their answers outrank one another when one act
+/// produces two — a casting resolves through the fight, so the casting is the answer and its blow is not — and every
+/// result read is remembered, so an answer is taken once.
+/// </para>
+/// <para>
+/// A creature's blow replaces the fight's last order too, and is not the party's act: only an order a member gave is
+/// taken, judged by who gave it rather than by who stands in the fight now. The save state is a record replaced on every attempt, so it is watched the same way.
+/// </para>
+/// </remarks>
+internal sealed class ActionFeedback
+{
+    private readonly object?[] _seen = new object?[10];
+    private bool _primed;
+
+    /// <summary>The latest answer.</summary>
+    public FeedbackSnapshot Current { get; private set; } = FeedbackSnapshot.None;
+
+    /// <summary>Reads every owner's last result and takes the first new one, in the order answers outrank one another.</summary>
+    /// <param name="owners">The session's owners.</param>
+    /// <param name="save">The session's save state, replaced on every attempt.</param>
+    /// <returns>The latest answer.</returns>
+    public FeedbackSnapshot Observe(SessionOwners owners, SaveSnapshot save)
+    {
+        object?[] now =
+        [
+            owners.Casting?.Last,
+            owners.Combat?.LastOrder,
+            owners.World?.Interaction?.LastResult,
+            owners.Rest?.Last,
+            save.State == SaveState.Never ? null : save,
+            owners.Services?.Last,
+            owners.Conversations?.Last,
+            owners.ItemUses?.Last,
+            owners.Mixing?.Last,
+            owners.Outfitting?.Last,
+        ];
+
+        // What the owners held when the watch began answered nothing the player did since.
+        if (!_primed)
+        {
+            _primed = true;
+            now.CopyTo(_seen, 0);
+            return Current;
+        }
+
+        FeedbackSnapshot? taken = null;
+        for (int index = 0; index < now.Length; index++)
+        {
+            if (now[index] is not { } result || ReferenceEquals(result, _seen[index])) continue;
+
+            // A creature's blow is the fight's news rather than an answer to the party: it is seen, and not taken.
+            if (result is CombatResult blow && owners.Combat?.IsPartys(blow) != true) continue;
+            taken ??= Read(result, Current.Serial + 1);
+        }
+
+        now.CopyTo(_seen, 0);
+        if (taken is not null) Current = taken;
+        return Current;
+    }
+
+    /// <summary>One owner's result as the answer it gives.</summary>
+    private static FeedbackSnapshot? Read(object result, long serial) => result switch
+    {
+        Magic.SpellCastResult cast => Of(serial, FeedbackSources.Cast, cast.Caster, cast.SpellName, cast.Code, cast.Message),
+        CombatResult attack => Of(serial, FeedbackSources.Attack, attack.ActorName, attack.Initiated?.TargetName ?? string.Empty, attack.Code, attack.Message),
+        Interaction.InteractionResult use => Of(serial, FeedbackSources.Use, string.Empty, use.TargetName, use.Code, use.Message),
+        Time.RestResult stop => Of(serial, FeedbackSources.Stop, string.Empty, SessionProjection.WireName(stop.Kind), stop.Code, stop.Message),
+        SaveSnapshot saved => Of(serial, FeedbackSources.Save, string.Empty, saved.Slot, saved.Code, saved.Message, refused: saved.IsFailed),
+        Services.ServiceResult counter => Of(serial, FeedbackSources.Counter, string.Empty, counter.Subject, counter.Code, counter.Message),
+        Conversation.ConversationResult said => Of(serial, FeedbackSources.Conversation, string.Empty, said.Speaker, said.Code, said.Message),
+        Party.ItemUseResult item => Of(serial, FeedbackSources.Item, string.Empty, string.Empty, item.Applied ? string.Empty : item.Code, item.Message, refused: !item.Applied),
+        Alchemy.MixingResult mixed => Of(serial, FeedbackSources.Mix, mixed.Mixer, mixed.ResultName, mixed.Code, mixed.Message),
+        Party.OutfittingResult outfit => Of(serial, FeedbackSources.Equip, outfit.Wearer, outfit.ItemName, outfit.Code, outfit.Message, refused: !outfit.Changed),
+        _ => null,
+    };
+
+    private static FeedbackSnapshot Of(long serial, string source, string actor, string subject, string code, string message, bool? refused = null) =>
+        new(serial, source, actor, subject, (refused ?? code.Length > 0) ? "refused" : "applied", code, message);
+}

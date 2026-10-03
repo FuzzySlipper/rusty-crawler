@@ -105,7 +105,7 @@ public sealed record CombatActorSnapshot(
 /// elapsed while they lie unconscious or dead.
 /// </param>
 /// <param name="Members">The party's members, in roster order, each with its readiness.</param>
-/// <param name="Enemies">The actors fighting the party, in combatant order.</param>
+/// <param name="Enemies">The actors fighting the party, nearest first.</param>
 /// <param name="Actor">Who attacked last, empty before the party has attacked.</param>
 /// <param name="Kind">How the last attack was made, as the wire spells it; empty before any.</param>
 /// <param name="Target">What the last attack was aimed at, empty when it was aimed at nothing.</param>
@@ -158,6 +158,15 @@ public sealed record CombatSnapshot(
     string SelectionCode = "",
     string ResolutionMessage = "")
 {
+    /// <summary>
+    /// What the selected member's attack would strike now — the fight's own nearest standing opponent within its reach —
+    /// as its identity in <see cref="Enemies"/>; empty when nobody is selected or nothing stands within reach.
+    /// </summary>
+    public string Aim { get; init; } = string.Empty;
+
+    /// <summary>What <see cref="Aim"/> is called, empty when it names nothing.</summary>
+    public string AimName { get; init; } = string.Empty;
+
     /// <summary>No fight mechanism: nothing can be ordered and nothing is hostile.</summary>
     public static CombatSnapshot None => new(
         Available: false,
@@ -237,6 +246,12 @@ public sealed record CombatSnapshot(
         // The last answer and the last attack are read together: a refusal attacked nothing, so the kind,
         // the target, and the recovery that cost are the applied attack's or nothing at all, and a reader
         // never sees a refusal beside the shape of an earlier swing.
+        // Nearest first, so a list bounded on a screen shows what the party is fighting before what is far off.
+        enemies = [.. enemies.OrderBy(enemy => enemy.Distance)];
+
+        // What the act control would strike, asked of the fight rather than worked out beside it.
+        Combatant? aim = combat.Selected is { } selected ? combat.AimOf(selected.Id) : null;
+
         AttackInitiation? last = combat.LastAttack;
         CombatResult? order = combat.LastOrder;
         AttackInitiation? initiation = order is null || order.IsApplied ? last : null;
@@ -268,12 +283,16 @@ public sealed record CombatSnapshot(
             TargetDown: resolution?.TargetDown ?? false,
             // The last order's own side is read from the fight rather than assumed: once the opposition is
             // driven, the last thing that happened may be a blow the party took.
-            ByParty: order is not null && combat.Find(order.Actor)?.Side == CombatSide.Party,
+            ByParty: order is not null && combat.IsPartys(order),
             Pacing: combat.Pacing,
             Turn: TurnFrom(combat),
             SelectionMessage: combat.Party.Roster.SelectionMessage,
             SelectionCode: combat.Party.Roster.SelectionRefusal?.Code ?? string.Empty,
-            ResolutionMessage: resolution?.Message ?? string.Empty);
+            ResolutionMessage: resolution?.Message ?? string.Empty)
+        {
+            Aim = aim?.Id.ToString() ?? string.Empty,
+            AimName = aim?.Name ?? string.Empty,
+        };
     }
 
     /// <summary>Reads the round the fight is in, as the panel reads it.</summary>
@@ -365,7 +384,9 @@ public sealed record CombatSnapshot(
             ("resistance", builder.String(Resistance)),
             ("condition", builder.String(Condition)),
             ("targetDown", builder.Boolean(TargetDown)),
-            ("byParty", builder.Boolean(ByParty)));
+            ("byParty", builder.Boolean(ByParty)),
+            ("aim", builder.String(Aim)),
+            ("aimName", builder.String(AimName)));
 }
 
 /// <summary>

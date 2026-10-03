@@ -93,6 +93,9 @@ public sealed record SessionSnapshot(
 {
     /// <summary>Each member's character page as the game's sheet reads them, or the no-sheet value.</summary>
     public CharacterSnapshot Character { get; init; } = CharacterSnapshot.None;
+
+    /// <summary>The answer to the party's latest act, whichever owner gave it.</summary>
+    public FeedbackSnapshot Feedback { get; init; } = FeedbackSnapshot.None;
 }
 
 /// <summary>Where the party is in the world, as the panel needs it: which place, where in it, and how much of the world is known.</summary>
@@ -233,6 +236,9 @@ public static class SessionProjection
     /// <summary>The character block's field.</summary>
     public const string CharacterField = "character";
 
+    /// <summary>The field the answer to the party's latest act is published under.</summary>
+    public const string FeedbackField = "feedback";
+
     /// <summary>The name of the projection field the stand-alone controls are published under.</summary>
     public const string ControlsField = "controls";
 
@@ -342,6 +348,9 @@ public static class SessionProjection
             // member wears nothing", and "a change was refused for a skill" are three different facts.
             (EquipmentField, snapshot.Equipment.Write(builder)),
             (CharacterField, snapshot.Character.Write(builder)),
+            // The latest answer is one block rather than a choice among the owners' own, so a screen showing it cannot
+            // leave an older answer standing as the answer to what the player just did.
+            (FeedbackField, snapshot.Feedback.Write(builder)),
             // The controls are published in every mode for the same reason every block is: "this control would
             // be taken now", "it would be refused", and "it is bound to this key" are facts about the session, and
             // a screen that worked any of them out would be a second copy of the rule that decides them.

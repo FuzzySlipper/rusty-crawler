@@ -64,6 +64,13 @@ public sealed record RestSnapshot(
     string FatigueDue,
     int FatigueLanded)
 {
+    /// <summary>
+    /// Each stop as the mechanism would judge it now, in the order the controls are offered — rest, camp, wait until dawn,
+    /// wait an hour, wait five minutes — so a screen shows what each would take or why it would be refused before it is
+    /// pressed. Empty when the session holds no rest mechanism.
+    /// </summary>
+    public IReadOnlyList<RestOfferSnapshot> Offers { get; init; } = [];
+
     /// <summary>No rest mechanism: nothing can be asked for and nothing has happened.</summary>
     public static RestSnapshot None => new(
         Available: false,
@@ -123,8 +130,14 @@ public sealed record RestSnapshot(
             Shortage: last?.Shortage?.ToString() ?? string.Empty,
             Tired: fatigue?.IsWeak ?? false,
             FatigueDue: Date(fatigue?.Due),
-            FatigueLanded: fatigue?.Landed ?? 0);
+            FatigueLanded: fatigue?.Landed ?? 0)
+        {
+            Offers = [.. Kinds.Select(kind => RestOfferSnapshot.From(rest.Judge(kind)))],
+        };
     }
+
+    /// <summary>The stops, in the order the controls are offered.</summary>
+    private static readonly RestKind[] Kinds = [RestKind.Rest, RestKind.Camp, RestKind.WaitUntilDawn, RestKind.WaitAnHour, RestKind.WaitFiveMinutes];
 
     /// <summary>Where on the calendar a moment is, as the panel shows it, or empty when there is none.</summary>
     private static string Date(GameDate? at) =>
@@ -143,6 +156,7 @@ public sealed record RestSnapshot(
     internal uint Write(UiValueBuilder builder) =>
         builder.Object(
             ("available", builder.Boolean(Available)),
+            ("offers", builder.Array([.. Offers.Select(offer => offer.Write(builder))])),
             ("kind", builder.String(Kind)),
             ("outcome", builder.String(Outcome)),
             ("code", builder.String(Code)),
@@ -161,4 +175,40 @@ public sealed record RestSnapshot(
             ("tired", builder.Boolean(Tired)),
             ("fatigueDue", builder.String(FatigueDue)),
             ("fatigueLanded", builder.Number(FatigueLanded)));
+}
+
+/// <summary>One stop as the rest mechanism would judge it now (<see cref="PartyRest.Judge"/>).</summary>
+/// <param name="Kind">The stop, as the wire spells it.</param>
+/// <param name="Offered">Whether the party would take it.</param>
+/// <param name="Period">How long it would last, as a person reads it; empty when it would be refused.</param>
+/// <param name="Charge">What it would take from the larder, as a person reads it; empty when nothing.</param>
+/// <param name="Code">The refusal's code, empty when it would be taken.</param>
+/// <param name="Reason">Why it would be refused, empty when it would be taken.</param>
+/// <param name="Unrestored">The members a completed sleep would leave as they are, each with the reason.</param>
+public sealed record RestOfferSnapshot(string Kind, bool Offered, string Period, string Charge, string Code, string Reason, IReadOnlyList<string> Unrestored)
+{
+    /// <summary>Reads one judged stop.</summary>
+    /// <param name="offer">The mechanism's judgment.</param>
+    /// <returns>The row.</returns>
+    public static RestOfferSnapshot From(RestOffer offer) => new(
+        SessionProjection.WireName(offer.Kind),
+        offer.IsOffered,
+        offer.IsOffered ? PartyRest.Describe(offer.Period) : string.Empty,
+        offer.Charge.IsNone ? string.Empty : PartyRest.Amounts(offer.Charge),
+        offer.Refusal?.Code ?? string.Empty,
+        offer.Refusal?.Message ?? string.Empty,
+        offer.Unrestored);
+
+    /// <summary>Writes the row.</summary>
+    /// <param name="builder">The projection being built.</param>
+    /// <returns>The row's node.</returns>
+    internal uint Write(UiValueBuilder builder) =>
+        builder.Object(
+            ("kind", builder.String(Kind)),
+            ("offered", builder.Boolean(Offered)),
+            ("period", builder.String(Period)),
+            ("charge", builder.String(Charge)),
+            ("code", builder.String(Code)),
+            ("reason", builder.String(Reason)),
+            ("unrestored", builder.Array([.. Unrestored.Select(builder.String)])));
 }

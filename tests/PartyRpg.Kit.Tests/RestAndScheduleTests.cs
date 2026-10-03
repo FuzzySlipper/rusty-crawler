@@ -242,6 +242,38 @@ public sealed class RestAndScheduleTests
     }
 
     [Fact]
+    public void Each_stop_is_judged_before_it_is_taken_by_the_checks_the_stop_runs_and_nothing_moves()
+    {
+        GameClock clock = TestClock.At(hour: 22);
+        using PartyEntity party = Party(foodPortions: 1, wounded: 25);
+        PartyResourceLedger accounts = Ledger(party);
+        using SessionWorld world = Site(clock, party, accounts, kind: PlaceKind.Interior);
+        world.Populate();
+        PartyRest rest = new(new TestRestRule(campCharge: 3), party, clock, world, accounts);
+
+        // Under a roof with one portion: the night is refused for the larder, the camp for the roof, and a wait is
+        // offered for its own length and costs nothing — each the same answer pressing it would give.
+        RestOffer night = rest.Judge(RestKind.Rest);
+        Assert.Equal(("rest-larder-short", false), (night.Refusal!.Code, night.IsOffered));
+        Assert.Equal(rest.Perform(RestKind.Rest).Code, night.Refusal.Code);
+        Assert.Equal("camp-under-a-roof", rest.Judge(RestKind.Camp).Refusal!.Code);
+        RestOffer hour = rest.Judge(RestKind.WaitAnHour);
+        Assert.True(hour.IsOffered);
+        Assert.Equal((GameDuration.FromHours(1), Provisions.None), (hour.Period, hour.Charge));
+
+        // Judging moved nothing: no time passed and the larder is as it was.
+        Assert.Equal(GameDuration.None, clock.Elapsed);
+        Assert.Equal(1, party.Food.Portions);
+
+        // With food enough, the night is offered with its period and price.
+        party.Food.Credit(3);
+        RestOffer fed = rest.Judge(RestKind.Rest);
+        Assert.True(fed.IsOffered);
+        Assert.Equal((GameDuration.FromHours(8), new Provisions(2, ProvisionUnit.Portions)), (fed.Period, fed.Charge));
+        Assert.Empty(fed.Unrestored);
+    }
+
+    [Fact]
     public void A_wait_moves_the_clock_and_restores_nobody()
     {
         GameClock clock = TestClock.At(hour: 22);

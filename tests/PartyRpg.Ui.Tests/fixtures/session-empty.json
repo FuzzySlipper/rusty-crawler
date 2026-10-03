@@ -146,6 +146,7 @@
   },
   "rest": {
     "available": false,
+    "offers": [],
     "kind": "",
     "outcome": "",
     "code": "",
@@ -224,7 +225,9 @@
     "resistance": "",
     "condition": "",
     "targetDown": false,
-    "byParty": false
+    "byParty": false,
+    "aim": "",
+    "aimName": ""
   },
   "progression": {
     "available": false,
@@ -362,6 +365,15 @@
   "character": {
     "available": false,
     "members": []
+  },
+  "feedback": {
+    "serial": 0,
+    "source": "",
+    "actor": "",
+    "subject": "",
+    "outcome": "none",
+    "code": "",
+    "message": ""
   },
   "controls": {
     "pause": {

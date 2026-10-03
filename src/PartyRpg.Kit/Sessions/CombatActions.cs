@@ -112,11 +112,12 @@ public sealed class CombatInput
         ArgumentNullException.ThrowIfNull(inbox);
         bool state = false;
         bool claimed = false;
+        bool pressed = false;
         foreach (ProductInputEvent inputEvent in inbox.Digital)
         {
             if (!inputEvent.Intent.Span.SequenceEqual(_attack)) continue;
             if (inputEvent.Edge == InputEdge.Held) state = true;
-            else if (inputEvent.Edge == InputEdge.Pressed) _held = true;
+            else if (inputEvent.Edge == InputEdge.Pressed) _held = pressed = true;
             else if (inputEvent.Edge == InputEdge.Released) _held = false;
             else if (inputEvent.Phase == InputPhase.DirectUi || inputEvent.Provenance == InputProvenance.DirectUi) claimed = true;
         }
@@ -126,8 +127,15 @@ public sealed class CombatInput
         // A control that arrives as state is whatever this update said and nothing else, so a key the player let
         // go of stops ordering attacks.
         _stateDriven = state;
+        Struck = claimed || pressed;
         return _held || _stateDriven || claimed;
     }
+
+    /// <summary>
+    /// Whether the last update carried a press of its own — a pressed edge, or a panel's control, which is always one
+    /// press — rather than only a control still held from an earlier update.
+    /// </summary>
+    public bool Struck { get; private set; }
 
     /// <summary>Drops the hold, which a change of pacing asks for.</summary>
     public void Release()

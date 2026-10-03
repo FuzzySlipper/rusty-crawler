@@ -211,7 +211,7 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
         {
             if (_rule.Unrestored(request, member) is { } reason)
             {
-                left.Add($"{member.Profile.Name}: {reason}");
+                left.Add(LeftAsTheyWere(member, reason));
                 continue;
             }
             member.Resources.RestoreAll();
@@ -224,58 +224,42 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
         return restored;
     }
 
+    /// <summary>
+    /// What one kind of stop would be here and now — how long, what it would charge, and why it would be refused —
+    /// judged by the same checks the stop itself runs, and moving nothing.
+    /// </summary>
+    /// <remarks>
+    /// A screen offers each stop with this answer before it is pressed, so a party short of food or standing where it
+    /// cannot sleep reads why beside the option. Whether a night would be broken is not judged: that is a roll the
+    /// night itself makes. The members a completed sleep would leave as they are are named with the ruleset's reason.
+    /// </remarks>
+    /// <param name="kind">The kind of stop.</param>
+    /// <returns>The offer.</returns>
+    public RestOffer Judge(RestKind kind)
+    {
+        (RestRequest? request, RestQuote? quote, Refusal? refusal, _) = Plan(kind);
+        List<string> unrestored = [];
+        if (refusal is null && request is { } asked && RestKinds.Sleeps(kind))
+        {
+            foreach (PartyMember member in _party.Members)
+                if (_rule.Unrestored(asked, member) is { } reason) unrestored.Add(LeftAsTheyWere(member, reason));
+        }
+
+        return refusal is null && quote is { } offered
+            ? new RestOffer(kind, offered.Duration, offered.Charge, null, unrestored)
+            : new RestOffer(kind, GameDuration.None, Provisions.None, refusal, unrestored);
+    }
+
     private RestResult Resolve(RestKind kind)
     {
-        if (_clock is not { } clock)
-        {
-            return RestResult.Refused(
-                kind,
-                default,
-                new Refusal(RestCodes.RestNoClock, "The party cannot stop here: this session keeps no clock, so no period could pass."));
-        }
+        (RestRequest? planned, RestQuote? planning, Refusal? refused, GameDate at) = Plan(kind);
+        if (refused is { } refusal) return RestResult.Refused(kind, at, refusal);
 
-        GameDate at = clock.Now;
-        if (_site is not { } site)
-        {
-            return RestResult.Refused(
-                kind,
-                at,
-                new Refusal(RestCodes.RestNowhere, "The party cannot stop here: it stands in no place whose ground could be slept on or waited in."));
-        }
-
-        RestRequest request = new(kind, site, _party, clock);
-        if (_rule.Stop(request) is { } halted) return RestResult.Refused(kind, at, halted);
+        // A plan that was not refused names its request and its quote over the clock it was asked on.
+        RestRequest request = planned!;
+        RestQuote quote = planning!;
+        GameClock clock = request.Clock;
         bool sleeps = RestKinds.Sleeps(kind);
-
-        // What the period is and what it costs: a sleep is the ruleset's answer about this place, and a wait
-        // is the clock's own — until dawn is read off the daylight window, and an hour is an hour.
-        RestQuote quote;
-        if (sleeps)
-        {
-            quote = _rule.Quote(request);
-            if (quote.Refusal is { } refusal) return RestResult.Refused(kind, at, refusal);
-            if (!quote.Charge.IsNone && _accounts is null)
-            {
-                return RestResult.Refused(
-                    kind,
-                    at,
-                    new Refusal(RestCodes.RestNoAccounts, $"A sleep here costs {Amounts(quote.Charge)}, and this session holds no party accounts to settle it from."));
-            }
-
-            // A night the larder cannot provision is refused before it starts: a rest the party cannot feed
-            // is a decision about the action, not a shortfall the day absorbs.
-            if (!quote.Charge.IsNone && !_party.Food.CanCover(quote.Charge))
-            {
-                return RestResult.Refused(
-                    kind,
-                    at,
-                    new Refusal(RestCodes.RestLarderShort, $"A sleep here costs {Amounts(quote.Charge)} and the party's larder holds {_party.Food.Portions} {Unit(_party.Food.Unit)}."));
-            }
-        }
-        else
-        {
-            quote = RestQuote.Planned(WaitPeriod(kind, clock), Provisions.None);
-        }
 
         // Whether the night is broken is asked before anything moves: a broken night is one the clock was
         // never advanced for, and the party gets only the part that happened.
@@ -327,6 +311,43 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
             restored,
             cleared,
             shortage);
+    }
+
+    /// <summary>The checks a stop runs before anything moves: where and when it is asked, what it is, and why it would be refused.</summary>
+    private (RestRequest? Request, RestQuote? Quote, Refusal? Refusal, GameDate At) Plan(RestKind kind)
+    {
+        if (_clock is not { } clock)
+        {
+            return (null, null, new Refusal(RestCodes.RestNoClock, "The party cannot stop here: this session keeps no clock, so no period could pass."), default);
+        }
+
+        GameDate at = clock.Now;
+        if (_site is not { } site)
+        {
+            return (null, null, new Refusal(RestCodes.RestNowhere, "The party cannot stop here: it stands in no place whose ground could be slept on or waited in."), at);
+        }
+
+        RestRequest request = new(kind, site, _party, clock);
+        if (_rule.Stop(request) is { } halted) return (request, null, halted, at);
+
+        // What the period is and what it costs: a sleep is the ruleset's answer about this place, and a wait
+        // is the clock's own — until dawn is read off the daylight window, and an hour is an hour.
+        if (!RestKinds.Sleeps(kind)) return (request, RestQuote.Planned(WaitPeriod(kind, clock), Provisions.None), null, at);
+        RestQuote quote = _rule.Quote(request);
+        if (quote.Refusal is { } refusal) return (request, quote, refusal, at);
+        if (!quote.Charge.IsNone && _accounts is null)
+        {
+            return (request, quote, new Refusal(RestCodes.RestNoAccounts, $"A sleep here costs {Amounts(quote.Charge)}, and this session holds no party accounts to settle it from."), at);
+        }
+
+        // A night the larder cannot provision is refused before it starts: a rest the party cannot feed
+        // is a decision about the action, not a shortfall the day absorbs.
+        if (!quote.Charge.IsNone && !_party.Food.CanCover(quote.Charge))
+        {
+            return (request, quote, new Refusal(RestCodes.RestLarderShort, $"A sleep here costs {Amounts(quote.Charge)} and the party's larder holds {_party.Food.Portions} {Unit(_party.Food.Unit)}."), at);
+        }
+
+        return (request, quote, null, at);
     }
 
     /// <summary>How long a wait lasts, which is a clock read: until dawn, an hour, or a short interval.</summary>
@@ -406,8 +427,11 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
         ? $"{restored} member(s) restored. Left as they were: {string.Join("; ", left)}."
         : restored > 0 ? $"every member is restored ({restored})." : "there was nobody to restore.";
 
+    /// <summary>How a member a night leaves as they were is named, by the offer before the night and the result after it.</summary>
+    private static string LeftAsTheyWere(PartyMember member, string reason) => $"{member.Profile.Name}: {reason}";
+
     /// <summary>How much game time a period is, in the units a person reads.</summary>
-    private static string Describe(GameDuration period)
+    internal static string Describe(GameDuration period)
     {
         long minutes = period.Milliseconds / (GameDuration.MillisecondsPerSecond * GameDuration.SecondsPerMinute);
         long hours = minutes / GameDuration.MinutesPerHour;
@@ -423,7 +447,7 @@ public sealed class PartyRest : IGameTimeObserver, IDeadlineOwner
             : at.MinuteText;
 
     /// <summary>What a charge is, in the words a refusal uses.</summary>
-    private static string Amounts(Provisions charge) =>
+    internal static string Amounts(Provisions charge) =>
         string.Create(CultureInfo.InvariantCulture, $"{charge.Amount} {Unit(charge.Unit)}");
 
     /// <summary>The word a unit of provisions is written as.</summary>

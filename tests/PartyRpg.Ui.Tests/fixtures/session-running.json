@@ -356,6 +356,55 @@
   },
   "rest": {
     "available": true,
+    "offers": [
+      {
+        "kind": "rest",
+        "offered": true,
+        "period": "8 hour(s)",
+        "charge": "2 portions",
+        "code": "",
+        "reason": "",
+        "unrestored": [
+          "Aelina: unconscious, which a night does not end"
+        ]
+      },
+      {
+        "kind": "camp",
+        "offered": false,
+        "period": "",
+        "charge": "",
+        "code": "camp-hostiles-near",
+        "reason": "A beast stands near enough that the party will not camp.",
+        "unrestored": []
+      },
+      {
+        "kind": "wait-dawn",
+        "offered": true,
+        "period": "7 hour(s) 30 minute(s)",
+        "charge": "",
+        "code": "",
+        "reason": "",
+        "unrestored": []
+      },
+      {
+        "kind": "wait-hour",
+        "offered": true,
+        "period": "1 hour(s)",
+        "charge": "",
+        "code": "",
+        "reason": "",
+        "unrestored": []
+      },
+      {
+        "kind": "wait-five-minutes",
+        "offered": true,
+        "period": "5 minute(s)",
+        "charge": "",
+        "code": "",
+        "reason": "",
+        "unrestored": []
+      }
+    ],
     "kind": "rest",
     "outcome": "applied",
     "code": "",
@@ -518,7 +567,9 @@
     "resistance": "0",
     "condition": "",
     "targetDown": false,
-    "byParty": true
+    "byParty": true,
+    "aim": "actor:1",
+    "aimName": "A beast"
   },
   "progression": {
     "available": true,
@@ -1380,6 +1431,15 @@
       }
     ]
   },
+  "feedback": {
+    "serial": 7,
+    "source": "attack",
+    "actor": "Roderick",
+    "subject": "A beast",
+    "outcome": "applied",
+    "code": "",
+    "message": "Roderick hits A beast (melee): 5 Phys damage landed."
+  },
   "controls": {
     "pause": {
       "action": "session.pause",
@@ -1423,27 +1483,27 @@
     },
     "rest": {
       "action": "rest.rest",
-      "enabled": true,
+      "enabled": false,
       "key": "R"
     },
     "camp": {
       "action": "rest.camp",
-      "enabled": true,
+      "enabled": false,
       "key": "C"
     },
     "waitDawn": {
       "action": "rest.wait-dawn",
-      "enabled": true,
+      "enabled": false,
       "key": "T"
     },
     "waitHour": {
       "action": "rest.wait-hour",
-      "enabled": true,
+      "enabled": false,
       "key": "H"
     },
     "waitFiveMinutes": {
       "action": "rest.wait-five-minutes",
-      "enabled": true,
+      "enabled": false,
       "key": "M"
     },
     "serviceLeave": {

@@ -28,6 +28,7 @@ import { mountDetails } from './details.js';
 import { mountDialogue } from './dialogue.js';
 import { element, type Host } from './dom.js';
 import { mountEquipment } from './equipment.js';
+import { mountFight } from './fight.js';
 import { mountFrame } from './frame.js';
 import { mountHud, type Hud } from './hud.js';
 import { mountJournal } from './journal.js';
@@ -109,6 +110,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   const counter = mountCounter(host);
   const rest = mountRest(host);
   const combat = mountCombat(host);
+  const fightPanel = mountFight(host);
   const progression = mountProgression(host);
   const promotion = mountPromotion(host);
   const skills = mountSkills(host);
@@ -143,13 +145,14 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   frame.body('journal').append(journalBook.element);
   frame.body('map').append(map.element);
 
-  // The fight stays beside the world, where the party is fighting it.
+  // The fight stays beside the world, where the party is fighting it; its every actor and the round's whole order are
+  // the diagnostic panel's.
   const fight = element('div', 'crawler-fight');
-  fight.append(combat.element);
+  fight.append(fightPanel.element);
 
   // The facts and controls a developer reads: kept, complete and current, but out of the player's way.
   // The rows the character book draws from are kept here whole as well, every member at once.
-  frame.diagnostics.append(...details.top, ...details.bottom, equipment.element, skills.element, progression.element, promotion.element, spellbook.element, conversation.element, service.element, journal.element, problems);
+  frame.diagnostics.append(...details.top, ...details.bottom, combat.element, equipment.element, skills.element, progression.element, promotion.element, spellbook.element, conversation.element, service.element, journal.element, problems);
   hud.side.append(details.companions);
   panel.append(hud.message, fight, hud.side, frame.element, hud.bar, frame.diagnostics);
   root.append(style, panel);
@@ -174,14 +177,16 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
       rest: snapshot.rest,
       controls: [controls.rest, controls.camp, controls.waitDawn, controls.waitHour, controls.waitFiveMinutes],
     });
-    combat.render({
+    const fighting = {
       combat: snapshot.combat,
       attack: controls.attack,
       nextMember: controls.nextMember,
       pace: controls.turnBased,
       skip: controls.turnSkip,
       wait: controls.turnWait,
-    });
+    };
+    combat.render(fighting);
+    fightPanel.render(fighting);
     progression.render(snapshot.progression);
     promotion.render(snapshot.promotion);
     skills.render(snapshot.skills);

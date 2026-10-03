@@ -273,7 +273,7 @@ public sealed record CombatResolution
         {
             return string.Create(
                 CultureInfo.InvariantCulture,
-                $"{ActorName} attacks {TargetName} ({AttackKinds.WireName(Kind)}) and misses: the hit roll was {HitRoll} against a {Chance} chance.");
+                $"{ActorName} attacks {TargetName} ({AttackKinds.WireName(Kind)}) and misses, with a {Chance} chance to hit.");
         }
 
         string turned = Divisor > 1

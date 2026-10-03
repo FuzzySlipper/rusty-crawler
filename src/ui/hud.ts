@@ -1,8 +1,8 @@
 /**
  * The adventure frame's persistent parts: the party's four portraits along the bottom with their pools, conditions and
  * readiness; the purse, larder and clock; the ordinary adventure controls and the buttons that open the books; down the
- * right, the place, the automap and what is running on the party; and along the top, what the party faces and what was
- * last said.
+ * right, the place, the automap and what is running on the party; and along the top, what the party faces and the
+ * answer to its latest act.
  *
  * Every value is the product's. A portrait's bars are drawn at the percentage the product published, a member's
  * readiness is the fight's own reading of that member, and a control is offered exactly when the product says it would
@@ -13,6 +13,7 @@
 import { ACTIONS, type Claim } from './actions.js';
 import type { FighterView } from './combat.js';
 import { button, element, type Host } from './dom.js';
+import { feedbackHeading } from './feedback.js';
 import { mountMap } from './map.js';
 import type { ControlView, RosterMemberView } from './overview.js';
 import type { SnapshotView } from './snapshot.js';
@@ -121,7 +122,7 @@ function portraitCard(claim: Claim): { element: HTMLButtonElement; render(member
 }
 
 /** A control the product offers, drawn as a button with its key, disabled exactly when the product would not take it. */
-function controlButton(claim: Claim, text: string, className: string): { element: HTMLButtonElement; render(view: ControlView): void } {
+function controlButton(claim: Claim, text: string, className: string): { element: HTMLButtonElement; render(view: ControlView, label?: string): void } {
   const made = button(text, className);
   let action = '';
   made.addEventListener('click', () => {
@@ -129,11 +130,11 @@ function controlButton(claim: Claim, text: string, className: string): { element
   });
   return {
     element: made,
-    render(view) {
+    render(view, label = text) {
       action = view.action;
       made.dataset.action = view.action;
       made.disabled = !view.enabled;
-      made.textContent = view.key === '' ? text : `${text} (${view.key})`;
+      made.textContent = view.key === '' ? label : `${label} (${view.key})`;
     },
   };
 }
@@ -184,10 +185,10 @@ export function mountHud(host: Host, navigation: Navigation): Hud {
   const effects = element('ul', 'crawler-hud-effects');
   side.append(place, minimap.element, effects);
 
-  // The line along the top: what the party faces and what the last thing it did said.
+  // The line along the top: what the party faces, and the answer to its latest act.
   const message = element('div', 'crawler-hud-message');
   const facing = element('p', 'crawler-facing');
-  const said = element('p', 'crawler-said');
+  const said = element('p', 'crawler-hud-said');
   message.append(facing, said);
 
   return {
@@ -217,7 +218,8 @@ export function mountHud(host: Host, navigation: Navigation): Hud {
       use.render(controls.use);
       attack.render(controls.attack);
       next.render(controls.nextMember);
-      pace.render(controls.turnBased);
+      // The pacing control names the pacing a press switches to, as the fight beside the world does.
+      pace.render(controls.turnBased, combat.pacing === 'turnbased' ? 'Real-time' : 'Turn-based');
       save.render(controls.save);
 
       place.textContent = world.name;
@@ -244,14 +246,14 @@ export function mountHud(host: Host, navigation: Navigation): Hud {
           : `${interaction.label} — ${interaction.verb} · ${interaction.distance.toFixed(0)}`;
       facing.dataset.reason = interaction.reason;
       facing.hidden = facing.textContent === '';
-      // What was said last: a refused selection first, then the fight's own word while it is fought, then the last use.
-      const words = combat.selectionCode !== ''
-        ? combat.selectionMessage
-        : combat.engaged && combat.message !== ''
-          ? combat.message
-          : interaction.message;
-      said.textContent = words;
-      said.hidden = words === '';
+      // The answer to the party's latest act, under the act it answers: the product numbers each answer, so this line
+      // is always the latest one and never an older owner's result standing in for it.
+      const { feedback } = snapshot;
+      said.dataset.serial = String(feedback.serial);
+      said.dataset.source = feedback.source;
+      said.dataset.outcome = feedback.outcome;
+      said.textContent = feedback.serial === 0 ? '' : `${feedbackHeading(feedback)}: ${feedback.message}`;
+      said.hidden = feedback.serial === 0;
     },
   };
 }

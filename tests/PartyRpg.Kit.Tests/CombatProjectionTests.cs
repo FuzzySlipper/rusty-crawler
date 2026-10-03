@@ -99,6 +99,10 @@ public sealed class CombatProjectionTests
         Assert.Equal(40d, enemy.Field("hitPointsMax").AsNumber());
         Assert.False(enemy.Field("down").AsBoolean());
 
+        // What the selected member's attack would strike is the fight's own answer, named beside the row it is.
+        Assert.Equal(enemy.Field("id").AsString(), combat.Field("aim").AsString());
+        Assert.Equal("A beast", combat.Field("aimName").AsString());
+
         // The order the panel sends is the companion's own payload action, and what the last one did is
         // published in the fight's numbers: who acted, at what, what it rolled, and what was left.
         fixture.Act();

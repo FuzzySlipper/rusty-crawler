@@ -3,6 +3,7 @@ using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Sessions;
+using PartyRpg.Kit.Time;
 using Rusty.Engine;
 
 namespace PartyRpg.Kit.Presentation;
@@ -193,7 +194,13 @@ public sealed record ControlsSnapshot(
         // Skipping and waiting pass a turn, so they are offered while a paced round is under way and at no
         // other time: outside one there is no turn of the player's to pass.
         bool passes = combat.Available && paced && round;
-        bool rests = snapshot.Rest.Available;
+        // Each stop is offered exactly when the rest mechanism's own judgment of it would take it; a refused stop's
+        // reason is published beside it, so the control is not a press a player has to make to learn the answer.
+        // A stop is taken only while the party holds its own controls and the session is not held, which is when the
+        // session hands it to the rest mechanism at all.
+        bool stops = mode is SessionMode.Running or SessionMode.TurnBased && !snapshot.Service.Open && !snapshot.Conversation.Open;
+        bool Rests(RestKind kind) => stops && snapshot.Rest.Available
+            && snapshot.Rest.Offers.FirstOrDefault(offer => offer.Kind == SessionProjection.WireName(kind)) is { Offered: true };
         bool creating = snapshot.Creation is { Active: true };
 
         return new ControlsSnapshot(
@@ -204,11 +211,11 @@ public sealed record ControlsSnapshot(
             new(TurnActions.Toggle, combat.Available, keys.TurnBased),
             new(TurnActions.Skip, passes, keys.TurnSkip),
             new(TurnActions.Wait, passes, keys.TurnWait),
-            new(RestActions.Rest, rests, keys.Rest),
-            new(RestActions.Camp, rests, keys.Camp),
-            new(RestActions.WaitUntilDawn, rests, keys.WaitDawn),
-            new(RestActions.WaitAnHour, rests, keys.WaitHour),
-            new(RestActions.WaitFiveMinutes, rests, keys.WaitFiveMinutes),
+            new(RestActions.Rest, Rests(RestKind.Rest), keys.Rest),
+            new(RestActions.Camp, Rests(RestKind.Camp), keys.Camp),
+            new(RestActions.WaitUntilDawn, Rests(RestKind.WaitUntilDawn), keys.WaitDawn),
+            new(RestActions.WaitAnHour, Rests(RestKind.WaitAnHour), keys.WaitHour),
+            new(RestActions.WaitFiveMinutes, Rests(RestKind.WaitFiveMinutes), keys.WaitFiveMinutes),
             new(ServiceActions.Leave, snapshot.Service.Open, keys.ServiceLeave),
             new(ConversationActions.Leave, snapshot.Conversation.Open, keys.ConversationLeave),
             new(CreationActions.Advance, creating, keys.CreationAdvance),
