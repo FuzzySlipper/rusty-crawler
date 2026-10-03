@@ -18,4 +18,8 @@ public interface IContentSource
 
     /// <summary>Reads a relative path as text.</summary>
     string ReadText(string relativePath);
+
+    /// <summary>Reads a relative path's bytes, which a binary file beside a pack's documents is read through.</summary>
+    /// <remarks>A source that holds text alone answers with the text's UTF-8 bytes.</remarks>
+    ReadOnlyMemory<byte> ReadBytes(string relativePath) => System.Text.Encoding.UTF8.GetBytes(ReadText(relativePath));
 }

@@ -141,7 +141,7 @@ public static class ContentCatalogLoader
                     }
                 }
 
-                packs.Add(new LoadedPack(manifest, documents));
+                packs.Add(new LoadedPack(manifest, documents) { Directory = packPath });
             }
         }
 

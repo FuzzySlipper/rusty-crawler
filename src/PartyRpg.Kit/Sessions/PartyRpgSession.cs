@@ -54,6 +54,7 @@ public sealed class PartyRpgSession : IGameSession
     private readonly bool _resumed;
     private readonly HashSet<string> _contracts;
     private readonly ControlKeys _keys;
+    private readonly Scene.IWorldPresenter? _view;
     private CreationDriver? _creation;
     private bool _accepted;
     private SessionMode _mode = SessionMode.Starting;
@@ -126,6 +127,7 @@ public sealed class PartyRpgSession : IGameSession
         _resumed = records is not null;
         _saves = new SaveRequests(composition.Title, saving, controls.Save, _resumed);
         owners.Bind(rules ?? SessionRules.None, records);
+        _view = rules?.View;
         _acts = new SessionActs(owners, controls);
         _fight = new CombatDriver(owners, controls.Movement, controls.Combat);
         _contracts = Contracts(controls);
@@ -290,6 +292,9 @@ public sealed class PartyRpgSession : IGameSession
         // A session that was held throughout and heard nothing moved nothing any block reads, so it is not even
         // read: the panel already shows what it holds.
         if (heard || before != SessionMode.Paused || _mode != SessionMode.Paused) Publish();
+
+        // The world is drawn as this update left it, from where the party now stands.
+        if (LiveWorld is { } world) _view?.Present(world.Party);
         return ProductUpdateResult.None;
     }
 
@@ -575,6 +580,7 @@ public sealed class PartyRpgSession : IGameSession
         _disposed = true;
         _mode = SessionMode.Stopped;
         Publish();
+        _view?.Dispose();
         LiveWorld?.Dispose();
         Party?.Dispose();
         _saves.Store?.Dispose();

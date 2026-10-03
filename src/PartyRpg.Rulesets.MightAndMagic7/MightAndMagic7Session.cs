@@ -389,6 +389,11 @@ internal sealed class MightAndMagic7Session : IGameSession
             Map = automap is null || mapSource is null ? null : new MapRules(automap, mapSource),
             Equipment = figure,
             ItemUses = itemMagic,
+
+            // The world is drawn from the content this game reads it from, by the same door state the collision and
+            // the interactions read, under this game's light at the clock's hour. Nothing is drawn for a session over
+            // content that carries no scenes, or a session with no engine.
+            View = MightAndMagic7Scene.View(MightAndMagic7Scene.Read(Declared(context.Content), () => owners.World, clock), context.Engine),
         };
 
         Owners = owners;

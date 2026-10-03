@@ -7,6 +7,12 @@ public sealed record LoadedPack(PackManifest Manifest, IReadOnlyList<ContentDocu
 {
     /// <summary>The pack's id.</summary>
     public string PackId => Manifest.PackId;
+
+    /// <summary>
+    /// The pack's directory relative to the content root, which a file a document names beside it — a mesh, an image —
+    /// is read under; empty for a pack built in memory.
+    /// </summary>
+    public string Directory { get; init; } = string.Empty;
 }
 
 /// <summary>

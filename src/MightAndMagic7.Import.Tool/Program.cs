@@ -316,6 +316,18 @@ internal static class Program
                 loot = Describe(result.Containers, tables),
                 fixtures = Describe(result.Fixtures, tables),
                 globalEvents = Describe(result.Globals),
+                render = new
+                {
+                    places = result.Render.Places.Count,
+                    vertices = result.Render.Places.Sum(place => place.Vertices),
+                    triangles = result.Render.Places.Sum(place => place.Triangles),
+                    doorParts = result.Render.Places.Sum(place => place.Parts.Count(part => part.Door is not null)),
+                    undrawnFaces = result.Render.Places.Sum(place => place.UndrawnFaces),
+                    untexturedFaces = result.Render.Places.Sum(place => place.UntexturedFaces),
+                    textures = result.Render.Textures,
+                    skies = result.Render.Skies,
+                    missingTextures = result.Render.MissingTextures,
+                },
                 use = "the product's default mm7-new-game bundle names these packs; restart the product to play them",
             },
             Json));

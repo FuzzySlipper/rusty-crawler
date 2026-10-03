@@ -7,6 +7,7 @@ using MightAndMagic7.Import.Events;
 using MightAndMagic7.Import.Lod;
 using MightAndMagic7.Import.Maps;
 using MightAndMagic7.Import.Packs;
+using MightAndMagic7.Import.Render;
 using MightAndMagic7.Import.Tables;
 using MightAndMagic7.Import.World;
 
@@ -56,6 +57,9 @@ internal sealed record PackWriteResult(
     PlaceFixtureSummary Fixtures,
     GlobalEventSummary Globals)
 {
+    /// <summary>What the render geometry and media held.</summary>
+    internal RenderSummary Render { get; init; } = RenderSummary.Empty;
+
     /// <summary>The pack ids, in the order they were written.</summary>
     internal IReadOnlyList<string> PackIds => [.. Packs.Select(pack => pack.PackId)];
 }
@@ -126,6 +130,11 @@ internal static partial class PackWriter
         TerrainTileTable? terrain = maps.Count == 0 ? null : TerrainTileTable.Read(install);
         IReadOnlyList<PlaceCollision> collisions = terrain is null ? [] : EmitCollisions(tables, maps, terrain);
 
+        // Render geometry reads the same decoded faces and terrain the collision does, on the same axes; its bitmaps are
+        // the installation's own, written into the media pack beside it.
+        BitmapLibrary? bitmaps = terrain is null ? null : BitmapLibrary.Open(install);
+        IReadOnlyList<PlaceRender> renders = terrain is null ? [] : EmitRenders(maps, terrain, bitmaps!);
+
         // The entrances are derived from the same decoded maps the collision is: a place's trigger faces
         // are map data, so an import that decoded no map has none to derive and says so per link.
         PlaceEntranceSummary entrances = PlaceEntranceEmitter.Emit(graph, maps, programs, tables.People);
@@ -169,7 +178,7 @@ internal static partial class PackWriter
         // wrote and this one does not is not left beside the new ones for the loader to find. Other packs under
         // the same root — a scenario the operator staged — are not this importer's and are left alone.
         Directory.CreateDirectory(outputRoot);
-        foreach (string pack in new[] { "mm7-world", "mm7-tables" })
+        foreach (string pack in new[] { "mm7-world", "mm7-tables", "mm7-media" })
         {
             string directory = Path.Combine(outputRoot, pack);
             if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
@@ -184,14 +193,21 @@ internal static partial class PackWriter
             collisions,
             entrances,
             services,
-            fixtures);
+            fixtures,
+            renders,
+            bitmaps);
+        ((string, int, int) media, int textures, int skies) = WriteMedia(provenance, Path.Combine(outputRoot, "mm7-media"), renders, bitmaps, terrain);
         List<(string, int, int)> packs =
         [
             WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services, people, encounters, creatures, fixtures, globals, terrain),
             world,
+            media,
         ];
         WriteBundleFragment(outputRoot, provenance, packs);
-        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions), entrances, containers, services, people, encounters, creatures, mapped, fixtures, globals);
+        return new PackWriteResult(outputRoot, provenance, packs, CollisionSummary.Of(collisions), entrances, containers, services, people, encounters, creatures, mapped, fixtures, globals)
+        {
+            Render = new RenderSummary(renders, textures, skies),
+        };
     }
 
     /// <summary>
@@ -353,9 +369,12 @@ internal static partial class PackWriter
         IReadOnlyList<PlaceCollision> collisions,
         PlaceEntranceSummary entrances,
         PlaceServiceSummary services,
-        PlaceFixtureSummary fixtures)
+        PlaceFixtureSummary fixtures,
+        IReadOnlyList<PlaceRender> renders,
+        BitmapLibrary? bitmaps)
     {
         int links = WritePlaceGraph(packDirectory, graph, tables, maps, entrances);
+        int rendered = WritePlaceRenders(packDirectory, renders, maps, tables, bitmaps);
         int places = WritePlaceGeometry(packDirectory, collisions, fixtures);
         int reachCount = WritePlaceEntrances(packDirectory, entrances);
         PlaceMapSummary mapped = WritePlaceMaps(packDirectory, maps);
@@ -395,8 +414,11 @@ internal static partial class PackWriter
                 // Every place with a map is referenced by it: the entry is what the automap is drawn from, so
                 // a reader that resolves references is told which places the pack can draw at all.
                 ("place-map.json", "place-map", "place-map", mapReferences),
+
+                // A place's render geometry names its place and every bitmap it binds, which the media pack carries.
+                ("place-render.json", "place-render", RenderDefinitionKind, RenderReferences(renders, bitmaps)),
             ]);
-        return (("mm7-world", 4, links + places + reachCount + mapped.Places), mapped);
+        return (("mm7-world", 5, links + places + reachCount + mapped.Places + rendered), mapped);
     }
 
     private static int WriteDocument(

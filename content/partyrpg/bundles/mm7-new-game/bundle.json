@@ -5,8 +5,9 @@
   "contentPacks": [
     "mm7-tables",
     "mm7-world",
+    "mm7-media",
     "mm7-new-game"
   ],
-  "description": "The ordinary new game: the tables and world the importer writes from the operator's own installation, and the authored opening that puts a newly created party at the start of the first region.",
-  "setup": "This game's tables and world are generated from your own copy of Might and Magic VII and are not shipped. Build the importer and write them into the content root: dotnet build src/MightAndMagic7.Import.Tool -c Release, then dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll write --install /path/to/your/mm7 --output content/partyrpg/imports. Restart the product once mm7-tables and mm7-world exist."
+  "description": "The ordinary new game: the tables, world and media the importer writes from the operator's own installation, and the authored opening that puts a newly created party at the start of the first region.",
+  "setup": "This game's tables, world and media are generated from your own copy of Might and Magic VII and are not shipped. Build the importer and write them into the content root: dotnet build src/MightAndMagic7.Import.Tool -c Release, then dotnet src/MightAndMagic7.Import.Tool/bin/Release/net10.0/mm7import.dll write --install /path/to/your/mm7 --output content/partyrpg/imports. Restart the product once mm7-tables, mm7-world and mm7-media exist."
 }

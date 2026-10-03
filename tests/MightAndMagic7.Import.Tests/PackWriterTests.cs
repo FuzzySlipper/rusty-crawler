@@ -72,7 +72,7 @@ public sealed class PackWriterTests
             string imports = Path.Combine(root, "imports");
             PackWriteResult written = PackWriter.Write(LodInstall.Open(installRoot), imports, PackWriter.MapDetail.None);
 
-            Assert.Equal(["mm7-tables", "mm7-world"], written.PackIds);
+            Assert.Equal(["mm7-tables", "mm7-world", "mm7-media"], written.PackIds);
             Assert.Contains("1.1", written.Provenance.BuildString);
 
             // A bundle that names the written packs is what the host would ship once the operator has
@@ -81,9 +81,9 @@ public sealed class PackWriterTests
             ContentBootstrapResult bootstrap = ContentBootstrap.Load(new FileContentSource(root), Layout, "imported");
 
             Assert.True(bootstrap.IsValid, string.Join("; ", bootstrap.Issues.Select(issue => issue.ToString())));
-            Assert.Equal(2, bootstrap.Catalog.Packs.Count);
+            Assert.Equal(3, bootstrap.Catalog.Packs.Count);
             ResolvedBundle selection = Assert.IsType<ResolvedBundle>(bootstrap.Selection);
-            Assert.Equal(2, selection.Packs.Count);
+            Assert.Equal(3, selection.Packs.Count);
             Assert.Equal(76, bootstrap.Catalog.Entries("place").Count());
             Assert.Equal(36, bootstrap.Catalog.Entries("class").Count());
             Assert.Equal(37, bootstrap.Catalog.Entries("skill").Count());

@@ -154,6 +154,35 @@ public sealed class TerrainTileTable
         return grounds;
     }
 
+    /// <summary>The bitmap each of a region's terrain squares is drawn with, by column and row.</summary>
+    /// <remarks>
+    /// The same record the water and ground readings resolve, by the same tileset bases: its sixteen-byte name is the
+    /// bitmap the donor binds to the square (OpenEnroth <c>src/Engine/Graphics/Renderer/OpenGLRenderer.cpp</c>, the
+    /// terrain pass, reading <c>TileData::name</c>). A square with no tile, or a record with no name, is empty.
+    /// </remarks>
+    /// <param name="map">The decoded map.</param>
+    /// <returns>Each square's bitmap name, indexed <c>row * 127 + column</c> in the map's own row order.</returns>
+    public string[] TextureSquares(OutdoorMap map)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        int[] bases = [.. map.TileTypes.Select(type => BaseOf(type.Tileset))];
+        int squares = OutdoorMap.TerrainCells - 1;
+        string[] names = new string[squares * squares];
+        for (int row = 0; row < squares; row++)
+        {
+            for (int column = 0; column < squares; column++)
+            {
+                int tile = Global(bases, map.TileMap[(row * OutdoorMap.TerrainCells) + column]);
+                names[(row * squares) + column] = tile > 0 && tile < _tiles.Length ? _tiles[tile].Name : string.Empty;
+            }
+        }
+
+        return names;
+    }
+
+    /// <summary>The water tileset's base tile's bitmap, which shows through a shoreline tile's keyed texels.</summary>
+    public string WaterTileName => _tiles[BaseOf(5)].Name;
+
     /// <summary>The record one map tile byte names, given the map's tileset bases; zero is no tile.</summary>
     private static int Global(int[] bases, byte local)
     {

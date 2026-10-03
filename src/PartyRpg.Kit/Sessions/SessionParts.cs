@@ -88,6 +88,12 @@ public sealed record SessionRules
 
     /// <summary>The game's ordinary uses of carried items that are not spells.</summary>
     public IItemUseRule? ItemUses { get; init; }
+
+    /// <summary>
+    /// What draws the live world from the party's eye, or null for a session nothing draws. The session hands it the
+    /// party after every admitted update once a world exists, and releases it with itself.
+    /// </summary>
+    public Scene.IWorldPresenter? View { get; init; }
 }
 
 /// <summary>A game's answers about growth, and the ladder of ranks it states.</summary>
