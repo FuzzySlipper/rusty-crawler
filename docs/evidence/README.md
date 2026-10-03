@@ -64,3 +64,5 @@ What is published here is text only: no game data, no screenshots, no saves, and
 | [`playtest-observe.md`](playtest-observe.md) | `playtest.observe`, `playtest.action`, `playtest.look` and `interaction.inspect` read the running product's place, pose, hostiles and controls without the panel. |
 
 | [`special-item-powers.md`](special-item-powers.md) | Selected fixed powers, ordinary Genie Lamp consumption, current-save composition and bounded product evidence. |
+
+- [Follower profession benefits](follower-benefits.md): derived joined contributions and their bounded verification.

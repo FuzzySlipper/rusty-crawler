@@ -120,12 +120,12 @@ Owns:
     permanent resistance (`:4788-4817`), which `MightAndMagic7Fixtures` writes into the member's own stored
     resistances (the kit's `CharacterResistances`, saved with the member and capped at a byte), and by a genie
     lamp used through the ordinary carried-item action (our always-resistance adaptation); a Lich's floor is read as a floor under the stored figure. Followers
-    have presence and gold-finding policy below; further profession terms are not read and working fixed special-item resistances enter this same sum. A special attack's saving throw reads the same sum.
+    have presence and gold-finding policy below; joined Enchanters add twenty to Fire/Air/Water/Earth/Mind/Body (Spirit shares Body) and working fixed special-item resistances enter this same sum. A special attack's saving throw reads the same sum.
   - **the scores every sum reads** (`Character.cpp:729-765`, `GetActualStat`): the score the character carries
     at the share their age leaves of it (`MightAndMagic7Ageing`, the donor's table at `:222-232`), plus a potion's
     boost of that score on them and the party's day of the gods, which adds to all seven (`:2360-2387`). Faithful
     for those terms; ordinary working item bonuses for Might, Endurance and Speed are added by their property
-    strength (approximate repertoire). The conditions multiplier and other profession contributions are not read. The pools are set by progression and are not re-read while a boost runs (ours).
+    strength (approximate repertoire). Joined Fool, Chimney Sweep and Psychic add Luck 5/20/10, once per profession. The conditions multiplier remains absent. The pools are set by progression and are not re-read while a boost runs (ours).
   - **what a spell adds** (`Character.cpp:2322-2395`, `GetMagicalBonus`): every buff is read as the character's
     own plus the party's of the same name, so a potion on one member and a spell on the band are one reading —
     a haste takes the donor's flat twenty-five ticks whichever carries it (`:1723-1728`), and nothing the party
@@ -955,7 +955,7 @@ banker and pirate bonuses in that order and sums the joined companions' authored
 the salary, divided by 10000, with a minimum one coin for a positive finding and nonzero salary. A salary
 never exceeds the finding. Ordinary sales and refunds use direct credit and pay no salary. These rules
 follow OpenEnroth `src/Engine/Party.cpp:859-902` and profession identities in OpenEnroth `src/Engine/Objects/NPCEnums.h`;
-other profession abilities are not claimed by this mechanism.
+the selected passive profession readings below apply immediately; other profession abilities are explicitly uncompiled.
 
 Sacrifice names an actual hired companion through the existing opaque spell aim and casting workflow.
 Story or absent companions are refused before payment. A successful cast removes that hired presence,
@@ -1052,3 +1052,11 @@ donor's spell sprites are not drawn); nothing about a blow is decided here. Door
 interaction ledger's state, so a save and a revisit rebuild them as they were. The [world interaction
 reading](../../docs/evidence/world-interaction.md) records a lever pulled, a creature struck and the state after resume.
 
+
+## Joined profession readings
+
+`MightAndMagic7Followers` reads the canonical joined identities against the same conversation person catalog on every question. Each profession contributes once, even with duplicate people of that profession. No derived modifier, NPC registry, effect or save field is added. Dismissal, story departure and Sacrifice remove the contribution with presence; save restoration derives it again from the saved identity and current authored profession facts.
+
+The selected compiled policy reads Fool/Chimney Sweep/Psychic Luck +5/+20/+10 through actual combat attributes and saving throws. Enchanter adds resistance +20 to Fire/Air/Water/Earth/Mind/Body and the shared Body reading for Spirit; Physical, Light, Dark, Magic and Energy are untouched. Teacher/Instructor/Scholar add experience learning +10/+15/+5 percent through the progression division, including a member with no Learning skill. Trader/Merchant/Gypsy/Duper add Merchant +4/+6/+3/+8 to the current service quote reader at the member's purchased mastery. Scout/Psychic add Perception +6/+5 through container guards, authored requirements and secret discovery. Tinker/Locksmith/Burglar add Disarm Traps +4/+6/+8 through the same guards and requirements.
+
+References and operator-table facts are recorded in [follower profession benefits](../../docs/evidence/follower-benefits.md). This is a selected passive repertoire, not every original profession action: travel/rest reductions, automatic repair/identification, active powers, other skill bonuses and reputation changes remain explicitly uncompiled. Existing Factor/Banker/Pirate found-gold bonuses and all hiring fees/shares are preserved. The ordinary companion panel names the selected contribution and any additional uncompiled abilities; it owns no rules.

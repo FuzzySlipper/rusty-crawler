@@ -1199,6 +1199,8 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
     /// <inheritdoc />
     public ConversationPerson? Follower(FollowerDefinitionId definition) => PersonOf(definition.Value);
 
+    public string BenefitsOf(FollowerDefinitionId definition) => Followers.BenefitOf(definition.Value);
+
     private PersonFacts? Facts(string person) => _people.TryGetValue(person, out PersonFacts? facts) ? facts : null;
 
     /// <summary>What a person can be asked about as the party has left them: their topics, with every slot a map event changed read in.</summary>

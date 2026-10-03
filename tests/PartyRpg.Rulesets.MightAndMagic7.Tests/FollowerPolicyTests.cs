@@ -1,5 +1,8 @@
 using System.Text.Json.Nodes;
 using PartyRpg.Kit.Conversation;
+using PartyRpg.Kit.Combat;
+using PartyRpg.Kit.Progression;
+using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Magic;
@@ -133,16 +136,109 @@ public sealed class FollowerPolicyTests
         Assert.Empty(((ISpellAimRule)mission.Live.Owners.Rules.Magic.Effects!).AimsOf(spell));
     }
 
+    [Fact]
+    public void Actual_luck_and_damage_resistance_read_joined_professions_and_restore_only_identity()
+    {
+        using Mission mission = new([27, 37]);
+        PartyEntity party = mission.Live.Party!;
+        PartyMember member = party.Members[0];
+        var combat = (MightAndMagic7Combat)mission.Live.Owners.Rules.Combat!.Rule;
+        var luck = new AttributeId("Luck");
+        int before = combat.ActualAttribute(member, luck);
+        mission.UseAt(0);
+        var from = mission.Live.Combat!.Combatants.First(actor => !actor.Subject.IsMember && actor.Subject.Entity!.Placement.Content.Kind == "monster").Subject;
+        var target = mission.Live.Combat.Combatants.First(actor => actor.Subject.IsMember).Subject;
+        int resistanceBefore = combat.PlanOf(from, target, AttackKind.Ranged).Resistance.Points;
+        mission.Choose("follower-hire");
+        Assert.Equal(before + 5, combat.ActualAttribute(member, luck));
+        mission.Turn("npc-2"); mission.Choose("follower-hire");
+        Assert.Equal(resistanceBefore + 20, combat.PlanOf(from, target, AttackKind.Ranged).Resistance.Points);
+        Assert.Contains("Luck +5", mission.Live.Inspect().Party.Followers[0].Benefits);
+        Assert.Contains("resistance +20", mission.Live.Inspect().Party.Followers[1].Benefits);
+        MightAndMagic7Ruleset.Instance.Save(mission.Session);
+        var (context, ui) = RulesetTestContext.Create(mission.Persistence, Content([27, 37]));
+        using var resumed = MightAndMagic7Ruleset.Instance.ResumeSession(RulesetTestContext.RulesetContext(context, ui) with { Start = SessionStart.Resume });
+        resumed.Start(); var again = (MightAndMagic7Session)resumed;
+        var restored = (MightAndMagic7Combat)again.Owners.Rules.Combat!.Rule;
+        Assert.Equal(before + 5, restored.ActualAttribute(again.Party!.Members[0], luck));
+        Assert.Equal(party.Followers.All, again.Party.Followers.All);
+        mission.Choose("follower-dismiss");
+        Assert.Equal(resistanceBefore, combat.PlanOf(from, target, AttackKind.Ranged).Resistance.Points);
+        mission.Action("conversation.follower", "npc-1"); mission.Choose("follower-dismiss");
+        Assert.Equal(before, combat.ActualAttribute(member, luck));
+    }
+
+    [Fact]
+    public void Joined_tutors_change_actual_experience_awards_without_changing_purchased_skills()
+    {
+        using Mission mission = new([13, 14]);
+        var party = mission.Live.Party!;
+        mission.UseAt(0); mission.Choose("follower-hire");
+        mission.Turn("npc-2"); mission.Choose("follower-hire");
+        var before = party.Members.Select(member => member.Progression.Experience).ToArray();
+        var skills = party.Members.Select(member => member.Skills.Entries.ToArray()).ToArray();
+        mission.Live.Owners.Progression!.Award(new("lesson", 400));
+        for (int i = 0; i < party.Members.Count; i++)
+        {
+            Assert.Equal(before[i] + (400 / party.Members.Count * 125 / 100), party.Members[i].Progression.Experience);
+            Assert.Equal(skills[i], party.Members[i].Skills.Entries);
+        }
+        mission.Choose("follower-dismiss");
+        mission.Live.Owners.Progression.Award(new("after dismissal", 400));
+        Assert.Equal(before[0] + (400 / party.Members.Count * 235 / 100), party.Members[0].Progression.Experience);
+    }
+
+    [Fact]
+    public void Merchant_and_perception_readers_count_a_profession_once_and_remove_departed_people()
+    {
+        using Mission mission = new([20, 20]);
+        var party = mission.Live.Party!;
+        party.Members[0].Skills.Learn(new("Merchant"), new(1));
+        int before = MightAndMagic7Services.MerchantValue(party);
+        var shop = new ServiceDefinition(new("test-counter"), new("Tavern"), "A room", [ServiceOperationKind.Stay], [], []);
+        var request = new ServiceQuoteRequest(shop, ServiceOperationKind.Stay,
+            ServiceSubject.OfOffer(new ServiceOffer(ServiceOfferKind.Stay, "A room", Value: 100)),
+            party.Members[0].Id, party, mission.Live.Owners.Clock!);
+        int quoteBefore = mission.Live.Owners.Rules.Service!.Quote(request).Charge.Coins;
+        mission.UseAt(0); mission.Choose("follower-hire");
+        mission.Turn("npc-2"); mission.Choose("follower-hire");
+        var followers = ((MightAndMagic7Conversation)mission.Live.Owners.Rules.Conversation!).Followers;
+        Assert.Equal(before + 4, MightAndMagic7Services.MerchantValue(party, followers));
+        Assert.Equal(quoteBefore - 4, mission.Live.Owners.Rules.Service!.Quote(request).Charge.Coins);
+        mission.Choose("follower-dismiss");
+        Assert.Equal(before + 4, MightAndMagic7Services.MerchantValue(party, followers));
+        mission.Action("conversation.follower", "npc-1"); mission.Choose("follower-dismiss");
+        Assert.Equal(before, MightAndMagic7Services.MerchantValue(party, followers));
+        Assert.Equal(quoteBefore, mission.Live.Owners.Rules.Service!.Quote(request).Charge.Coins);
+        Assert.Equal(0, followers.SkillBonus("Perception"));
+    }
+
+    [Fact]
+    public void Scout_and_locksmith_change_the_actual_container_guard_and_depart_before_another_guard()
+    {
+        using Mission mission = new([22, 26]);
+        mission.UseAt(0); mission.Choose("follower-hire");
+        mission.Turn("npc-2"); mission.Choose("follower-hire");
+        mission.UseAt(4000);
+        Assert.Equal(MightAndMagic7Containers.TrappedState, mission.Live.World!.LastInteraction!.State);
+        mission.UseAt(4000);
+        Assert.Equal(MightAndMagic7Containers.DisarmedState, mission.Live.World.LastInteraction!.State);
+        mission.Action("conversation.follower", "npc-1"); mission.Choose("follower-dismiss");
+        mission.Action("conversation.follower", "npc-2"); mission.Choose("follower-dismiss");
+        mission.UseAt(5000);
+        Assert.Equal(MightAndMagic7Containers.SprungState, mission.Live.World.LastInteraction!.State);
+    }
+
     private sealed class Mission : IDisposable
     {
         private ulong _step;
         internal readonly InMemoryPersistenceService Persistence = new();
         internal readonly IGameSession Session;
         internal MightAndMagic7Session Live => (MightAndMagic7Session)Session;
-        internal Mission()
+        internal Mission(int[]? professions = null)
         {
-            var (context, ui) = RulesetTestContext.Create(Persistence, Content());
-            Session = MightAndMagic7Ruleset.Instance.CreateSession(RulesetTestContext.RulesetContext(context, ui) with
+            var (context, ui) = RulesetTestContext.Create(Persistence, Content(professions));
+            Session = MightAndMagic7Ruleset.Instance.CreateSession(RulesetTestContext.RulesetContext(context, ui, combat: true) with
             {
                 Use = new UseIntentNames(Declared.UseIntent, Declared.UiActionContract),
                 Conversation = new ConversationIntentNames(Declared.ConversationLeaveIntent, Declared.UiActionContract),
@@ -167,16 +263,19 @@ public sealed class FollowerPolicyTests
         public void Dispose() => Session.Dispose();
     }
 
-    private static (string Path, string Text)[] Content()
+    private static (string Path, string Text)[] Content(int[]? professions = null)
     {
         const string root = RulesetTestContext.ContentDirectory + "/content-packs/world/";
         var files = SpellEffectPolicyTests.Content(places: (root + "places.json", """
             {"documentId":"places","definitionKind":"place","entries":[
               {"id":"1","kind":"region","name":"Yard","respawnDays":1,"entryPoints":[{"id":"Party Start","x":0,"y":0,"z":0,"yaw":0}],"placements":[
+                {"id":"probe","kind":"monster","x":9000,"y":0,"z":0,"monster":"7"},
                 {"id":"people","kind":"person","x":100,"y":0,"z":0,"people":["npc-1","npc-2","npc-3"]},
                 {"id":"story","kind":"fixture","x":100,"y":1000,"z":0,"eventId":1},
                 {"id":"reward","kind":"fixture","x":100,"y":2000,"z":0,"eventId":2},
-                {"id":"refused","kind":"fixture","x":100,"y":3000,"z":0,"eventId":3}]},
+                {"id":"refused","kind":"fixture","x":100,"y":3000,"z":0,"eventId":3},
+                {"id":"guard1","kind":"container","x":100,"y":4000,"z":0,"flags":1,"trapDifficulty":2,"trapDamageDice":0,"contents":[]},
+                {"id":"guard2","kind":"container","x":100,"y":5000,"z":0,"flags":1,"trapDifficulty":2,"trapDamageDice":0,"contents":[]}]},
               {"id":"2","kind":"interior","name":"Away","respawnDays":1,"entryPoints":[{"id":"Party Start","x":0,"y":0,"z":0,"yaw":0}]}]}
             """), extra: [
             (root + "people.json", """
@@ -213,6 +312,16 @@ public sealed class FollowerPolicyTests
                 caster["skills"]!.AsArray().Add(JsonNode.Parse("""{"id":"Dark","level":4,"tier":3,"pointsSpent":1}"""));
                 caster["spells"]!.AsArray().Add("96");
                 files[i] = (files[i].Path, party.ToJsonString());
+            }
+        }
+        if (professions is not null)
+        {
+            for (int i = 0; i < files.Length; i++)
+            {
+                if (!files[i].Path.EndsWith("people.json", StringComparison.Ordinal)) continue;
+                JsonNode people = JsonNode.Parse(files[i].Text)!;
+                for (int j = 0; j < professions.Length; j++) people["entries"]![j]!["profession"] = professions[j];
+                files[i] = (files[i].Path, people.ToJsonString());
             }
         }
         return files;

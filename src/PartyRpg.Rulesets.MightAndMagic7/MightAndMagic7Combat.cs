@@ -424,6 +424,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     private readonly Func<PartyEntity?> _party;
     private readonly Func<IMemberSpellEffects?> _memberEffects;
     private readonly MightAndMagic7Figure? _figure;
+    private Func<MightAndMagic7Followers?> _followers = () => null;
     private Func<MightAndMagic7ItemMagic?> _itemMagic = () => null;
     private readonly GameClock? _clock;
     private readonly MightAndMagic7Hostility _hostility;
@@ -505,7 +506,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// </para>
     /// <para>
     /// Working ordinary item properties add their score strength. The conditions' multiplier waits for this
-    /// game's condition table, and a follower's luck for followers (#8514). Each is one more line here when its
+    /// game's condition table; joined Fool/Chimney Sweep/Psychic luck is read from the current follower owner. Each is one more line here when its
     /// owner lands.
     /// </para>
     /// </remarks>
@@ -521,6 +522,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
             : throw new InvalidOperationException(
                 $"{member.Profile.Name} has no '{attribute}' attribute, so this game cannot price what their fights are worth.");
         score += _itemMagic()?.WornBonus(member, attribute.Value) ?? 0;
+        if (attribute == LuckAttribute) score += _followers()?.LuckBonus ?? 0;
         score += MemberWard(member, SpellEffectIds.Attribute(attribute));
         score += SpellWard(SpellEffectIds.DayOfTheGods);
         return score;
@@ -582,9 +584,10 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
         MightAndMagic7Figure? figure = null,
         GameClock? clock = null,
         Func<PlaceId, int, bool>? hostileGroups = null,
-        Func<MightAndMagic7ItemMagic?>? itemMagic = null)
+        Func<MightAndMagic7ItemMagic?>? itemMagic = null,
+        Func<MightAndMagic7Followers?>? followers = null)
     {
-        if (catalog is null) return new MightAndMagic7Combat([], MightAndMagic7Names.Unnamed, null, random, spells, party, memberEffects, figure: null, clock, MightAndMagic7Hostility.Empty) { HostileGroups = hostileGroups, _itemMagic = itemMagic ?? (() => null) };
+        if (catalog is null) return new MightAndMagic7Combat([], MightAndMagic7Names.Unnamed, null, random, spells, party, memberEffects, figure: null, clock, MightAndMagic7Hostility.Empty) { HostileGroups = hostileGroups, _itemMagic = itemMagic ?? (() => null), _followers = followers ?? (() => null) };
         List<ContentValidationIssue> issues = [];
         Dictionary<int, MonsterFacts> monsters = ReadMonsters(catalog, spells ?? MightAndMagic7Spells.Read(catalog), issues);
         // A person's name is the people table's, read by the one owner of this game's names.
@@ -622,7 +625,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
             ReadInternalNames(catalog, monsters))
         {
             HostileGroups = hostileGroups,
-            _itemMagic = itemMagic ?? (() => null),
+            _itemMagic = itemMagic ?? (() => null), _followers = followers ?? (() => null),
             _savedLoot = catalog.Entries(MightAndMagic7Spells.ItemDefinitionKind).Select(e => new ItemDefinitionId(e.Entry.Id)).ToHashSet(),
         };
     }
@@ -1467,7 +1470,8 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// the leather term, faithfully — a grand master of leather wearing working leather armour adds the leather
     /// level to fire, air, water, and earth — the ward a spell leaves running, and the base
     /// (<see cref="MightAndMagic7BaseResistance"/>): the race's bonus and a Lich's own floor, faithfully, with a
-    /// Lich's whole resistance capped at two hundred (<c>:1988-1990</c>). Follower profession terms remain #9151; selected working fixed special-item powers enter this same sum.
+    /// Lich's whole resistance capped at two hundred (<c>:1988-1990</c>). Joined Enchanters contribute twenty
+    /// to the six protected kinds (Spirit shares Body); selected working fixed special-item powers enter this same sum.
     /// </para>
     /// <para>
     /// Each term is its own line, so a later term — a buff another owner reads, an enchantment — is one more
@@ -1479,6 +1483,10 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
         ArgumentNullException.ThrowIfNull(member);
         int points = 0;
         points += LeatherResistance(member, kind);
+        if (kind == MightAndMagic7Damage.Fire || kind == MightAndMagic7Damage.Air || kind == MightAndMagic7Damage.Water ||
+            kind == MightAndMagic7Damage.Earth || kind == MightAndMagic7Damage.Mind || kind == MightAndMagic7Damage.Spirit ||
+            kind == MightAndMagic7Damage.Body)
+            points += _followers()?.ResistanceBonus ?? 0;
         points += _itemMagic()?.WornResistance(member, kind) ?? 0;
         points += Buffed(member, SpellEffectIds.Resistance(kind));
         points += MightAndMagic7BaseResistance.Of(member, kind);

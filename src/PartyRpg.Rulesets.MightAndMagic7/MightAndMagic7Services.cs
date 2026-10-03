@@ -137,6 +137,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
     /// </remarks>
     internal const int UncappedTraining = int.MaxValue;
 
+    private Func<MightAndMagic7Followers?> _followers = () => null;
     private readonly Dictionary<ServiceId, ServiceDefinition> _services;
     private readonly Dictionary<ServiceId, ServiceFacts> _facts;
     private readonly Dictionary<ItemDefinitionId, ItemFacts> _items;
@@ -250,7 +251,8 @@ internal sealed class MightAndMagic7Services : IServiceRule
         MightAndMagic7Skills? skillPolicy = null,
         MightAndMagic7Spells? spellPolicy = null,
         MightAndMagic7Quests? quests = null,
-        MightAndMagic7Theft? theft = null)
+        MightAndMagic7Theft? theft = null,
+        Func<MightAndMagic7Followers?>? followers = null)
     {
         if (catalog is null) return null;
         List<ContentValidationIssue> issues = [];
@@ -332,7 +334,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
             spellPolicy ?? MightAndMagic7Spells.Read(catalog, skillPolicy),
             quests,
             MightAndMagic7Tuning.Read(catalog),
-            theft ?? MightAndMagic7Theft.Read(catalog));
+            theft ?? MightAndMagic7Theft.Read(catalog)) { _followers = followers ?? (() => null) };
     }
 
     /// <inheritdoc />
@@ -1002,7 +1004,7 @@ internal sealed class MightAndMagic7Services : IServiceRule
     {
         ArgumentNullException.ThrowIfNull(request);
         ServiceDefinition service = request.Service;
-        int merchant = MerchantValue(request.Party);
+        int merchant = MerchantValue(request.Party, _followers());
         return request.Operation switch
         {
             ServiceOperationKind.Buy => Buy(service, request.Subject, merchant),
@@ -1041,13 +1043,13 @@ internal sealed class MightAndMagic7Services : IServiceRule
     /// dislikes.
     /// </para>
     /// </remarks>
-    internal static int MerchantValue(PartyEntity party)
+    internal static int MerchantValue(PartyEntity party, MightAndMagic7Followers? followers = null)
     {
         int level = 0;
         SkillTier tier = SkillTier.None;
         foreach (PartyMember member in party.Members)
         {
-            int candidate = member.Skills.LevelOf(MerchantSkill);
+            int candidate = member.Skills.LevelOf(MerchantSkill) + (followers?.SkillBonus(MerchantSkill.Value) ?? 0);
             if (candidate > level)
             {
                 level = candidate;

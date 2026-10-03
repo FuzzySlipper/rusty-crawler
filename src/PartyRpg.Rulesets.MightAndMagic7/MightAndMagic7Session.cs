@@ -180,7 +180,8 @@ internal sealed class MightAndMagic7Session : IGameSession
             skills,
             spells,
             quests,
-            theft);
+            theft,
+            followers: () => conversation?.Followers);
 
         // This game's answers about people are read once here, for the same reason: the world needs them to
         // say who stands at a placement the party faces, and the session needs the one instance to speak
@@ -357,7 +358,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             figure,
             clock,
             (place, group) => owners.World is IInteractionWorld world && MightAndMagic7Fixtures.IsGroupHostile(world.States.ValuesOf(place), group),
-            itemMagic: () => itemMagic);
+            itemMagic: () => itemMagic, followers: () => conversation?.Followers);
         MightAndMagic7Combat combat = composed;
         MightAndMagic7ItemReadings? itemReadings = MightAndMagic7ItemReadings.Read(Declared(context.Content), figure, services is null ? null : services.ValueOf, spells);
         MightAndMagic7Portraits icons = MightAndMagic7Portraits.Read(Declared(context.Content));
@@ -386,7 +387,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             Rest = rest,
             Conversation = conversation,
             Combat = new CombatRules(combat, monsterAi, Resolution: combat, Abilities: combat, Weapons: combat, Deaths: deaths, Reflection: combat, Provocation: combat, Saving: combat, Corpses: corpses, Hits: spellEffects is null ? [] : [spellEffects]),
-            Progression = new ProgressionRules(MightAndMagic7Progression.Instance, promotions),
+            Progression = new ProgressionRules(new MightAndMagic7Progression(() => conversation?.Followers), promotions),
             Standing = standing,
             Skills = skills,
             Names = MightAndMagic7Names.Read(Declared(context.Content)),

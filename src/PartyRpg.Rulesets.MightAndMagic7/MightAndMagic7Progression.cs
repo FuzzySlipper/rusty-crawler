@@ -44,17 +44,18 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// same owner this reads.
 /// </para>
 /// <para>
-/// <b>What is not read.</b> The donor's learning bonus also counts hired teachers, instructors, and
-/// scholars (<c>src/Engine/Objects/Character.cpp:625-641</c>, <c>learningPercent</c>; the shipped
-/// professions carry the bonus). Our followers carry no profession this build can read, so the bonus is
-/// the skill's alone and a hired tutor's share of it is a follower-owner question rather than a number
-/// invented here.
+/// <b>Joined tutors contribute to the same award.</b> Teachers, instructors and scholars add ten,
+/// fifteen and five percent respectively (<c>src/Engine/Objects/Character.cpp:625-641</c>).
+/// The session reads their actual joined identities from its existing follower policy; no bonus is stored.
 /// </para>
 /// </remarks>
 internal sealed class MightAndMagic7Progression : IProgressionRule
 {
     /// <summary>The one instance: this policy holds no state, so a session shares it.</summary>
     internal static MightAndMagic7Progression Instance { get; } = new();
+    private readonly Func<MightAndMagic7Followers?> _followers;
+    internal MightAndMagic7Progression(Func<MightAndMagic7Followers?>? followers = null) =>
+        _followers = followers ?? (() => null);
 
     /// <summary>The skill whose level and mastery raise what an award is worth to a member.</summary>
     /// <remarks>
@@ -187,7 +188,7 @@ internal sealed class MightAndMagic7Progression : IProgressionRule
         List<ProgressionShare> shares = [];
         foreach (PartyMember member in earning)
         {
-            int learning = LearningPercent(member);
+            int learning = LearningPercent(member) + (_followers()?.LearningBonus ?? 0);
             shares.Add(new ProgressionShare(member.Id, member.Profile.Name, each + (each * learning / 100)));
         }
 
@@ -267,8 +268,8 @@ internal sealed class MightAndMagic7Progression : IProgressionRule
     /// </para>
     /// <para>
     /// <b>One of the donor's movers the wrong way is not here.</b> The dark sacrifice the donor charges fifteen
-    /// points for (<c>src/Engine/Spells/CastSpellInfo.cpp:2800-2809</c>) belongs to an owner this build does not
-    /// have — a follower to give up — and the ruleset's README names where it is routed.
+    /// points for (<c>src/Engine/Spells/CastSpellInfo.cpp:2800-2809</c>) is settled by the existing
+    /// follower spell-effect path rather than an experience award.
     /// </para>
     /// </remarks>
     public ProgressionStanding Standing(ProgressionStandingRequest request)
@@ -286,8 +287,8 @@ internal sealed class MightAndMagic7Progression : IProgressionRule
     /// </summary>
     /// <remarks>
     /// OpenEnroth <c>src/Engine/Objects/Character.cpp:625-641</c>: with the skill at all, nine percent plus
-    /// the skill's level multiplied by its rung's multiplier; with no skill, nothing. What a hired
-    /// teacher's own share of this would be is a follower question and not read here.
+    /// the skill's level multiplied by its rung's multiplier; with no skill, nothing. The follower
+    /// learning term is added separately in the same award division.
     /// </remarks>
     private static int LearningPercent(PartyMember member)
     {

@@ -116,6 +116,7 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     /// <summary>The aim this game's reticle acquires and releases targets within.</summary>
     internal static InteractionTuning Aim { get; } = new(AcquisitionAngleRadians, ReleaseAngleRadians);
 
+    private readonly MightAndMagic7Followers? _followers;
     private readonly PlaceSchedule? _schedule;
     private readonly MightAndMagic7Corpses? _corpses;
     private readonly MightAndMagic7Loot? _loot;
@@ -150,8 +151,10 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
         MightAndMagic7Corpses? corpses = null,
         MightAndMagic7Loot? loot = null,
         Func<PartyJournal?>? journal = null,
-        MightAndMagic7Fixtures? fixtures = null)
+        MightAndMagic7Fixtures? fixtures = null,
+        MightAndMagic7Followers? followers = null)
     {
+        _followers = followers;
         _schedule = schedule;
         _corpses = corpses;
         _loot = loot;
@@ -309,7 +312,7 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
 
     /// <inheritdoc />
     public InteractionTrap? Trap(InteractionTargetDefinition target, InteractionContext context) =>
-        MightAndMagic7Containers.Trap(target, context);
+        MightAndMagic7Containers.Trap(target, context, _followers);
 
     /// <inheritdoc />
     public Verdict Judge(InteractionRequirement requirement, InteractionContext context) => requirement.Kind switch
@@ -329,7 +332,7 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     /// </remarks>
     public InteractionOutcome Apply(InteractionTargetDefinition target, InteractionContext context)
     {
-        if (MightAndMagic7Secrets.Discover(target, context) is { } discovery) return discovery;
+        if (MightAndMagic7Secrets.Discover(target, context, _followers) is { } discovery) return discovery;
 
         if (string.Equals(target.Kind.Value, MightAndMagic7Containers.TargetKind, StringComparison.Ordinal))
         {
@@ -485,7 +488,7 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
     /// skill is the party's, which is the same reading a locked door in the original takes when it asks the
     /// party whether anybody can pick it.
     /// </remarks>
-    private static Verdict JudgeSkill(InteractionRequirement requirement, InteractionContext context)
+    private Verdict JudgeSkill(InteractionRequirement requirement, InteractionContext context)
     {
         if (context.Party is not { } party)
         {
@@ -495,7 +498,7 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
 
         SkillId skill = new(requirement.Name);
         int best = 0;
-        foreach (PartyMember member in party.Members) best = Math.Max(best, member.Skills.LevelOf(skill));
+        foreach (PartyMember member in party.Members) best = Math.Max(best, member.Skills.LevelOf(skill) + (_followers?.SkillBonus(skill.Value) ?? 0));
         return best >= requirement.Amount
             ? Verdict.Met
             : Verdict.Unmet(
