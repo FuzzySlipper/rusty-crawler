@@ -86,7 +86,7 @@ public sealed record QuestJournalSnapshot(
 /// <param name="Action">What the last errand operation was: <c>offer</c>, <c>accept</c>, <c>turn-in</c>, or <c>none</c>.</param>
 /// <param name="Outcome">What it did: <c>none</c>, <c>applied</c>, or <c>refused</c>.</param>
 /// <param name="Quest">The identity of the quest the last operation named, empty before any.</param>
-/// <param name="Experience">How much experience the last turn-in was worth, zero when nothing was paid.</param>
+/// <param name="Experience">How much experience the last turn-in actually awarded, zero when no member took a share.</param>
 /// <param name="Coins">How much coin the last turn-in paid, zero when nothing was paid.</param>
 /// <param name="Items">What the last turn-in handed the party, one line per reward.</param>
 /// <param name="Records">What the last turn-in left on the party, in the order it was applied.</param>
@@ -184,7 +184,7 @@ public sealed record QuestSnapshot(
             },
             Outcome: last.IsApplied ? "applied" : "refused",
             Quest: last.Quest.Value,
-            Experience: last.Payment.Experience?.Amount ?? 0,
+            Experience: last.Payment.Experience?.Awarded ?? 0,
             Coins: last.Payment.Coins,
             Items: items,
             Records: records,
