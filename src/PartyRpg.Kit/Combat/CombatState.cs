@@ -278,6 +278,14 @@ public sealed partial class CombatState : IGameTimeObserver
     /// </remarks>
     public CombatResult? LastOrder => _lastOrder;
 
+    /// <summary>The latest party member's attack answer, including refusals, or null before one was given.</summary>
+    /// <remarks>
+    /// Opposition turns may follow a member's order in the same admitted update. Keep that member's answer
+    /// available to action feedback even when <see cref="LastOrder"/> already describes the retaliation.
+    /// This is transient presentation history, not saved combat state.
+    /// </remarks>
+    public CombatResult? LastPartyOrder { get; private set; }
+
     /// <summary>
     /// The fight's most recent applied orders, oldest first, each with a serial that only grows: a typed record of
     /// completed blows that a presentation reads to show who struck, whom, and whether it landed, without re-deciding
@@ -1060,6 +1068,7 @@ public sealed partial class CombatState : IGameTimeObserver
     private CombatResult Report(CombatResult result)
     {
         _lastOrder = result;
+        if (IsPartys(result)) LastPartyOrder = result;
         if (result.IsApplied && result.Initiated is not null)
         {
             _blows.Add(new CombatBlow(++_blowSerial, result));

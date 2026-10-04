@@ -391,6 +391,48 @@ public sealed class CombatProjectionTests
             index => combat.Field("members").Item(index).Field("recoverySeconds").AsNumber() >= MemberRecovery.TotalSeconds);
     }
 
+    [Fact]
+    public void An_off_turn_attack_publishes_its_refusal_without_spending_the_turn()
+    {
+        using Fixture fixture = new(creatureAt: 100, creatureHitPoints: 40);
+        fixture.Start();
+        fixture.Update();
+        fixture.TurnBased();
+        string turn = fixture.Combat.Field("turn").Field("actorName").AsString();
+        fixture.Select(fixture.PartyEntity.Members[1].Id);
+        fixture.Act();
+
+        Assert.Equal(CombatCodes.SelectedMemberNotTurn, fixture.Fight.LastOrder!.Code);
+        Assert.Equal(CombatCodes.SelectedMemberNotTurn, fixture.Feedback.Field("code").AsString());
+        Assert.Equal("refused", fixture.Feedback.Field("outcome").AsString());
+        Assert.Equal(turn, fixture.Combat.Field("turn").Field("actorName").AsString());
+        Assert.True(fixture.Fight.Selected!.IsReady);
+    }
+
+    [Fact]
+    public void A_paced_attack_keeps_its_feedback_when_a_creature_retaliates_in_the_same_update()
+    {
+        using Fixture fixture = new(creatureAt: 100, creatureHitPoints: 100, retaliation: true);
+        fixture.Start();
+        fixture.Update();
+        fixture.TurnBased();
+        bool retaliated = false;
+        for (int turn = 0; turn < 4; turn++)
+        {
+            fixture.Update();
+            string actor = fixture.Combat.Field("turn").Field("actorName").AsString();
+            fixture.Act();
+            CombatResult last = fixture.Fight.LastOrder!;
+            if (fixture.Fight.IsPartys(last)) continue;
+            retaliated = true;
+            Assert.Equal("applied", fixture.Feedback.Field("outcome").AsString());
+            Assert.Equal(actor, fixture.Feedback.Field("actor").AsString());
+            Assert.False(fixture.Combat.Field("byParty").AsBoolean());
+            Assert.True(fixture.PartyEntity.Members[0].Resources.HitPoints.Current < 40);
+        }
+        Assert.True(retaliated);
+    }
+
     /// <summary>
     /// One session over one hall, with the party, the fight, the bodies they leave, and the clock composed
     /// exactly as the product composes them.
@@ -413,7 +455,8 @@ public sealed class CombatProjectionTests
         /// <summary>Composes the session with a creature standing where the test says.</summary>
         /// <param name="creatureAt">Where the creature stands along the hall's first ground axis.</param>
         /// <param name="creatureHitPoints">What the creature can take.</param>
-        internal Fixture(double creatureAt, int creatureHitPoints)
+        /// <param name="retaliation">Whether the creature answers its turns with an attack.</param>
+        internal Fixture(double creatureAt, int creatureHitPoints, bool retaliation = false)
         {
             _party = Party();
             Rules rules = new(_ground, creatureHitPoints);
@@ -425,7 +468,7 @@ public sealed class CombatProjectionTests
                 new SessionParty.Playing(World: _world, Party: _party),
                 rules: new SessionRules
                 {
-                    Combat = Capabilities.Combat(rules),
+                    Combat = Capabilities.Combat(rules, retaliation ? new RetaliatingMind() : null),
                     Magic = Capabilities.Magic(new AlchemyTests.Spells(AlchemyTests.Draught)),
                 },
                 controls: new SessionControls
@@ -445,6 +488,8 @@ public sealed class CombatProjectionTests
 
         /// <summary>The fight block the panel renders.</summary>
         internal ProjectedNode Combat => _channel.Latest().Field("combat");
+
+        internal ProjectedNode Feedback => _channel.Latest().Field("feedback");
 
         /// <summary>The party block the panel renders.</summary>
         internal ProjectedNode Party => _channel.Latest().Field("party");
@@ -466,6 +511,9 @@ public sealed class CombatProjectionTests
 
         /// <summary>Orders the attack from the panel's own control.</summary>
         internal void Act() => Action("party.attack");
+
+        internal void Select(PartyMemberId member) => _session.Update(Tick(++_step, 1,
+            Payload($$"""{ "action": "party.select-member", "member": "{{member}}" }""")));
 
         /// <summary>Asks for a semantic action on the payload contract the companion claims.</summary>
         /// <param name="action">The action name to send.</param>
@@ -616,6 +664,16 @@ public sealed class CombatProjectionTests
                 Corpses: rules),
             schedule: null,
             vitals: rules);
+    }
+
+    /// <summary>Attacks the first member when ready, through the session's ordinary creature driver.</summary>
+    private sealed class RetaliatingMind : IMonsterAiPolicy
+    {
+        public bool AreEnemies(CombatSubject self, CombatSubject other) => other.Member is not null;
+        public double SpeedOf(CombatSubject subject) => 0;
+        public CreatureDecision Decide(CreatureSituation situation) => situation.Ready
+            ? CreatureDecision.Attack(situation.Candidates.First(candidate => candidate.IsParty).Actor.Id, AttackKind.Melee)
+            : CreatureDecision.Wait;
     }
 
     /// <summary>

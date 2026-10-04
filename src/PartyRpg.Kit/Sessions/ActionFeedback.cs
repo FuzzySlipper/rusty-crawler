@@ -14,8 +14,8 @@ namespace PartyRpg.Kit.Sessions;
 /// result read is remembered, so an answer is taken once.
 /// </para>
 /// <para>
-/// A creature's blow replaces the fight's last order too, and is not the party's act: only an order a member gave is
-/// taken, judged by who gave it rather than by who stands in the fight now. The save state is a record replaced on every attempt, so it is watched the same way.
+/// The fight retains its latest party order separately from opposition retaliation, so a creature acting later
+/// in the same update cannot hide the member's answer. The save state is replaced on every attempt and watched the same way.
 /// </para>
 /// </remarks>
 internal sealed class ActionFeedback
@@ -35,7 +35,7 @@ internal sealed class ActionFeedback
         object?[] now =
         [
             owners.Casting?.Last,
-            owners.Combat?.LastOrder,
+            owners.Combat?.LastPartyOrder,
             owners.World?.Interaction?.LastResult,
             owners.Rest?.Last,
             save.State == SaveState.Never ? null : save,
@@ -59,8 +59,6 @@ internal sealed class ActionFeedback
         {
             if (now[index] is not { } result || ReferenceEquals(result, _seen[index])) continue;
 
-            // A creature's blow is the fight's news rather than an answer to the party: it is seen, and not taken.
-            if (result is CombatResult blow && owners.Combat?.IsPartys(blow) != true) continue;
             taken ??= Read(result, Current.Serial + 1);
         }
 

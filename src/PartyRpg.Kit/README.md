@@ -326,7 +326,8 @@ at all while a detection marks the map; the spellbook's targets carry the 250-un
 typed body category when a downed non-party creature remains a candidate, which its key reads; the
 `feedback` block (`FeedbackSnapshot`, kept by `ActionFeedback`) is the answer to the party's latest act — it watches
 each owner's own last result and takes the new one, numbered and naming the act, its actor and its subject, so a
-screen's one answer line is never an older owner's result; a creature's blow stays the fight's news; with its controls block,
+screen's one answer line is never an older owner's result; combat retains the latest party order separately so
+opposition retaliation in the same update cannot hide it, while a creature's blow stays the fight's news; with its controls block,
 `ControlsSnapshot`: each stand-alone control's action, whether the session would take it now, and the key the host bound it
 to as `ControlKeys` — so the panel prints every verdict and works none out), the admitted-input router that turns
 engine events into session commands, the population owner that fills a place from its placements and
