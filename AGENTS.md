@@ -81,18 +81,20 @@ The parent-criteria audit is recorded in `docs/evidence/foundation-closure.md`.
 Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/README.md`,
 `src/PartyRpg.Rulesets.MightAndMagic7/README.md`, and the others under `src/`), not here.
 
-- **Graph and surface.** Kit, ruleset and host build against the pinned Engine pair; the importer and its
-  tool are offline and outside the runtime graph in both directions. The host declares one product entry,
-  26 input intents with their keys, and the `crawler.ui` payload channel. The session publishes one
-  projection (`crawler.hud` / `crawler.ui.snapshot.v1`) when it has changed; the TypeScript companion
-  renders it with no rule or timer of its own (only presentation state), and fixtures the host suite
-  writes bind the C# and TypeScript sides of that contract. The runtime needs a GPU adapter; the kit's `WorldView`
-  draws the party's place from imported meshes and media through the Engine, under the companion's adventure frame. Playtest observation includes actors' canonical live feet positions
-  so pursuit can be inspected in that product.
+- **Graph and surface.** Kit, ruleset and host build against the pinned Engine pair; the importer stays
+  offline. One product entry declares input intents and `crawler.ui`. The changed projection
+  (`crawler.hud` / `crawler.ui.snapshot.v1`) reaches a companion with presentation state only;
+  host-written fixtures bind both languages. `WorldView` draws imported meshes and media through the
+  Engine beneath the adventure frame, requiring a GPU adapter. Playtest observation reports live actor feet.
+  Visible light-bearing decorations supply a bounded nearest set of Engine point lights beside the carried light.
+  Creation, character and shared inventory, spellbook and mixing, dialogue and counters, journal and
+  automap, combat and rest use deliberate screens over those same owners.
+  The Host's title and save/load menus use the existing session lifecycle and one explicit save slot.
 - **Content.** The importer reads the operator's own install and `write` emits deterministic packs; no game
   data is committed, and every count the documents quote is checked by `mm7import verify`. The kit validates
   the whole content root at start and loads exactly what the bundle selects. The default bundle,
   `mm7-new-game`, plays the imported packs from an authored opening; without them the product shows setup guidance.
+  `scripts/developer-launch.sh` discovers installed tools and prepares packs from an explicit operator source.
 - **World and time.** Places, arrival points and transitions load from packs; using a clicked exit or treading
   on a plate (a map event whose branches pick the move), boarding a fare the party bought, and a travel spell all
   take one transition path that charges the clock
@@ -102,12 +104,11 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   same scene for the actual body; pursuit uses foot-position waypoints or holds by name when unavailable.
   `GameClock`
   over an authored calendar is the only time, and every advance reaches every owner registered with it.
-- **Party.** `PartyEntity` is one entity with its components: roster and members, one durable selected member and shared inventory of
-  item instances, per-member equipment, purse and larder, hired and story followers ([bounded reading](docs/evidence/followers.md)), reputation and fame, running effects, records,
-  holdings, passages, memberships, debts and bans. Every charge is judged and settled through one ledger. Creation is a
-  session mode with its own flow, and the scenario path builds a party through the same factory and the
-  same owner composition (a parity suite proves every owner answers on both); the
-  scenario start's `party` word picks one (creation by default) and the projection names it.
+- **Party.** One `PartyEntity` holds the roster, durable member selection, shared item inventory,
+  member equipment, purse, larder, followers ([bounded reading](docs/evidence/followers.md)), standing,
+  effects and records. One ledger settles every charge. Creation and scenario starts share the factory
+  and owner composition, proved by the parity suite; the scenario's `party` word selects the flow
+  (creation by default), and the projection names it.
 - **Interaction and services.** One use workflow serves doors, containers, people and fixtures. Engine reticle
   selection uses a forward hemisphere, so elevated containers remain usable within the same reach, and distant
   targets carry an out-of-reach refusal ([live reading](docs/evidence/elevation-reach.md)). A fixture, and a
@@ -141,12 +142,11 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 - **Record.** Quests (definitions from content, instances on the party), `PartyJournal`, `PartyKnowledge`,
   standing read from records, and the `PartyMaps` automap. A taken errand's needed item stays in the party:
   removal and charge use ask the quest owner, and its own turn-in delivers through the same custody owner.
-- **Persistence.** One current schema, written only on `session.save`: party, clock, world (including target words, defeated placements and remaining personal purses), quests,
-  journal, knowledge, maps and the resident fight (content identities, explicit visit absences, poses, health,
-  recovery, provocation, effects, created lifetimes, bodies and held loot, and turn bookkeeping), with original
-  fatigue, party/member spell and shelf-restock deadlines ([fight reading](docs/evidence/fight-persistence.md)). A load
-  rebuilds transient handles on the same clock; a contradictory document is refused with
-  every problem named.
+- **Persistence.** One current schema, written only on explicit save requests, carries party, clock, world,
+  quests, journal, knowledge, maps and the resident fight, including bodies, held loot and recovery;
+  fatigue, spell and shelf-restock deadlines retain their original due times
+  ([fight reading](docs/evidence/fight-persistence.md)). A load rebuilds transient handles on the same
+  clock; contradictory documents are refused with every problem named.
 - **Refusals and rolls.** Every mechanism refuses with the kit's one `Refusal` (a code from that mechanism's
   code class and a sentence); a requirement is judged as a `Verdict`; chance goes through `KeyedRolls` over
   the Engine's keyed random service; the words a game uses for what the kit only counts come from

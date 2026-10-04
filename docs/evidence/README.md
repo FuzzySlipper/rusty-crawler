@@ -11,6 +11,9 @@ What is published here is text only: no game data, no screenshots, no saves, and
 
 | Record | What it shows |
 | --- | --- |
+| [`keeper-faces.md`](keeper-faces.md) | Authored Tor and Lauren portraits reached through ordinary conversation and their weapon/healing counters. |
+| [`decoration-lighting.md`](decoration-lighting.md) | Imported red torch lighting on a staged laboratory corridor's walls and column, ordinary approach/turns, bounded light selection and hidden/unloaded light checks. |
+| [`developer-launch.md`](developer-launch.md) | Installed-tool discovery, fresh deterministic importer preparation, an ordinary imported New Game and verified owned-host cleanup. |
 | [`adventure-frame.md`](adventure-frame.md) | The four members' faces, pools, purse and controls along the bottom of the drawn world, books opened by their keys over it and closed with Escape, and the fight's panel beside the world. |
 | [`world-events.md`](world-events.md) | Map events change how a place looks in place: a manor urn taken from its mantel and an ore vein mined to plain rock with ordinary use, both still so after save and resume; interior decorations resolved by name and drawn. |
 | [`world-interaction.md`](world-interaction.md) | A lever's door part moved in place and kept after resume; a struck townswoman flinches, bursts red, falls and lies as a body; the audit of event steps that change a place's look. |

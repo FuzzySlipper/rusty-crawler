@@ -35,12 +35,23 @@ Bundle assembles. Host launches.**
 > first region's party start; a product without them shows how to generate them instead of a world. [`AGENTS.md`](AGENTS.md) states the shape and lists the residue with
 > each receiver; the project READMEs under [`src/`](src/README.md) hold the per-mechanism detail.
 
-The current DOM panel exposes these mechanisms beside the drawn world; it is not the completed
-player interface. The [ordinary-play assessment](docs/evidence/product-assessment-2026-10-02.md)
-records the visible gaps. A game feature lands through a recognizable game screen or visible world
-control, not by adding commands to a scrolling panel; agent console access remains useful. The
+The adventure frame keeps the drawn world, four party portraits, resources, target and latest response
+visible together. Creation, the character book and shared inventory, spellbook and mixing, dialogue and
+town counters, journal and automap, combat and rest each have deliberate screens over the same canonical
+owners. The [adventure frame reading](docs/evidence/adventure-frame.md) and the screen readings in
+[`docs/evidence/`](docs/evidence/README.md) describe their ordinary controls and bounded coverage.
+The [ordinary-play assessment](docs/evidence/product-assessment-2026-10-02.md) records the earlier gaps
+that prompted this work. A game feature lands through a recognizable game screen or visible world
+control; agent console access remains useful. The
 [interface design](docs/gameplay-design.md#311-interface-surfaces--match-information-architecture--ours-presentation)
 and the blanket rule in `AGENTS.md` bind this presentation work.
+
+The [developer launch reading](docs/evidence/developer-launch.md) records fresh importer preparation,
+an ordinary imported New Game and owned-host cleanup through the supported wrapper.
+The [decoration lighting reading](docs/evidence/decoration-lighting.md) records a staged imported torch
+corridor and the bounded retained-light behavior.
+The [keeper face reading](docs/evidence/keeper-faces.md) shows Tor and Lauren's authored portraits and
+their ordinary dialogue-to-counter paths.
 
 ## Ownership
 
