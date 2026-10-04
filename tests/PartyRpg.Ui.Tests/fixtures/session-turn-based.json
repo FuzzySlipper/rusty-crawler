@@ -16,7 +16,22 @@
     "hasUnsaved": false,
     "state": "none",
     "code": "",
-    "message": ""
+    "message": "",
+    "save": {
+      "available": false,
+      "present": false,
+      "slot": "session",
+      "party": "",
+      "members": 0,
+      "coins": 0,
+      "provisions": 0,
+      "place": "",
+      "calendar": "",
+      "savedAt": "",
+      "state": "none",
+      "code": "",
+      "message": ""
+    }
   },
   "session": {
     "mode": "turnbased",
@@ -170,7 +185,8 @@
     "state": "saved",
     "at": "1168-01-02 09:00",
     "code": "",
-    "message": "Saved the session to slot \u0027session\u0027 at 1168-01-02 09:00."
+    "message": "Saved the session to slot \u0027session\u0027 at 1168-01-02 09:00.",
+    "dirty": true
   },
   "interaction": {
     "available": true,

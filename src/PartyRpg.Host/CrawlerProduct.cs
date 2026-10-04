@@ -60,6 +60,7 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
     private readonly BundleSelection _selection;
     private readonly ContentCatalog? _content;
     private readonly bool _showLaunchTitle;
+    private readonly EngineUiProjectionChannel _projection;
     private readonly SessionMenuState _menu;
     private readonly InteractionSelection _interaction = new();
     private readonly IReadOnlyList<ProductPlaytest.Binding> _bindings;
@@ -181,7 +182,20 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
                 code: _selection.Unavailable is null ? string.Empty : "content-missing",
                 state: _selection.Unavailable is null ? "none" : "setup");
         }
-        _session = CreateSession();
+        // One product owns one stream for its whole lifetime. Replacement sessions publish through this same
+        // channel so the Engine's sequence remains monotonic for the browser binding.
+        _projection = new EngineUiProjectionChannel(
+            context.Engine!.Ui,
+            new UiStreamRequest(ProductIdentity.UiStream, ProductIdentity.UiContract));
+        try
+        {
+            _session = CreateSession();
+        }
+        catch
+        {
+            _projection.Dispose();
+            throw;
+        }
     }
 
     /// <summary>The bundle and content the product is running with.</summary>
@@ -264,7 +278,7 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
         IGameSession replacement = CreateSession();
         IGameSession previous = _session;
         _session = replacement;
-        previous.Dispose();
+        previous.DisposeForReplacement();
         if (_started)
         {
             _session.Start();
@@ -280,6 +294,7 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
         if (_shutdown) return;
         _shutdown = true;
         _session.Dispose();
+        _projection.Dispose();
     }
 
     /// <inheritdoc />
@@ -327,52 +342,40 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
 
     private IGameSession CreateSession(SessionStart start)
     {
-        EngineUiProjectionChannel channel = new(
-            _context.Engine.Ui,
-            new UiStreamRequest(ProductIdentity.UiStream, ProductIdentity.UiContract));
-        try
-        {
-            // The engine's own services go to the ruleset whole: composing movement needs the spatial
-            // service to walk in and the content owner to retain a place's collision artifact, and the
-            // product is the only place that holds the engine context the ruleset would otherwise have to
-            // reach for. The movement, creation, save, use, and service controls are the host's declaration,
-            // so their names go with them: a name the product never declared to the engine is a control
-            // nobody can press, and a service screen whose commands arrive on an undeclared contract is a
-            // screen that cannot be driven.
-            RulesetSessionContext context = new(
-                channel,
-                _selection,
-                _content,
-                Engine: _context.Engine,
-                Movement: _movement,
-                Creation: _creation,
-                Save: _save,
-                Use: _use,
-                Service: _service,
-                Rest: _rest,
-                Conversation: _conversation,
-                Combat: _combat,
-                Skills: _skills,
-                Cast: _cast,
-                Mix: _mix,
-                Keys: _keys,
-                Interaction: _interaction,
-                Equip: _equip,
-                Menu: _menu);
+        // The engine's own services go to the ruleset whole: composing movement needs the spatial
+        // service to walk in and the content owner to retain a place's collision artifact, and the
+        // product is the only place that holds the engine context the ruleset would otherwise have to
+        // reach for. The movement, creation, save, use, and service controls are the host's declaration,
+        // so their names go with them: a name the product never declared to the engine is a control
+        // nobody can press, and a service screen whose commands arrive on an undeclared contract is a
+        // screen that cannot be driven.
+        RulesetSessionContext context = new(
+            _projection,
+            _selection,
+            _content,
+            Engine: _context.Engine,
+            Movement: _movement,
+            Creation: _creation,
+            Save: _save,
+            Use: _use,
+            Service: _service,
+            Rest: _rest,
+            Conversation: _conversation,
+            Combat: _combat,
+            Skills: _skills,
+            Cast: _cast,
+            Mix: _mix,
+            Keys: _keys,
+            Interaction: _interaction,
+            Equip: _equip,
+            Menu: _menu,
+            OwnProjection: false);
 
-            // The start switch travels with the context and is answered at the ruleset's one composition
-            // entry: a resumed run reads the save the slot holds and composes a session from it, and a slot
-            // that holds nothing fails by name rather than starting a new expedition in place of the one
-            // that was asked for.
-            return _ruleset.CreateSession(context with { Start = start });
-        }
-        catch
-        {
-            // The stream is opened before the ruleset composes its session, so a failed composition
-            // must release it here; otherwise the stream outlives the product that asked for it.
-            channel.Dispose();
-            throw;
-        }
+        // The start switch travels with the context and is answered at the ruleset's one composition
+        // entry: a resumed run reads the save the slot holds and composes a session from it, and a slot
+        // that holds nothing fails by name rather than starting a new expedition in place of the one
+        // that was asked for.
+        return _ruleset.CreateSession(context with { Start = start });
     }
 
     /// <summary>Handles the visible title/menu lifecycle actions at the Host seam.</summary>
@@ -390,7 +393,7 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
                 case SessionMenuActions.Continue when _menu.Snapshot.Screen == SessionMenuScreen.Title:
                     Continue();
                     break;
-                case SessionMenuActions.ReturnTitle when _menu.Snapshot.Screen == SessionMenuScreen.Adventure:
+                case SessionMenuActions.ReturnTitle when _menu.Snapshot.Screen is SessionMenuScreen.Adventure or SessionMenuScreen.SaveLoad:
                     RequestReturnToTitle();
                     break;
                 case SessionMenuActions.ConfirmReturnTitle when _menu.Snapshot.Screen == SessionMenuScreen.ConfirmReturn:
@@ -399,6 +402,39 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
                 case SessionMenuActions.CancelReturnTitle when _menu.Snapshot.Screen == SessionMenuScreen.ConfirmReturn:
                     CancelReturnToTitle();
                     break;
+                case SessionMenuActions.OpenSaveLoad when _menu.Snapshot.Screen == SessionMenuScreen.Adventure:
+                    OpenSaveLoad();
+                    break;
+                case SessionMenuActions.CloseSaveLoad when _menu.Snapshot.Screen == SessionMenuScreen.SaveLoad:
+                    CloseSaveLoad();
+                    break;
+                case SessionMenuActions.Load when _menu.Snapshot.Screen == SessionMenuScreen.SaveLoad:
+                    RequestLoad();
+                    break;
+                case SessionMenuActions.ConfirmLoad when _menu.Snapshot.Screen == SessionMenuScreen.ConfirmLoad:
+                    Continue(fromSaveMenu: true);
+                    break;
+                case SessionMenuActions.CancelLoad when _menu.Snapshot.Screen == SessionMenuScreen.ConfirmLoad:
+                    ShowSaveLoad();
+                    break;
+                case SessionMenuActions.CancelOverwrite when _menu.Snapshot.Screen == SessionMenuScreen.ConfirmOverwrite:
+                    ShowSaveLoad();
+                    break;
+            }
+        }
+
+        // The normal HUD save action remains owned by SaveRequests. A menu save has its own action so an
+        // existing slot can be confirmed before the same canonical save boundary receives it. The confirmed
+        // menu action is deliberately left unclaimed and SaveRequests settles it in this admitted update.
+        if ((_menu.Snapshot.Screen is SessionMenuScreen.SaveLoad or SessionMenuScreen.ConfirmOverwrite) &&
+            _menu.Snapshot.Save.Present)
+        {
+            foreach (UiAction action in input.Take(ProductIdentity.UiActionContract, SaveActions.MenuSave))
+            {
+                if (_menu.Snapshot.Screen == SessionMenuScreen.SaveLoad)
+                    _menu.ShowOverwriteConfirmation();
+                else
+                    _menu.ShowSaveLoad(_session.Inspect().Save.Dirty);
             }
         }
 
@@ -426,24 +462,43 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
     }
 
     private void Continue()
+        => Continue(fromSaveMenu: false);
+
+    private void Continue(bool fromSaveMenu)
     {
         IGameSession? replacement = null;
         try
         {
             replacement = CreateSession(SessionStart.Resume);
             IGameSession previous = _session;
+            _menuHeldSession = false;
             _menu.ShowAdventure();
             _session = replacement;
             replacement = null;
-            previous.Dispose();
+            previous.DisposeForReplacement();
             if (_started) _session.Start();
         }
         catch (SessionSaveException refused)
         {
             replacement?.Dispose();
-            // The old session is no longer a safe title owner after a return-to-title, so rebuild a fresh
-            // composition that carries the refusal in the visible title menu. No save bytes are changed.
-            if (_session.Mode != SessionMode.Stopped) _session.Dispose();
+            if (fromSaveMenu)
+            {
+                // A failed load never disposes the live expedition. It remains held behind the load screen,
+                // with the current save refusal named so the player can cancel, save, or return safely.
+                _menu.RecordLoadFailure(
+                    available: _session.Inspect().Save.Available,
+                    slot: _session.Inspect().Save.Slot,
+                    code: refused.Problems.FirstOrDefault()?.Code ?? "load-failed",
+                    message: refused.Message,
+                    present: true);
+                ShowSaveLoad();
+                return;
+            }
+
+            // The old session remains the live owner until the replacement composes successfully. A failed
+            // resume must leave a usable title and session behind even when rebuilding the fresh composition
+            // meets the same missing-content or unavailable-resource defect; disposing first would strand the
+            // product in Stopped before the title could answer New Game.
             _menu.ShowTitle(
                 canNewGame: _selection.Unavailable is null,
                 canContinue: _context.Engine is not null,
@@ -454,10 +509,94 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
         }
     }
 
+    /// <summary>Opens the save/load screen over the current expedition and reads its slot context once.</summary>
+    private void OpenSaveLoad()
+    {
+        SessionSnapshot current = _session.Inspect();
+        try
+        {
+            SessionSave? saved = _session.ReadSave();
+            if (saved is { } document)
+                _menu.RecordSaved(document, _session.DescribeSave(document), current.Save.At);
+            else
+                _menu.RecordEmptySlot(
+                    current.Save.Available,
+                    current.Save.Slot,
+                    current.Save.Available
+                        ? $"No saved expedition exists in slot '{current.Save.Slot}'."
+                        : "Saving is unavailable: this product has no persistence store.");
+        }
+        catch (SessionSaveException refused)
+        {
+            _menu.RecordLoadFailure(
+                current.Save.Available,
+                current.Save.Slot,
+                refused.Problems.FirstOrDefault()?.Code ?? "load-failed",
+                refused.Message,
+                present: true);
+        }
+        catch (InvalidOperationException unavailable)
+        {
+            _menu.RecordLoadFailure(
+                available: false,
+                slot: current.Save.Slot,
+                code: "save-unavailable",
+                message: unavailable.Message);
+        }
+
+        ShowSaveLoad();
+    }
+
+    /// <summary>Shows the save/load screen and keeps the Host-applied hold in force.</summary>
+    private void ShowSaveLoad()
+    {
+        _menu.ShowSaveLoad(_session.Inspect().Save.Dirty);
+        if (_session.Mode is SessionMode.Running or SessionMode.TurnBased)
+        {
+            _menuHeldSession = true;
+            _session.Hold();
+        }
+    }
+
+    /// <summary>Closes the save/load screen, releasing only a hold this menu applied.</summary>
+    private void CloseSaveLoad()
+    {
+        _menu.ShowAdventure();
+        if (_menuHeldSession)
+        {
+            _menuHeldSession = false;
+            _session.ReleaseHold();
+        }
+    }
+
+    /// <summary>Requests a load, asking before discarding live changes.</summary>
+    private void RequestLoad()
+    {
+        if (!_menu.Snapshot.Save.Present)
+        {
+            _menu.RecordLoadFailure(
+                _menu.Snapshot.Save.Available,
+                _menu.Snapshot.Save.Slot,
+                "save-slot-empty",
+                $"No saved expedition exists in slot '{_menu.Snapshot.Save.Slot}'.");
+            ShowSaveLoad();
+            return;
+        }
+
+        if (_session.Inspect().Save.Dirty)
+        {
+            _menu.ShowLoadConfirmation();
+            return;
+        }
+
+        Continue(fromSaveMenu: true);
+    }
+
     private void RequestReturnToTitle()
     {
-        _menu.ShowReturnConfirmation();
-        _menuHeldSession = _session.Mode is SessionMode.Running or SessionMode.TurnBased;
+        bool unsaved = _session.Inspect().Save.Dirty;
+        _menu.ShowReturnConfirmation(unsaved);
+        _menuHeldSession |= _session.Mode is SessionMode.Running or SessionMode.TurnBased;
         if (_menuHeldSession) _session.Hold();
     }
 
@@ -474,7 +613,6 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
     private void ConfirmReturnToTitle()
     {
         _menuHeldSession = false;
-        if (_session.Mode != SessionMode.Stopped) _session.Dispose();
         _menu.ShowTitle(
             canNewGame: _selection.Unavailable is null,
             canContinue: _context.Engine is not null);
@@ -483,8 +621,13 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
 
     private void ReplaceStopped(SessionStart start)
     {
-        if (_session.Mode != SessionMode.Stopped) _session.Dispose();
-        _session = CreateSession(start);
+        // Compose before releasing the current owner. A title/continue failure is recoverable when the old
+        // session remains available for the next ordinary menu action; disposing it before this call made a
+        // second composition error turn a visible refusal into a stopped product.
+        IGameSession replacement = CreateSession(start);
+        IGameSession previous = _session;
+        _session = replacement;
+        if (previous.Mode != SessionMode.Stopped) previous.DisposeForReplacement();
         if (start == SessionStart.Resume || (_started && _menu.Snapshot.Screen == SessionMenuScreen.Adventure)) _session.Start();
     }
 }

@@ -53,6 +53,7 @@ public enum SaveState
 /// nothing a load could rebuild, and <c>save-failed</c> when the write itself did not land.
 /// </param>
 /// <param name="Message">What happened, in the terms of the save that could not be used.</param>
+/// <param name="Dirty">Whether the live session has changed since the slot's last successful save.</param>
 public sealed record SaveSnapshot(
     bool Available,
     bool Resumed,
@@ -60,13 +61,20 @@ public sealed record SaveSnapshot(
     SaveState State,
     string At,
     string Code,
-    string Message)
+    string Message,
+    bool Dirty = true)
 {
     /// <summary>Whether the last save request was written.</summary>
     public bool IsSaved => State == SaveState.Saved;
 
     /// <summary>Whether the last save request failed, whatever the reason.</summary>
     public bool IsFailed => State == SaveState.Failed;
+
+    /// <summary>Marks the live session clean at the save boundary.</summary>
+    public SaveSnapshot Clean() => this with { Dirty = false };
+
+    /// <summary>Marks the live session changed after the save boundary.</summary>
+    public SaveSnapshot Changed() => this with { Dirty = true };
 
     /// <summary>
     /// The save state of a session no save has been asked of yet.
@@ -76,7 +84,7 @@ public sealed record SaveSnapshot(
     /// <param name="slot">The slot a save would be written to.</param>
     /// <returns>The state a session that has saved nothing publishes.</returns>
     public static SaveSnapshot None(bool available, bool resumed, string slot) =>
-        new(available, resumed, slot, SaveState.Never, string.Empty, string.Empty, string.Empty);
+        new(available, resumed, slot, SaveState.Never, string.Empty, string.Empty, string.Empty, Dirty: !resumed);
 
     /// <summary>Writes the save block: whether the session can save, and how its last request ended.</summary>
     /// <param name="builder">The projection being built.</param>
@@ -89,5 +97,6 @@ public sealed record SaveSnapshot(
             ("state", builder.String(SessionProjection.WireName(State))),
             ("at", builder.String(At)),
             ("code", builder.String(Code)),
-            ("message", builder.String(Message)));
+            ("message", builder.String(Message)),
+            ("dirty", builder.Boolean(Dirty)));
 }

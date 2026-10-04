@@ -15,7 +15,7 @@ its own:
 | --- | --- |
 | `context.ts` | The mount context as the Engine delivers it: the interface port, the projection view (`current()` and a `subscribe` that delivers the current envelope, possibly `null`, at once), the intent port, and the input port. |
 | `actions.ts` | The projection and action contracts, and the actions a row of a screen claims. |
-| `menu.ts` | The Host-projected title, New Game, Continue, return confirmation, and adventure launcher; it claims lifecycle actions and owns no session state. |
+| `menu.ts` | The Host-projected title, New Game, Continue, return confirmation, one-slot Save/Load screen and adventure launcher; it claims lifecycle actions and owns no session state. The saved party, place and calendar summary, dirty state, overwrite confirmation, load confirmation and failure sentence are rendered from the projection. |
 | `reader.ts` | The one way a field is read: by name and type, with every missing or mistyped field named as a problem and its block read as unknown rather than half-read. |
 | `snapshot.ts` | `readSnapshot`: every block of one projection, and every problem met reading it. |
 | `dom.ts` | The small DOM vocabulary the sections share, and the one guard that decides when a section's controls are rebuilt. |
@@ -59,6 +59,11 @@ Boundary rules:
   so an unchanged block still arrives many times a second; a section rebuilt on each would replace the button under
   the pointer between its press and release and reset a picker a player has open. The guard compares the whole
   published block, so what is drawn is always the last value the product sent.
+- The lifecycle menu is also a projection surface. `menu.ts` sends `session.new-game`, `session.continue`, return,
+  save/load and confirmation actions, while the Host and session keep the one admitted update and the existing
+  persistence boundary authoritative. The Save/Load card renders the saved party, place and canonical calendar,
+  disables an empty slot's load action, and leaves the live expedition visible through a failure sentence when a
+  missing or corrupt document cannot be loaded. It owns no save bytes, cache, calendar or overwrite policy.
 - Generated output is build product and stays ignored; never edit it by hand. Only `.js` files may be emitted
   there: the Engine refuses to stage a file type it does not serve.
 

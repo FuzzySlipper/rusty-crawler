@@ -59,6 +59,7 @@ public sealed class ActionInboxTests
 
         Assert.Equal("7", Assert.Single(taken).Text("target"));
         Assert.True(taken[0].Claimed);
+        Assert.Empty(inbox.Take(Contract, "service.buy"));
 
         // What nobody took on this session's own contract is left for the session to report; another contract's
         // actions belong to somebody else.

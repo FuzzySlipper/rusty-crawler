@@ -205,6 +205,8 @@ export interface SaveView {
   readonly at: string;
   readonly code: string;
   readonly message: string;
+  /** Whether live state changed after the slot's last successful save. */
+  readonly dirty: boolean;
 }
 
 /**
@@ -398,6 +400,7 @@ export function readSave(f: Fields): SaveView {
     at: f.text('at'),
     code: f.text('code'),
     message: f.text('message'),
+    dirty: f.flag('dirty'),
   };
 }
 

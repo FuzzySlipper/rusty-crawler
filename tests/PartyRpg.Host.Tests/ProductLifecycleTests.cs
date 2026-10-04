@@ -178,8 +178,8 @@ public sealed class ProductLifecycleTests
             Assert.Equal(["Dispose"], ruleset.Sessions[0].Calls);
             Assert.Empty(ruleset.Sessions[1].Calls);
             Assert.Equal(SessionMode.Starting, product.Mode);
-            Assert.Equal(2, ui.Opened);
-            Assert.Equal(1, ui.Released);
+            Assert.Equal(1, ui.Opened);
+            Assert.Equal(0, ui.Released);
 
             // The replacement is the session a later start starts.
             product.Start();
@@ -213,6 +213,31 @@ public sealed class ProductLifecycleTests
     }
 
     [Fact]
+    public void Repeated_replacements_keep_one_stream_and_strictly_increasing_projection_sequences()
+    {
+        (CrawlerProduct product, _, CountingUi ui) = Compose();
+        using (product)
+        {
+            product.Start();
+            Accept(product, simulationStep: 1);
+            product.Restart();
+            product.Restart();
+
+            Assert.Equal(1, ui.Opened);
+            Assert.Equal(0, ui.Released);
+            Assert.NotEmpty(ui.Projections);
+            UiStreamHandle stream = ui.Projections[0].Stream.Handle;
+            Assert.All(ui.Projections, projection => Assert.Equal(stream, projection.Stream.Handle));
+            Assert.True(ui.Projections
+                .Zip(ui.Projections.Skip(1), (before, after) => after.Sequence > before.Sequence)
+                .All(increasing => increasing));
+            Assert.Equal("creating", Session(ui).Field("mode").AsString());
+        }
+
+        Assert.Equal(1, ui.Released);
+    }
+
+    [Fact]
     public void A_restart_whose_session_cannot_be_composed_throws_and_keeps_the_running_session()
     {
         (CrawlerProduct product, RecordingRuleset ruleset, CountingUi ui) = Compose();
@@ -232,9 +257,9 @@ public sealed class ProductLifecycleTests
         Assert.Equal(["Start", "Update", "Update"], running.Calls);
         Assert.Equal("running", Session(ui).Field("mode").AsString());
 
-        // The stream the failed composition opened was released with it, so only the running session's is open.
-        Assert.Equal(2, ui.Opened);
-        Assert.Equal(1, ui.Released);
+        // The product's one stream stays open across the failed replacement attempt.
+        Assert.Equal(1, ui.Opened);
+        Assert.Equal(0, ui.Released);
 
         // And a later restart that can compose one succeeds over it.
         ruleset.Refuse = false;
@@ -476,6 +501,8 @@ public sealed class ProductLifecycleTests
         public Refusal? Look(double yawDegrees, double pitchDegrees) { Calls.Add(nameof(Look)); return inner.Look(yawDegrees, pitchDegrees); }
 
         public void Dispose() { Calls.Add(nameof(Dispose)); inner.Dispose(); }
+
+        public void DisposeForReplacement() { Calls.Add(nameof(Dispose)); inner.DisposeForReplacement(); }
     }
 
     /// <summary>An engine UI service that records projections and counts the streams opened and released.</summary>

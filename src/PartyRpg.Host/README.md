@@ -37,6 +37,16 @@ Implemented today:
   session and swaps it only after a successful load, and a visible return control pauses for an unsaved confirmation
   before disposing and rebuilding the session. A refused Continue keeps a usable title menu with its persistence or
   content sentence; no menu action creates a second update loop or a parallel session owner.
+- `CrawlerProduct` owns one `EngineUiProjectionChannel` for its whole lifetime. Every replacement session receives
+  that same channel and sets `OwnProjection` false, so session disposal releases its world, party, images and save
+  store without closing the stream or publishing a stale stopped projection; product shutdown closes the channel once.
+  The shared stream keeps projection sequences increasing for the browser binding across New Game, Continue, return
+  to title and restart.
+- The adventure menu's explicit Save/Load screen uses the existing one-slot persistence boundary. It shows the saved
+  party, member count, coins, provisions, place and ruleset calendar, marks unsaved live work, asks before overwriting
+  a slot or discarding changes for a load, and keeps the current held session usable when a slot is empty, missing or
+  corrupt. Save and load errors remain visible in the menu; they do not create a parallel store or silently start a
+  fresh expedition.
 - The project file declares the product metadata and 25 input intents, each digital with its key: pause
   (`session.pause-toggle`, P) and save (`session.save`, F); the movement intents (W/S/A/D, Q/E, Space, and
   flight's `party.ascend` and `party.descend` on the up and down arrows, held — the original's Page Up and Insert

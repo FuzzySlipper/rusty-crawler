@@ -411,6 +411,12 @@ save/resume of a provoked imported Fighter and continuing creature recovery, wit
 The Host's title and return flows call these same explicit save/resume seams: Continue refuses a missing or
 contradictory current document with its named problems and leaves the title usable, while New Game composes the
 ruleset's ordinary creation or scenario start after the menu decision.
+The Host's Save/Load screen also asks this ruleset session to describe the decoded document through its existing
+`MightAndMagic7Persistence.SaveSlot`: member names, coins and provisions come from the saved party, the place name
+comes from the selected world graph, and the calendar comes from `MightAndMagic7Time` over the saved elapsed game
+time. The menu therefore shows canonical saved context rather than a fabricated epoch or a Host-side naming cache.
+One slot is reused for each save; overwrite and discard confirmations remain menu decisions, while missing or
+contradictory loads preserve the current session and surface the ruleset's refusal.
 The clock also carries the original due moments for sleep,
 party and member spell effects, and visited shelf restocks. Load judges sleep and restock repeat intervals
 against the existing rest and service policy and refuses a timed spell effect without its end. The lazy

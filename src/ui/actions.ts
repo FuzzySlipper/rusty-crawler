@@ -33,6 +33,13 @@ export const ACTIONS = {
   returnTitle: 'session.return-title',
   confirmReturnTitle: 'session.confirm-return-title',
   cancelReturnTitle: 'session.cancel-return-title',
+  openSaveLoad: 'session.open-save-load',
+  closeSaveLoad: 'session.close-save-load',
+  menuSave: 'session.menu-save',
+  load: 'session.load',
+  confirmLoad: 'session.confirm-load',
+  cancelLoad: 'session.cancel-load',
+  cancelOverwrite: 'session.cancel-overwrite',
   partySelectMember: 'party.select-member',
   // Creation: the choices a member is made with. The flow validates each, and its refusal is what the screen shows.
   selectMember: 'creation.select-member',

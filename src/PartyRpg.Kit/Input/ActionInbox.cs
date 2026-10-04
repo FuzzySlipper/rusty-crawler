@@ -134,7 +134,7 @@ public sealed class ActionInbox
         List<UiAction> taken = [];
         foreach (UiAction action in _actions)
         {
-            if (!string.Equals(action.Contract, contract, StringComparison.Ordinal) || !names(action.Name)) continue;
+            if (action.Claimed || !string.Equals(action.Contract, contract, StringComparison.Ordinal) || !names(action.Name)) continue;
             action.Claimed = true;
             taken.Add(action);
         }

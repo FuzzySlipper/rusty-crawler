@@ -160,6 +160,27 @@ function save(overrides = {}) {
     at: '',
     code: '',
     message: '',
+    dirty: true,
+    ...overrides,
+  };
+}
+
+/** The save slot context nested inside the lifecycle menu projection. */
+function menuSave(overrides = {}) {
+  return {
+    available: true,
+    present: false,
+    slot: 'session',
+    party: '',
+    members: 0,
+    coins: 0,
+    provisions: 0,
+    place: '',
+    calendar: '',
+    savedAt: '',
+    state: 'none',
+    code: '',
+    message: '',
     ...overrides,
   };
 }
@@ -681,6 +702,7 @@ function snapshot(mode, seconds = 0, steps = 0, _updates = 0, facts = undefined,
       state: 'none',
       code: '',
       message: '',
+      save: menuSave(),
     },
     session: { mode, simulationSeconds: seconds, admittedSteps: steps },
     world: world(),
@@ -689,7 +711,13 @@ function snapshot(mode, seconds = 0, steps = 0, _updates = 0, facts = undefined,
   // looks like — so the helper adds one only when a case asks for it. The clock and the party are
   // optional on the same terms: a case that asks for neither gets a projection that carries neither.
   if (facts !== undefined) value.movement = facts;
-  if (blocks?.menu !== undefined) value.menu = blocks.menu;
+  if (blocks?.menu !== undefined) {
+    value.menu = {
+      ...value.menu,
+      ...blocks.menu,
+      save: menuSave(blocks.menu.save ?? {}),
+    };
+  }
   if (blocks?.clock !== undefined) value.clock = blocks.clock;
   if (blocks?.party !== undefined) value.party = blocks.party;
   // Creation is published in every mode, so the helper adds the block only when a case asks for one: a
@@ -784,6 +812,55 @@ test('the lifecycle menu shows title choices, ordinary return, and the unsaved c
     assert.equal(menu.querySelector('.crawler-menu-launch').hidden, false);
     menu.querySelector('.crawler-menu-launch').click();
     assert.equal(h.claims.at(-1).value.data.action, 'session.return-title');
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the explicit save/load menu shows saved context and deliberate overwrite/load decisions', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+    h.emit(snapshot('paused', 0, 0, 1, movement(), {
+      menu: {
+        visible: true, screen: 'save-load', canNewGame: false, canContinue: false, canReturnTitle: true,
+        hasUnsaved: true, state: 'saved', code: '', message: '',
+        save: menuSave({
+          present: true, party: 'Roderick, Nyx', members: 2, coins: 240, provisions: 7,
+          place: 'emerald-island', calendar: 'Day 3, 14:20', savedAt: '1168-01-03 14:20', state: 'saved',
+        }),
+      },
+    }));
+    const menu = h.panel().querySelector('.crawler-menu');
+    assert.equal(menu.dataset.menu, 'save-load');
+    assert.equal(menu.querySelector('.crawler-menu-save-slot').textContent, 'Slot: session');
+    assert.match(menu.querySelector('.crawler-menu-save-summary').textContent, /Roderick, Nyx/);
+    assert.match(menu.querySelector('.crawler-menu-save-summary').textContent, /emerald-island/);
+    menu.querySelector('.crawler-menu-save').click();
+    assert.equal(h.claims.at(-1).value.data.action, 'session.menu-save');
+
+    h.emit(snapshot('paused', 0, 0, 2, movement(), {
+      menu: {
+        visible: true, screen: 'confirm-overwrite', canNewGame: false, canContinue: false, canReturnTitle: true,
+        hasUnsaved: true, state: 'confirm', code: 'save-overwrite', message: 'Overwrite this expedition?',
+        save: menuSave({ present: true, party: 'Roderick, Nyx' }),
+      },
+    }));
+    assert.equal(menu.querySelector('.crawler-menu-overwrite').hidden, false);
+    menu.querySelector('.crawler-menu-cancel-overwrite').click();
+    assert.equal(h.claims.at(-1).value.data.action, 'session.cancel-overwrite');
+
+    h.emit(snapshot('paused', 0, 0, 3, movement(), {
+      menu: {
+        visible: true, screen: 'confirm-load', canNewGame: false, canContinue: false, canReturnTitle: true,
+        hasUnsaved: true, state: 'confirm', code: 'load-unsaved', message: 'Discard current progress?',
+        save: menuSave({ present: true, party: 'Roderick, Nyx' }),
+      },
+    }));
+    assert.equal(menu.querySelector('.crawler-menu-load-confirm').hidden, false);
+    menu.querySelector('.crawler-menu-cancel-load').click();
+    assert.equal(h.claims.at(-1).value.data.action, 'session.cancel-load');
     ui.dispose();
   } finally {
     h.restore();

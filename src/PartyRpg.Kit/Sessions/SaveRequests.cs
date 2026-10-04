@@ -53,6 +53,9 @@ public static class SaveActions
 {
     /// <summary>Asks the session to save, exactly as the save key does.</summary>
     public const string Save = "session.save";
+
+    /// <summary>Asks the session to save from the explicit save/load screen.</summary>
+    public const string MenuSave = "session.menu-save";
 }
 
 /// <summary>
@@ -70,10 +73,14 @@ internal sealed class SaveRequests
     private readonly string _title;
     private readonly byte[]? _intent;
     private readonly string? _actionContract;
+    private readonly SessionMenuState _menu;
+    private SessionSave? _written;
 
-    public SaveRequests(string title, SessionSaving? saving, SaveIntentNames? names, bool resumed)
+    public SaveRequests(string title, SessionSaving? saving, SaveIntentNames? names, bool resumed, SessionMenuState menu)
     {
+        ArgumentNullException.ThrowIfNull(menu);
         _title = title;
+        _menu = menu;
         Store = saving?.Store;
         Boundary = saving is null ? null : new SessionSaveBoundary(saving.Store, saving.Slot);
         // The declared controls are read once, into the exact bytes an admitted event carries, so the reader
@@ -105,8 +112,15 @@ internal sealed class SaveRequests
     public bool Asked(ActionInbox inbox)
     {
         if (_intent is null || _actionContract is null) return false;
-        bool asked = inbox.Activated(_intent);
-        return inbox.Take(_actionContract, SaveActions.Save).Count > 0 || asked;
+        bool confirmationPending = _menu.Snapshot.Screen == SessionMenuScreen.ConfirmOverwrite;
+        bool asked = !confirmationPending && inbox.Activated(_intent);
+        IReadOnlyList<UiAction> actions = inbox.Take(_actionContract, name => name is SaveActions.Save or SaveActions.MenuSave);
+        // The Host turns the first menu-save press into the overwrite screen before this session reads the
+        // update. The confirmation button uses the same canonical action after the Host returns to SaveLoad,
+        // so only that second press reaches this boundary.
+        bool menuSave = !confirmationPending && actions.Any(action => action.Name == SaveActions.MenuSave);
+        bool ordinarySave = !confirmationPending && actions.Any(action => action.Name == SaveActions.Save);
+        return menuSave || ordinarySave || asked;
     }
 
     /// <summary>Saves the session if it can, and records what happened in <see cref="State"/>.</summary>
@@ -116,7 +130,19 @@ internal sealed class SaveRequests
     /// </remarks>
     public void Attempt(PartyRpgSession session, GameClock? clock)
     {
+        _written = null;
         State = Outcome(session, clock);
+        if (State.IsSaved && _written is { } written)
+            _menu.RecordSaved(written, session.DescribeSave(written), State.At);
+        else if (State.IsFailed)
+            _menu.RecordSaveFailure(State.Available, State.Slot, State.Code, State.Message);
+    }
+
+    /// <summary>Marks the live session changed after its last successful save.</summary>
+    public void MarkChanged()
+    {
+        if (State.Dirty) return;
+        State = State.Changed();
     }
 
     private SaveSnapshot Outcome(PartyRpgSession session, GameClock? clock)
@@ -134,7 +160,7 @@ internal sealed class SaveRequests
 
         try
         {
-            Boundary.Save(session);
+            _written = Boundary.Save(session);
         }
         catch (EngineCallException error)
         {
@@ -173,6 +199,7 @@ internal sealed class SaveRequests
             Message = at.Length > 0
                 ? $"Saved the session to slot '{State.Slot}' at {at}."
                 : $"Saved the session to slot '{State.Slot}'.",
+            Dirty = false,
         };
     }
 }

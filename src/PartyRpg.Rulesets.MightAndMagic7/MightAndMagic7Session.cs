@@ -554,7 +554,8 @@ internal sealed class MightAndMagic7Session : IGameSession
                 rules,
                 controls,
                 store is null ? null : new SessionSaving(store, MightAndMagic7Persistence.SaveSlot),
-                context.Menu);
+                context.Menu,
+                context.OwnProjection);
         }
         catch
         {
@@ -780,6 +781,15 @@ internal sealed class MightAndMagic7Session : IGameSession
 
     /// <inheritdoc />
     public SessionSnapshot Inspect() => _session.Inspect();
+
+    /// <inheritdoc />
+    public SessionSave? ReadSave() => _session.ReadSave();
+
+    /// <inheritdoc />
+    public SessionSaveMenuContext DescribeSave(SessionSave save) => _session.DescribeSave(save);
+
+    /// <inheritdoc />
+    public void DisposeForReplacement() => _session.DisposeForReplacement();
 
     /// <inheritdoc />
     public Refusal? Look(double yawDegrees, double pitchDegrees) => _session.Look(yawDegrees, pitchDegrees);

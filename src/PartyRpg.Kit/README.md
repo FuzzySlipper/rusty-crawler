@@ -115,14 +115,20 @@ Owns:
   content-pack resolution, typed tuning handles, structured UI values, and
   bootstrap of an Engine-admitted session. `SessionMenuState` is the small
   Host-owned lifecycle projection shared with the composed session: its title,
-  continuation, return confirmation, and explicit semantic action names are
-  presented beside the session blocks without owning a second session, clock,
-  or update path.
+  continuation, return confirmation, explicit one-slot Save/Load screen, and
+  semantic action names are presented beside the session blocks without owning
+  a second session, clock, store, or update path. `IGameSession.DisposeForReplacement`
+  releases a session's gameplay resources without publishing a stale stopped
+  projection; the Host owns the shared projection channel and closes it after
+  the final session.
 - Persistence: the session's one current save schema (`SessionSave` over the
   party's own `PartySave`, `ClockSave`, `WorldSave`, and `CombatSave`), the explicit
   `SessionSaveBoundary` a save is written through, the `ISessionSaveStore` seam
   the engine's own product state store implements, and the named failure a
-  document that does not fit its world is refused with.
+  document that does not fit its world is refused with. `SessionSaveMenuSnapshot`
+  is a presentation of that same decoded document: the ruleset supplies the
+  saved place and calendar words, while the kit supplies party/member, purse,
+  provisions, dirty, overwrite and load-failure state.
 
 Boundary rules:
 

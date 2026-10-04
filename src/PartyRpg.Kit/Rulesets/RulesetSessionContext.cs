@@ -128,6 +128,11 @@ public enum SessionStart
 /// The Host-owned visible menu state, when the product offers one. It is shared across session replacements so
 /// title and return-to-title transitions stay on the same projection contract without creating a second session.
 /// </param>
+/// <param name="OwnProjection">
+/// Whether the composed session releases the projection channel with itself. A Host that keeps one channel across
+/// session replacements sets this false and releases the channel after its final session, preserving the Engine's
+/// one stream and monotonically increasing sequence across the lifecycle.
+/// </param>
 public sealed record RulesetSessionContext(
     IUiProjectionChannel Projection,
     BundleSelection Selection = default,
@@ -148,4 +153,5 @@ public sealed record RulesetSessionContext(
     ControlKeys? Keys = null,
     InteractionSelection? Interaction = null,
     EquipIntentNames? Equip = null,
-    SessionMenuState? Menu = null);
+    SessionMenuState? Menu = null,
+    bool OwnProjection = true);

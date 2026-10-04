@@ -124,6 +124,18 @@ export const STYLES = `
 .crawler-menu-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.45rem; margin-top: 0.8rem; }
 .crawler-menu-actions button { width: auto !important; min-width: 10rem; padding: 0.45rem 0.8rem !important; }
 .crawler-menu-confirm { margin-top: 0.5rem; }
+.crawler-menu-save-load, .crawler-menu-overwrite, .crawler-menu-load-confirm { margin-top: 0.7rem; }
+.crawler-menu-save-slot { margin: 0; color: #f0dca0; font-weight: 600; }
+.crawler-menu-save-summary {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.2rem 0.8rem;
+  margin: 0.7rem auto 0; max-width: 25rem; text-align: left; font-size: 0.82rem;
+}
+.crawler-menu-save-summary > span { display: contents; }
+.crawler-menu-save-label { color: #b9ad8c; }
+.crawler-menu-save-value { color: #f0e4c4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crawler-menu-save-details, .crawler-menu-save-message { margin: 0.55rem 0 0; color: #b9ad8c; font-size: 0.8rem; }
+.crawler-menu-save-message { color: #e8c98a; }
+.crawler-menu[data-state='failed'] .crawler-menu-save-message { color: #f0b49a; }
 .crawler-menu[data-state='failed'] .crawler-menu-message, .crawler-menu[data-state='failed'] .crawler-menu-state { color: #f0b49a; }
 
 /* The fight, beside the world while the party is in one. */

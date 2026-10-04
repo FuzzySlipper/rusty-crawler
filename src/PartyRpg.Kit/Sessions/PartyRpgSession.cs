@@ -47,6 +47,7 @@ public sealed class PartyRpgSession : IGameSession
     private readonly SessionComposition _composition;
     private readonly IUiProjectionChannel _projection;
     private readonly SessionOwners _owners;
+    private readonly bool _ownsProjection;
     private readonly MovementInput? _movement;
     private readonly SessionActs _acts;
     private readonly CombatDriver _fight;
@@ -92,6 +93,7 @@ public sealed class PartyRpgSession : IGameSession
     /// <param name="rules">The game's answers, grouped by the mechanism each is composed into.</param>
     /// <param name="controls">The controls the host declared.</param>
     /// <param name="saving">Where saves go, when the product has somewhere to keep them.</param>
+    /// <param name="ownsProjection">Whether disposing this session also disposes its projection channel.</param>
     /// <exception cref="ArgumentException">The session creates its party and the host declared no creation controls.</exception>
     /// <exception cref="InvalidOperationException">The owners already belong to another session.</exception>
     public PartyRpgSession(
@@ -102,7 +104,8 @@ public sealed class PartyRpgSession : IGameSession
         SessionRules? rules = null,
         SessionControls? controls = null,
         SessionSaving? saving = null,
-        SessionMenuState? menu = null)
+        SessionMenuState? menu = null,
+        bool ownsProjection = true)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(composition.Title);
         ArgumentNullException.ThrowIfNull(owners);
@@ -128,11 +131,12 @@ public sealed class PartyRpgSession : IGameSession
             },
         };
         _projection = projection ?? throw new ArgumentNullException(nameof(projection));
+        _ownsProjection = ownsProjection;
         _owners = owners;
         _menu = menu ?? new SessionMenuState();
         _movement = controls.Movement;
         _resumed = records is not null;
-        _saves = new SaveRequests(composition.Title, saving, controls.Save, _resumed);
+        _saves = new SaveRequests(composition.Title, saving, controls.Save, _resumed, _menu);
         owners.Bind(rules ?? SessionRules.None, records);
         _view = rules?.View;
         _portraits = rules?.Portraits;
@@ -318,6 +322,27 @@ public sealed class PartyRpgSession : IGameSession
         return Snapshot() with { World = LiveWorld?.Snapshot ?? _world };
     }
 
+    /// <summary>Reads the current save slot without replacing or mutating the live session.</summary>
+    public SessionSave? ReadSave()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _saves.Boundary?.Load();
+    }
+
+    /// <summary>Resolves player-facing names for a saved document through this session's existing owners.</summary>
+    public SessionSaveMenuContext DescribeSave(SessionSave save)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(save);
+
+        string place = save.World.Pose.Place.Value;
+        if (LiveWorld?.Graph.Find(save.World.Pose.Place) is { } known) place = known.Name;
+        string calendar = Clock is { } clock
+            ? clock.Calendar.Add(clock.Start, GameDuration.FromMilliseconds(save.Clock.ElapsedMilliseconds)).MinuteText
+            : string.Empty;
+        return new SessionSaveMenuContext(place, calendar);
+    }
+
     /// <inheritdoc />
     /// <remarks>
     /// A look turns the party exactly as its turn controls do — through the pose owner's facing rule — and only
@@ -482,8 +507,19 @@ public sealed class PartyRpgSession : IGameSession
         ResolveMode();
         ReportUnclaimed(input);
         Advance(tick);
+        // A save is clean at the exact boundary it captured. Any admitted game time or accepted gameplay action
+        // after that boundary makes the live expedition dirty again; menu and pause actions do not.
+        if (seconds > 0 || ((_mode is SessionMode.Running or SessionMode.TurnBased) && GameplayAction(input)))
+            _saves.MarkChanged();
+        _menu.SetUnsaved(_saves.State.Dirty);
         return input.Actions.Count > 0 || !input.Digital.IsEmpty;
     }
+
+    /// <summary>Whether an action can change the durable expedition rather than only the Host/menu lifecycle.</summary>
+    private static bool GameplayAction(ActionInbox input) => input.Actions.Any(action =>
+        !SessionMenuActions.IsMenuAction(action.Name) &&
+        action.Name is not SaveActions.Save and not SaveActions.MenuSave &&
+        action.Name is not UiActionPayload.PauseSession and not UiActionPayload.ResumeSession);
 
     /// <summary>
     /// Reports every action on this session's own contracts that nothing took, so a control the panel offered and
@@ -579,25 +615,31 @@ public sealed class PartyRpgSession : IGameSession
         }
     }
 
-    /// <summary>Stops the session, publishes the stop, and releases the projection channel.</summary>
+    /// <summary>Stops the session, publishes the stop, and releases owned resources.</summary>
     /// <remarks>
     /// The party and the world are released here because the session holds them: a party that outlived its
     /// session would be a second live party. The stop is published before either is released, because the
     /// projection reads the party's accounts. Releasing a session is not a save.
     /// </remarks>
     public void Dispose()
+        => Dispose(publishStop: true);
+
+    /// <summary>Releases a session being replaced while a shared product channel carries the replacement.</summary>
+    public void DisposeForReplacement() => Dispose(publishStop: false);
+
+    private void Dispose(bool publishStop)
     {
         if (_disposed) return;
         _disposed = true;
         _mode = SessionMode.Stopped;
-        Publish();
+        if (publishStop) Publish();
         _view?.Dispose();
         _portraits?.Dispose();
         _itemPictures?.Dispose();
         LiveWorld?.Dispose();
         Party?.Dispose();
         _saves.Store?.Dispose();
-        _projection.Dispose();
+        if (_ownsProjection) _projection.Dispose();
     }
 
     private void ResolveMode()

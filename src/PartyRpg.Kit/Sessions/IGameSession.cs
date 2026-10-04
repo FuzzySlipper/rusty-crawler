@@ -1,4 +1,5 @@
 using PartyRpg.Kit.Presentation;
+using PartyRpg.Kit.Persistence;
 using Rusty.Engine;
 
 namespace PartyRpg.Kit.Sessions;
@@ -38,6 +39,19 @@ public interface IGameSession : IDisposable
     /// last update's copy, so a look taken since that update is already in the pose it reports.
     /// </remarks>
     SessionSnapshot Inspect();
+
+    /// <summary>Reads the current save slot through this session's existing persistence owner.</summary>
+    /// <returns>The decoded save, or null when the slot is empty.</returns>
+    /// <exception cref="SessionSaveException">The store is unavailable or the slot is corrupt.</exception>
+    SessionSave? ReadSave() =>
+        throw new InvalidOperationException("This session does not expose a persistence owner to read a save slot.");
+
+    /// <summary>Resolves the current ruleset/session names for a saved document shown by a menu.</summary>
+    SessionSaveMenuContext DescribeSave(SessionSave save) => SessionSaveMenuContext.From(save);
+
+    /// <summary>Releases a session that is being replaced without publishing a stale stopped projection.</summary>
+    /// <remarks>The ordinary <see cref="IDisposable.Dispose"/> path still publishes the final stopped state.</remarks>
+    void DisposeForReplacement();
 
     /// <summary>
     /// Turns the party's facing by a relative look, between admitted updates and without advancing anything.

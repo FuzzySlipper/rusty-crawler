@@ -16,7 +16,22 @@
     "hasUnsaved": false,
     "state": "none",
     "code": "",
-    "message": ""
+    "message": "",
+    "save": {
+      "available": false,
+      "present": false,
+      "slot": "session",
+      "party": "",
+      "members": 0,
+      "coins": 0,
+      "provisions": 0,
+      "place": "",
+      "calendar": "",
+      "savedAt": "",
+      "state": "none",
+      "code": "",
+      "message": ""
+    }
   },
   "session": {
     "mode": "creating",
@@ -368,7 +383,8 @@
     "state": "none",
     "at": "",
     "code": "",
-    "message": ""
+    "message": "",
+    "dirty": true
   },
   "interaction": {
     "available": false,
