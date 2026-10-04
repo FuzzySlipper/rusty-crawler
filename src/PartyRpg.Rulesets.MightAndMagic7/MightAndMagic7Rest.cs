@@ -319,7 +319,7 @@ internal sealed class MightAndMagic7Rest : IRestRule
             "camp-interrupted",
             string.Create(
                 CultureInfo.InvariantCulture,
-                $"creatures find the camp in {place.Name} and break it after {Lasted(lasted)}: this build runs no combat, so what the night costs is the rest of it, not a fight."),
+                $"creatures find the camp in {place.Name} and break it after {Lasted(lasted)}."),
             lasted);
     }
 

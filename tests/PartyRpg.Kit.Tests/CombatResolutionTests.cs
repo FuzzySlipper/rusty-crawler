@@ -493,6 +493,49 @@ public sealed class CombatResolutionTests
     }
 
     [Fact]
+    public void A_creatures_attack_does_not_make_its_neutral_victim_or_kin_enemies_of_the_party()
+    {
+        Rules rules = new(peaceful: true, damage: DamageRoll.Flat(2));
+        using SessionWorld world = World(
+            rules,
+            out PartyEntity party,
+            creatureAt: 100,
+            others: """
+                ,
+                { "id": "kin", "kind": "creature", "x": 200, "y": 0, "z": 0, "monster": "7", "hitPoints": 40, "kin": "hall" },
+                { "id": "attacker", "kind": "creature", "x": 300, "y": 0, "z": 0, "monster": "7", "hitPoints": 40, "kin": "road" }
+                """);
+        using (party)
+        {
+            Arrive(world);
+            CombatState combat = Fight(world, party, rules);
+            combat.Step();
+            Combatant Creature(string id) => combat.Combatants.Single(actor => actor.Subject.Placement?.Content.Id == id);
+            Combatant victim = Creature("beast");
+            Combatant attacker = Creature("attacker");
+            Assert.True(combat.Provoke(attacker.Id));
+
+            // The AI uses the same order gate as the party. Its blow still harms the victim,
+            // but neither the victim nor its kin has a reason to turn against the party.
+            Assert.True(combat.Order(new AttackOrder(attacker.Id, AttackKind.Melee, victim.Id)).IsApplied);
+            Assert.Equal(38, combat.Vitals(victim).Current);
+            combat.Step();
+            Assert.Equal(CombatSide.Neutral, victim.Side);
+            Assert.Equal(CombatSide.Neutral, Creature("kin").Side);
+            Assert.False(combat.IsHostile(victim));
+            Assert.False(combat.IsHostile(Creature("kin")));
+            Assert.Equal(attacker.Id, Assert.Single(combat.Opposition).Id);
+
+            // A later party attack really is party provocation and still reaches the kin.
+            Combatant member = combat.Combatants.Single(actor => actor.Subject.IsMember);
+            Assert.True(combat.Order(new AttackOrder(member.Id, AttackKind.Melee, victim.Id)).IsApplied);
+            combat.Step();
+            Assert.Equal(CombatSide.Opposition, victim.Side);
+            Assert.Equal(CombatSide.Opposition, Creature("kin").Side);
+        }
+    }
+
+    [Fact]
     public void A_creature_standing_with_the_party_is_on_its_side_whatever_the_party_did_to_it()
     {
         Rules rules = new(allied: true);

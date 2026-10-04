@@ -360,9 +360,10 @@ from the game time the one clock reports and gated before any `AttackOrder` is a
 ruleset answer about what a thing is plus the fight's own memory of what the party has done to it — a creature
 the game answers `Hostility.Allied` for stands on the `Ally` side whatever the party did to it, is driven by the
 `CombatDirector` beside the opposition, and is never the party's target — and an
-`ICombatRule` seam for recovery values, notice ranges, reach, and names — an act against one creature, a blow or
+`ICombatRule` seam for recovery values, notice ranges, reach, and names — a party act against one creature, a blow or
 anything the game calls one through `CombatState.Provoke`, also turns every other standing actor the optional
-`ICombatProvocationRule` `CombatRules` names says stands with it — and the one resolution path every
+`ICombatProvocationRule` `CombatRules` names says stands with it. A creature attacking another creature through
+the same order gate does not make its victim or the victim's kin enemies of the party — and the one resolution path every
 kind of attack takes — the fight consumes the `AttackInitiation` it published, asks the
 `ICombatResolutionRule` seam for a chance, a kind of harm, dice, and the target's resistance, rolls them
 through keyed `KeyedRolls` under a key that names the attack, applies what is left to whoever owns the

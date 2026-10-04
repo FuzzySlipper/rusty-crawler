@@ -604,10 +604,10 @@ public sealed partial class CombatState : IGameTimeObserver
         actor.Spend(recovery);
         bool durable = !recovery.IsNone;
 
-        // What the party has done is what puts a creature into the fight: attacking it is remembered, so it
-        // stays an enemy for as long as it stands there, whatever pacing is in force. A creature standing with the
-        // party is not provoked by being struck by one of the other side.
-        if (target is not null && !OnPartysSide(target)) durable |= ProvokeWithOthers(target);
+        // Only a party attack is remembered as party provocation. Creatures also use this order gate
+        // against one another; their victim and its kin do not become the party's enemies as a result.
+        if (actor.Side == CombatSide.Party && target is not null && !OnPartysSide(target))
+            durable |= ProvokeWithOthers(target);
 
         AttackInitiation initiation = new(
             actor.Id,
