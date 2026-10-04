@@ -32,8 +32,9 @@ Bundle assembles. Host launches.**
 > [save/resume reading](docs/evidence/deadline-persistence.md) records. The service
 > panel reaches cures, training, provisions, rooms, bank deposits and withdrawals, and fares, with offers priced
 > for the chosen patient or amount by the service owner. The default `mm7-new-game` bundle plays the imported packs from the
-> first region's party start, with an authored introductory errand offered by Ailyssa through ordinary conversation;
-> a product without them shows how to generate them instead of a world. [`AGENTS.md`](AGENTS.md) states the shape and lists the residue with
+> first region's party start, with an authored purse, nearby outfitter stock and an introductory errand offered by Ailyssa through ordinary conversation.
+> Carried spellbooks are studied through the inventory and the same school/mastery rules used by lessons.
+> Without imported packs, the product shows how to generate them instead of a world. [`AGENTS.md`](AGENTS.md) states the shape and lists the residue with
 > each receiver; the project READMEs under [`src/`](src/README.md) hold the per-mechanism detail.
 
 The adventure frame keeps the drawn world, four party portraits, resources, target and latest response

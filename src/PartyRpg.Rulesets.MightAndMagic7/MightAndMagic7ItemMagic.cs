@@ -260,11 +260,40 @@ internal sealed class MightAndMagic7ItemMagic : IItemUseRule
             _ => "fixed special powers are not compiled",
         };
 
-    public string? ActionOf(ItemInstance item) => item.Definition.Value == "616" && _items.ContainsKey(item.Definition) ? "Use" : null;
+    public string? ActionOf(ItemInstance item) =>
+        _spells?.TaughtBy(item.Definition) is not null ? "Study" :
+        item.Definition.Value == "616" && _items.ContainsKey(item.Definition) ? "Use" : null;
 
     public ItemUseResult Use(PartyEntity party, PartyMember member, ItemInstance item)
     {
         if (ActionOf(item) is null) return ItemUseResult.Refused(new(ItemUseCodes.Unsupported, "This item has no ordinary use in this ruleset."));
+        if (_spells is { } spells && spells.TaughtBy(item.Definition) is { } taught)
+        {
+            SpellDefinition spell = spells.Catalog.Read(taught);
+            if (!MightAndMagic7Conditions.CanAct(member))
+            {
+                return ItemUseResult.Refused(new(
+                    MightAndMagic7Codes.ItemUseMemberIncapable,
+                    $"{member.Profile.Name} must recover before studying {spell.Name}."));
+            }
+
+            if (spells.MayLearn(member, spell) is { } refused) return ItemUseResult.Refused(refused);
+            if (party.JudgeItemRemoval(item.Id) is { } bookCustodyRefusal) return ItemUseResult.Refused(bookCustodyRefusal);
+
+            ItemRemoval bookRemoval = party.ConsumeItem(item.Id);
+            if (!bookRemoval.Removed) return ItemUseResult.Refused(bookRemoval.Refusal!);
+
+            // Eligibility and custody were judged above in this admitted update. The item owner consumes the
+            // book first, then the character's own spellbook owner records the lesson; no second callback or
+            // rollback path exists between these canonical mutations.
+            member.Spells.Learn(spell.Id);
+
+            return new(
+                true,
+                "item-use-applied",
+                $"{member.Profile.Name} studies {spell.Name}; the book is consumed and the spell is learned.");
+        }
+
         if (!MightAndMagic7Conditions.CanAct(member))
             return ItemUseResult.Refused(new(MightAndMagic7Codes.ItemUseMemberIncapable, $"{member.Profile.Name} must recover before using the lamp."));
         if (item.State.Damage > 0)

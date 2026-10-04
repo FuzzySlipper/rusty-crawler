@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "documentId": "new-game-creation-policy",
+  "definitionKind": "creation-policy",
+  "entries": [
+    {
+      "id": "mm7-new-game",
+      "startingCoins": 3000
+    }
+  ]
+}

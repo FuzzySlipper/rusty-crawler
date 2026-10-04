@@ -210,6 +210,19 @@ public sealed class MightAndMagic7CreationTests
     }
 
     [Fact]
+    public void The_selected_new_game_policy_sets_the_opening_purse_and_absence_keeps_the_compiled_default()
+    {
+        Assert.Equal(
+            MightAndMagic7Creation.StartingCoins,
+            MightAndMagic7Creation.Options(Catalog(BaseClasses, ShippedSkills)).StartingCoins);
+        ContentCatalog selectedCatalog = Catalog(BaseClasses, ShippedSkills, startingCoins: 1000);
+        Assert.Equal(
+            1000,
+            MightAndMagic7Creation.Options(selectedCatalog).StartingCoins);
+        Assert.Equal(1000, MightAndMagic7Creation.Start(selectedCatalog).ToCreation().Coins);
+    }
+
+    [Fact]
     public void An_illegal_choice_is_refused_with_the_rule_it_broke()
     {
         PartyCreationOptions options = MightAndMagic7Creation.Options();
@@ -491,9 +504,12 @@ public sealed class MightAndMagic7CreationTests
 
     /// <summary>
     /// A content catalog written in memory: one definitions pack carrying the class and skill documents the
-    /// importer writes, with the classes and skills the test wants it to declare.
+    /// importer writes, with an optional second pack carrying the selected creation policy.
     /// </summary>
-    private static ContentCatalog Catalog(IReadOnlyList<string> baseClasses, IReadOnlyList<string> skills)
+    private static ContentCatalog Catalog(
+        IReadOnlyList<string> baseClasses,
+        IReadOnlyList<string> skills,
+        int? startingCoins = null)
     {
         List<object> classes = [];
         int rank = 0;
@@ -509,6 +525,15 @@ public sealed class MightAndMagic7CreationTests
             .Add("packs/mm7-tables/pack.json", TestPacks.Manifest("mm7-tables", ("classes", "class"), ("skills", "skill")))
             .Add("packs/mm7-tables/classes.json", Document("classes", "class", classes))
             .Add("packs/mm7-tables/skills.json", Document("skills", "skill", skillEntries));
+        if (startingCoins is { } coins)
+        {
+            source
+                .Add("packs/new-game/pack.json", TestPacks.Manifest("new-game", ("creation", "creation-policy")))
+                .Add(
+                    "packs/new-game/creation.json",
+                    $$"""{ "documentId": "creation", "definitionKind": "creation-policy", "entries": [ { "id": "new-game", "startingCoins": {{coins}} } ] }""");
+        }
+
         return ContentCatalogLoader.Load(source, new ContentLayout("packs", "imports", "bundles"));
     }
 

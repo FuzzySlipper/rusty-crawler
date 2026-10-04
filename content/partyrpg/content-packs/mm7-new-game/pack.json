@@ -14,6 +14,16 @@
       "definitionKind": "scenario-start"
     },
     {
+      "path": "creation-policy.json",
+      "documentId": "new-game-creation-policy",
+      "definitionKind": "creation-policy"
+    },
+    {
+      "path": "service-stock.json",
+      "documentId": "new-game-service-stock",
+      "definitionKind": "service-stock"
+    },
+    {
       "path": "opening.json",
       "documentId": "opening-errand",
       "definitionKind": "quest"

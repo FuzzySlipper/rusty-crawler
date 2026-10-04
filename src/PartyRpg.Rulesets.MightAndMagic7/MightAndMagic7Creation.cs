@@ -36,6 +36,9 @@ public static class MightAndMagic7Creation
     /// <summary>The definition kind that carries skills in content.</summary>
     private const string SkillDefinitionKind = "skill";
 
+    /// <summary>The optional authored definition that selects this bundle's new-party purse.</summary>
+    internal const string CreationDefinitionKind = "creation-policy";
+
     /// <summary>How many characters this game's party is created with (manual p.10: a party is four).</summary>
     public const int MemberCount = 4;
 
@@ -89,31 +92,35 @@ public static class MightAndMagic7Creation
     /// </summary>
     /// <param name="content">
     /// The validated content the product loaded, when it loaded any. Classes and skills are checked against
-    /// it; pass null in a composition that has no content, which is what the shipped bundle is until the
-    /// operator generates the imported packs.
+    /// it, and reads the optional <c>creation-policy</c> purse for the selected authored bundle; pass null in
+    /// a composition that has no content, which is what the shipped bundle is until the operator generates the
+    /// imported packs.
     /// </param>
     /// <exception cref="ContentValidationException">
-    /// The content contradicts the class or skill definitions creation is built on; the exception carries
-    /// every mismatch found.
+    /// The content contradicts the class or skill definitions creation is built on, or states an invalid
+    /// creation policy; the exception carries every mismatch found.
     /// </exception>
-    public static PartyCreationOptions Options(ContentCatalog? content = null) =>
-        new(
+    public static PartyCreationOptions Options(ContentCatalog? content = null)
+    {
+        IReadOnlyList<CreationClass> classes = Classes(content);
+        return new(
             MemberCount,
             MightAndMagic7CreationTables.Races,
-            Classes(content),
+            classes,
             MightAndMagic7CreationTables.Portraits,
             AttributePool,
             ChosenSkillCount,
             NameMaximumLength,
             StartingSkillTier,
             StartingLevel,
-            StartingCoins,
+            StartingCoinsOf(content),
             StartingFoodPortions,
             ProvisionUnit.Portions,
             // A new party is unknown: the world has not met it yet, so neither reputation nor fame starts
             // above zero (manual outline §8: reputation and fame change in play).
             startingReputation: 0,
             startingFame: 0);
+    }
 
     /// <summary>
     /// The default party a player may start from, offered through the flow's own steps rather than built
@@ -133,6 +140,52 @@ public static class MightAndMagic7Creation
     /// <param name="content">The validated content the product loaded, when it loaded any.</param>
     /// <exception cref="ContentValidationException">The content contradicts the class or skill definitions creation is built on.</exception>
     public static PartyCreationFlow Start(ContentCatalog? content = null) => new(Options(content), Defaults);
+
+    /// <summary>
+    /// Reads the selected bundle's optional new-party purse. The compiled amount remains the fallback for
+    /// every bundle that does not carry an authored policy.
+    /// </summary>
+    private static int StartingCoinsOf(ContentCatalog? content)
+    {
+        if (content is null) return StartingCoins;
+
+        List<ContentValidationIssue> issues = [];
+        List<(LoadedPack Pack, ContentDocument Document, ContentEntry Entry)> entries =
+            [.. content.Entries(CreationDefinitionKind)];
+        if (entries.Count == 0) return StartingCoins;
+
+        if (entries.Count > 1)
+        {
+            foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in entries.Skip(1))
+            {
+                issues.Add(new ContentValidationIssue(
+                    "creation-policy-reused",
+                    "more than one creation policy is selected, so a new party's purse would depend on pack order.",
+                    pack.PackId,
+                    document.DocumentId));
+            }
+        }
+
+        (LoadedPack Pack, ContentDocument Document, ContentEntry Entry) selected = entries[0];
+        int? coins = selected.Entry.GetInt32("startingCoins");
+        if (!selected.Entry.Has("startingCoins") || coins is null || coins < 0)
+        {
+            issues.Add(new ContentValidationIssue(
+                "creation-policy-coins-invalid",
+                $"creation policy '{selected.Entry.Id}' must state a non-negative integer startingCoins value.",
+                selected.Pack.PackId,
+                selected.Document.DocumentId));
+        }
+
+        if (issues.Count > 0)
+        {
+            throw new ContentValidationException(
+                $"Creation cannot read its selected purse: {issues[0].Message}",
+                issues);
+        }
+
+        return coins!.Value;
+    }
 
     /// <summary>Reads the class choices, checking them against content when content was loaded.</summary>
     /// <exception cref="ContentValidationException">The content contradicts the classes and skills creation offers.</exception>

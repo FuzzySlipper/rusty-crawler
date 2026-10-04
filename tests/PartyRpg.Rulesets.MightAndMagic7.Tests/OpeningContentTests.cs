@@ -191,10 +191,13 @@ public sealed class OpeningContentTests
             }
             """),
         ($"{RulesetTestContext.ContentDirectory}/content-packs/mm7-new-game/pack.json",
-            Repository.Read("content", "partyrpg", "content-packs", "mm7-new-game", "pack.json")),
-        ($"{RulesetTestContext.ContentDirectory}/content-packs/mm7-new-game/new-game.json",
+            // The authored pack now also carries stock and creation-policy documents; this opening-quest
+            // fixture keeps only the two documents this suite owns, while OpeningAcquisitionPolicyTests
+            // exercises the added definitions against their service and item readers.
+            TestPacks.Manifest("mm7-new-game", ("new-game-start", "scenario-start"), ("opening-errand", "quest"))),
+        ($"{RulesetTestContext.ContentDirectory}/content-packs/mm7-new-game/new-game-start.json",
             Repository.Read("content", "partyrpg", "content-packs", "mm7-new-game", "new-game.json")),
-        ($"{RulesetTestContext.ContentDirectory}/content-packs/mm7-new-game/opening.json",
+        ($"{RulesetTestContext.ContentDirectory}/content-packs/mm7-new-game/opening-errand.json",
             Repository.Read("content", "partyrpg", "content-packs", "mm7-new-game", "opening.json")),
     ];
 

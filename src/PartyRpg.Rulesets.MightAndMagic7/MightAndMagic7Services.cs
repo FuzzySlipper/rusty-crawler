@@ -64,6 +64,9 @@ internal sealed class MightAndMagic7Services : IServiceRule
     /// <summary>The definition kind a service entry uses.</summary>
     internal const string DefinitionKind = "service";
 
+    /// <summary>The authored definition kind that supplies stock to an existing service.</summary>
+    internal const string StockDefinitionKind = "service-stock";
+
     /// <summary>The placement kind a place uses for the counter standing in it.</summary>
     internal const string PlacementKind = "service";
 
@@ -299,6 +302,8 @@ internal sealed class MightAndMagic7Services : IServiceRule
 
             if (Definition(entry, id, items, catalogue, skills, guildRungs, facts, Fares(id, network, fareDays), Defect) is { } service) services[id] = service;
         }
+
+        ApplyAuthoredStock(catalog, services, items, issues);
 
         Dictionary<(string Place, string Placement), ServiceHousehold> households = ValidatePlacements(catalog, services, issues);
 
@@ -1532,6 +1537,54 @@ internal sealed class MightAndMagic7Services : IServiceRule
         }
 
         return lines;
+    }
+
+    /// <summary>
+    /// Applies one authored shelf table to an existing service identity. The service itself remains the
+    /// imported definition and its imported placement; this table only supplies the opening stock that the
+    /// selected authored bundle wants a player to find there.
+    /// </summary>
+    private static void ApplyAuthoredStock(
+        ContentCatalog catalog,
+        Dictionary<ServiceId, ServiceDefinition> services,
+        Dictionary<ItemDefinitionId, ItemFacts> items,
+        List<ContentValidationIssue> issues)
+    {
+        HashSet<ServiceId> targets = [];
+        foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries(StockDefinitionKind))
+        {
+            void Defect(string code, string message) =>
+                issues.Add(new ContentValidationIssue(code, message, pack.PackId, document.DocumentId));
+
+            string target = entry.GetId("service");
+            if (target.Length == 0)
+            {
+                Defect("service-stock-target-missing", "an authored service-stock entry names no existing service, so its shelves have nowhere to go.");
+                continue;
+            }
+
+            ServiceId id = new(target);
+            if (!services.ContainsKey(id))
+            {
+                Defect("service-stock-target-unknown", $"authored service-stock entry '{entry.Id}' targets service '{id}', which no service definition declares.");
+                continue;
+            }
+
+            if (!targets.Add(id))
+            {
+                Defect("service-stock-target-reused", $"service '{id}' receives more than one authored stock table, so its opening shelves would depend on pack order.");
+                continue;
+            }
+
+            List<ServiceStockLine> stock = Stock(entry, id, items, Defect);
+            foreach (ServiceStockLine line in stock)
+            {
+                if (items.ContainsKey(line.Definition)) continue;
+                Defect("service-stock-item-unknown", $"authored service-stock entry '{entry.Id}' names item '{line.Definition}', which the selected item table does not declare.");
+            }
+
+            services[id] = services[id] with { Stock = stock };
+        }
     }
 
     /// <summary>Reads what a service teaches.</summary>

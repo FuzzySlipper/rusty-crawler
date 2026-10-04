@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "documentId": "new-game-service-stock",
+  "definitionKind": "service-stock",
+  "entries": [
+    {
+      "id": "opening-tor",
+      "service": "1",
+      "stock": [
+        { "item": "1", "count": 4, "name": "Crude Longsword" },
+        { "item": "15", "count": 4, "name": "Dagger" },
+        { "item": "23", "count": 4, "name": "Crude Axe" },
+        { "item": "31", "count": 4, "name": "Crude Spear" },
+        { "item": "42", "count": 4, "name": "Crude Bow" },
+        { "item": "47", "count": 4, "name": "Crossbow" },
+        { "item": "50", "count": 4, "name": "Mace" },
+        { "item": "58", "count": 4, "name": "Club" },
+        { "item": "61", "count": 4, "name": "Staff" },
+        { "item": "66", "count": 4, "name": "Leather Armor" },
+        { "item": "79", "count": 4, "name": "Goblin Shield" },
+        { "item": "84", "count": 4, "name": "Wooden Buckler" },
+        { "item": "89", "count": 4, "name": "Horned Helm" },
+        { "item": "110", "count": 4, "name": "Gauntlets" },
+        { "item": "115", "count": 4, "name": "Leather Boots" },
+        { "item": "400", "count": 4, "name": "Torch Light" },
+        { "item": "401", "count": 4, "name": "Fire Bolt" },
+        { "item": "411", "count": 4, "name": "Wizard Eye" },
+        { "item": "422", "count": 4, "name": "Awaken" },
+        { "item": "433", "count": 4, "name": "Stun" },
+        { "item": "444", "count": 4, "name": "Detect Life" },
+        { "item": "455", "count": 4, "name": "Remove Fear" },
+        { "item": "466", "count": 4, "name": "Cure Weakness" },
+        { "item": "200", "count": 4, "name": "Widowsweep Berries" },
+        { "item": "220", "count": 4, "name": "Potion Bottle" }
+      ]
+    }
+  ]
+}

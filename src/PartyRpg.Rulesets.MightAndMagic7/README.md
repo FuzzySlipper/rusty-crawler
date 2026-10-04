@@ -396,7 +396,9 @@ the session's one `Play` (also the resumed path's), and the kit composes every o
 sequence: both paths must go through that one composition, which `SessionCompositionParityTests` proves by
 asking every owner to answer on each path and naming the owner and path that does not. The
 class and skill definitions the choices name are checked against the loaded content, which refuses a
-catalog that contradicts them. This game's save meaning is landed with them: `MightAndMagic7Persistence`
+catalog that contradicts them. The optional `creation-policy` content definition can select the purse for
+the chosen new-game bundle; when it is absent, the compiled `StartingCoins` fallback remains in force. This
+game's save meaning is landed with them: `MightAndMagic7Persistence`
 states the storage scope a session's saves live in under the host's persistence root, the engine-backed
 store a session writes through, and the check that judges a document against the content it would be
 resumed in before anything is built — naming every problem at once rather than the first.
@@ -605,8 +607,13 @@ sale provenance policy, with no second quest-item list. The authored `mm7-new-ga
 opening `opening-island-guide` reading: Ailyssa (`npc-4`) offers the new party a two-step island errand to
 speak with Sally (`npc-5`) and deliver a Potion Bottle back to her, for 250 experience, 25 coin, and an
 `opening:shore-guide` record on return. The imported Emerald Island placements and signs provide the route
-and visible service surface; the authored pack leaves supply placement to the opening economy's supported service
-assembly and does not claim that the imported Blue Bottle stocks the bottle or duplicate that service. The quest still travels through the ordinary
+and visible service surface. The authored `mm7-new-game` pack's `service-stock` entry supplies explicit
+affordable gear, introductory school books, Potion Bottles, and Widowsweep Berries to the existing imported Tor
+service (`service` 1); the imported placement remains the only counter placement and generated operator packs
+are untouched. The authored counts and labels leave each item's imported value in force for both buying and
+selling; the selected 3,000-coin purse is an authored opening adaptation. At Tor's 1.5 multiplier, four
+Bow/Leather Armor/Fire Bolt sets cost 2,700 coin from the imported values, and two bottles plus two berries
+cost 4 coin, leaving the opening party room for its quest and first service. The quest still travels through the ordinary
 conversation handoff and the Kit's journal, custody, ledger, and progression owners. What each of the 17 errands is read as is stated
 row by row in `MightAndMagic7Quests.Errands()`,
 with the shipped words it is written over, the place and creature names it resolves against content, and
@@ -860,6 +867,15 @@ instance owns one property with strength and optional absolute-clock end, harden
 capacity; there is no inventory or effect ledger beside it. The clock observer clears expired properties,
 and all four charge consumers read the instance capacity. The current save carries every field and the
 keyed enchant-attempt count; invalid item/property/material/capacity combinations refuse together on load.
+
+The same owner exposes `Study` for a carried spellbook through the existing character-book inspector. It
+reads the book's taught spell from `MightAndMagic7Spells`, asks that owner for `MayLearn` (including known,
+school, closed-school, and mastery refusals), learns through `CharacterSpells.Learn`, and consumes the held
+instance through `PartyEntity.ConsumeItem`. A successful study therefore leaves the spell in the member's
+spellbook and removes the book from the shared pack; a refusal leaves both untouched. This is an authored
+opening route over the shipped item table, while the introductory books, including four Fire Bolt copies, and
+their stock counts and labels in `mm7-new-game/service-stock.json` are bundle adaptation. Their imported item
+values remain the shared buy/sell valuation rather than a second book price table.
 
 Enchant Item uses the stated value floor, rank chance and mastery strength over unbroken ordinary gear.
 Quest and fixed special items refuse. Failure breaks unprotected gear; hardening spares it. Uniform
