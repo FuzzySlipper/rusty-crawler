@@ -36,6 +36,8 @@ test('the dialogue shows the speaker beside their words, and every choice asks f
     h.emit(talking());
     const panel = h.panel();
     assert.equal(panel.dataset.screen, 'conversation');
+    assert.equal(panel.querySelector('.crawler-screen[data-screen="conversation"]').dataset.rustyUiInteractive, '',
+      'the contextual screen is an Engine-admitted pointer surface');
     const dialogue = panel.querySelector('.crawler-dialogue');
     assert.equal(dialogue.querySelector('img.crawler-dialogue-face').getAttribute('src'), '/__rusty/product/runtime/ui-images/7');
     assert.equal(dialogue.querySelector('.crawler-dialogue-name').textContent, published.conversation.speaker);

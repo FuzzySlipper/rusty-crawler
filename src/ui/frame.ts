@@ -72,6 +72,10 @@ export function mountFrame(panel: HTMLElement, context: ProductUiContext, onChan
   for (const [name, title] of Object.entries(TITLES) as [Exclude<FrameScreen, 'world'>, string][]) {
     const pane = element('section', 'crawler-screen');
     pane.dataset.screen = name;
+    // The Engine application host keeps the downstream root transparent and admits deliberate overlay surfaces
+    // through this marker. A screen covers the world while it is shown, so its background and native controls must
+    // be reachable by the ordinary pointer path rather than letting the canvas win the hit test.
+    pane.dataset.rustyUiInteractive = '';
     pane.hidden = true;
     const top = element('header', 'crawler-screen-head');
     const heading = element('h2');
@@ -125,6 +129,10 @@ export function mountFrame(panel: HTMLElement, context: ProductUiContext, onChan
     // While the product holds a contextual screen, its own controls are what leave it.
     if (contextual !== null) return;
     if (key === 'escape' && chosen !== 'world') {
+      // A player book keeps the Engine in gameplay mode so the game's own keys remain available over it. The
+      // Engine's input ingress refuses a browser event whose default was prevented; consume this book-only Escape
+      // in capture order so it cannot also become the conversation's Escape leave intent in the same DOM event.
+      event.preventDefault();
       open('world');
       return;
     }
@@ -132,7 +140,9 @@ export function mountFrame(panel: HTMLElement, context: ProductUiContext, onChan
     const book = BOOKS.find((entry) => entry.key !== '' && entry.key === key);
     if (book !== undefined) open(book.screen);
   };
-  document.addEventListener('keydown', keydown);
+  // Capture book navigation before the Engine's document-level gameplay ingress. Contextual screens return above,
+  // leaving their declared product controls (including conversation Escape) to the Engine and session owners.
+  document.addEventListener('keydown', keydown, { capture: true });
   panel.dataset.diagnostics = 'hidden';
 
   return {
@@ -163,7 +173,7 @@ export function mountFrame(panel: HTMLElement, context: ProductUiContext, onChan
       show();
     },
     dispose() {
-      document.removeEventListener('keydown', keydown);
+      document.removeEventListener('keydown', keydown, { capture: true });
     },
   };
 }

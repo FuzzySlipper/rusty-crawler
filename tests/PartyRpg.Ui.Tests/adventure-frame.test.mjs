@@ -26,7 +26,9 @@ const running = variant({
 
 /** Presses a key the way a player's keyboard does, on the page. */
 function press(h, key) {
-  h.dom.window.document.dispatchEvent(new h.dom.window.KeyboardEvent('keydown', { key, bubbles: true }));
+  const event = new h.dom.window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+  h.dom.window.document.dispatchEvent(event);
+  return event;
 }
 
 test('the bar shows each member with the face, pools and state the product published, and a click selects them', () => {
@@ -136,7 +138,13 @@ test('a book opens by its button or key over the world, Escape returns to the wo
     assert.equal(reticle.hidden, false, 'returning to the world restores the reticle');
     press(h, 'j');
     const focused = h.focused;
-    press(h, 'Escape');
+    let gameplayIngress = null;
+    h.dom.window.document.addEventListener('keydown', (event) => {
+      gameplayIngress = !event.defaultPrevented;
+    });
+    const escape = press(h, 'Escape');
+    assert.equal(escape.defaultPrevented, true, 'book Escape is consumed before gameplay input ingress');
+    assert.equal(gameplayIngress, false, 'closing a book does not also ask the conversation owner to leave');
     assert.equal(panel.dataset.screen, 'world');
     assert.equal(h.context.ui.interactionMode(), 'gameplay');
     assert.ok(h.focused > focused, 'closing a book hands the keyboard back to the game view');
