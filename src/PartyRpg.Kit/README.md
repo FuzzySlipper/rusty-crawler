@@ -128,7 +128,10 @@ Owns:
   document that does not fit its world is refused with. `SessionSaveMenuSnapshot`
   is a presentation of that same decoded document: the ruleset supplies the
   saved place and calendar words, while the kit supplies party/member, purse,
-  provisions, dirty, overwrite and load-failure state.
+  provisions, dirty, overwrite and load-failure state. After each admitted
+  update the session derives its dirty marker from the one clock and canonical
+  owner change stamps, so a refused or projection-only zero-time action does not
+  turn a clean save into unsaved work.
 
 Boundary rules:
 

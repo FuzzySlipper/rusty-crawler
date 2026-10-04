@@ -19,6 +19,13 @@ public sealed class PartyPoseOwner
     private readonly PlacePoseAdmission? _admission;
     private PartyPose _pose;
 
+    /// <summary>Moves whenever the captured party pose changes.</summary>
+    /// <remarks>
+    /// The session's save boundary uses this owner stamp beside the other durable owners. A refused,
+    /// zero-time input therefore cannot make a clean save look changed merely because an action name arrived.
+    /// </remarks>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     /// <summary>Creates the owner of the party's pose at the pose the party starts its game in.</summary>
     /// <param name="startingPose">The place and pose the party starts in, which must be finite.</param>
     /// <param name="facing">The facing rule the party's yaw wraps and its pitch clamps by.</param>
@@ -58,7 +65,13 @@ public sealed class PartyPoseOwner
     /// <param name="pose">The pose the party arrives at, in that place's coordinates.</param>
     /// <exception cref="ArgumentOutOfRangeException">The pose is not made of numbers.</exception>
     /// <exception cref="ArgumentException">The place has no identity, or its rule refuses the pose.</exception>
-    public void Enter(PlaceId place, PlacePose pose) => _pose = Admit(new PartyPose(place, pose));
+    public void Enter(PlaceId place, PlacePose pose)
+    {
+        PartyPose next = Admit(new PartyPose(place, pose));
+        if (_pose == next) return;
+        _pose = next;
+        Stamp = ChangeStamp.Next();
+    }
 
     /// <summary>Restores a captured pose, for a session resuming from saved state.</summary>
     /// <remarks>
@@ -69,7 +82,13 @@ public sealed class PartyPoseOwner
     /// <param name="pose">The captured place and pose to resume at.</param>
     /// <exception cref="ArgumentOutOfRangeException">The pose is not made of numbers.</exception>
     /// <exception cref="ArgumentException">The place has no identity, or its rule refuses the pose.</exception>
-    public void Restore(PartyPose pose) => _pose = Admit(pose);
+    public void Restore(PartyPose pose)
+    {
+        PartyPose next = Admit(pose);
+        if (_pose == next) return;
+        _pose = next;
+        Stamp = ChangeStamp.Next();
+    }
 
     /// <summary>Captures the party's place and pose as the data a save carries and reloads.</summary>
     public PartyPose Capture() => _pose;
@@ -101,7 +120,10 @@ public sealed class PartyPoseOwner
                 "That move would leave the party at a position that is not a number, so the party stays where it is.");
         }
 
-        _pose = new PartyPose(_pose.Place, current with { X = x, Y = y, Z = z });
+        PartyPose next = new(_pose.Place, current with { X = x, Y = y, Z = z });
+        if (_pose == next) return;
+        _pose = next;
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>Turns the party by yaw and pitch deltas, leaving the position untouched.</summary>
@@ -132,11 +154,14 @@ public sealed class PartyPoseOwner
                 "That pitch turn would not land on a facing that is a number, so the party keeps the facing it has.");
         }
 
-        _pose = new PartyPose(_pose.Place, current with
+        PartyPose next = new(_pose.Place, current with
         {
             Yaw = _facing.WrapYaw(yaw),
             Pitch = _facing.ClampPitch(pitch),
         });
+        if (_pose == next) return;
+        _pose = next;
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>

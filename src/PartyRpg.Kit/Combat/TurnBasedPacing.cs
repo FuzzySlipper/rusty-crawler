@@ -218,12 +218,14 @@ public sealed partial class TurnBasedPacing
             _elapsed = _length;
             Phase = TurnPhase.Movement;
             _movement = PartyStep();
+            _combat.Touch();
             return remainder;
         }
 
         _current = next;
         _due = due;
         _elapsed += due;
+        _combat.Touch();
 
         // Time passing puts everyone back in the running, including an actor that acted at the previous
         // moment; the current actor is added again when it takes its turn.
@@ -243,6 +245,7 @@ public sealed partial class TurnBasedPacing
         _waiting.Remove(actor.Id);
         if (actor.Side == CombatSide.Party) Last = TurnAction.Act;
         Release();
+        _combat.Touch();
     }
 
     /// <summary>Passes the current turn: the actor forfeits the round and owes the action it did not take.</summary>
@@ -260,6 +263,7 @@ public sealed partial class TurnBasedPacing
         _combat.ChargeTurn(actor);
         if (actor.Side == CombatSide.Party) Last = TurnAction.Skip;
         Release();
+        _combat.Touch();
     }
 
     /// <summary>Defers the current turn to the end of the round, which costs the actor nothing.</summary>
@@ -278,6 +282,7 @@ public sealed partial class TurnBasedPacing
         _waiting.Add(actor.Id);
         if (actor.Side == CombatSide.Party) Last = TurnAction.Wait;
         Release();
+        _combat.Touch();
         return true;
     }
 
@@ -286,9 +291,11 @@ public sealed partial class TurnBasedPacing
     public void SpendMovement(GameDuration elapsed)
     {
         if (Phase != TurnPhase.Movement || elapsed.IsNone) return;
+        GameDuration before = _movement;
         _movement = elapsed.Milliseconds >= _movement.Milliseconds
             ? GameDuration.None
             : GameDuration.FromMilliseconds(_movement.Milliseconds - elapsed.Milliseconds);
+        if (_movement != before) _combat.Touch();
     }
 
     /// <summary>Ends the movement phase and begins the next round.</summary>
@@ -302,6 +309,7 @@ public sealed partial class TurnBasedPacing
     {
         if (Phase != TurnPhase.Movement) return false;
         Begin(Round + 1);
+        _combat.Touch();
         return true;
     }
 
@@ -333,7 +341,13 @@ public sealed partial class TurnBasedPacing
             return;
         }
 
-        if (Phase == TurnPhase.None) Begin(1);
+        bool began = Phase == TurnPhase.None;
+        if (began)
+        {
+            Begin(1);
+            // The first round is durable turn bookkeeping, even when it began during a zero-time update.
+            _combat.Touch();
+        }
 
         // An actor the world took away — the party left the place, or the place was restored — or one the
         // fight has laid out cannot hold the turn it was given.
@@ -341,6 +355,7 @@ public sealed partial class TurnBasedPacing
         {
             _current = null;
             _due = GameDuration.None;
+            _combat.Touch();
         }
     }
 
@@ -422,6 +437,9 @@ public sealed partial class TurnBasedPacing
     /// <summary>Puts the pacing back to holding nothing, which touches no part of the fight.</summary>
     private void Reset()
     {
+        bool changed = Round != 0 || Phase != TurnPhase.None || _current is not null || !_due.IsNone ||
+            !_elapsed.IsNone || !_length.IsNone || !_movement.IsNone || _acted.Count > 0 || _skipped.Count > 0 ||
+            _waiting.Count > 0 || _waited.Count > 0;
         Round = 0;
         Phase = TurnPhase.None;
         _current = null;
@@ -433,5 +451,6 @@ public sealed partial class TurnBasedPacing
         _skipped.Clear();
         _waiting.Clear();
         _waited.Clear();
+        if (changed) _combat.Touch();
     }
 }

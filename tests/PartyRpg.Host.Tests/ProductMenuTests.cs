@@ -1,5 +1,9 @@
+using System.Text;
+using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Sessions;
+using PartyRpg.Rulesets.MightAndMagic7;
 using Rusty.Engine;
+using Rusty.Engine.Persistence;
 using Xunit;
 
 namespace PartyRpg.Host.Tests;
@@ -104,6 +108,45 @@ public sealed class ProductMenuTests
     }
 
     [Fact]
+    public void Save_load_without_a_persistence_root_advertises_an_unavailable_empty_slot()
+    {
+        (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(
+            new NoPersistenceRoot(),
+            ProductTestContext.DoorWorld());
+        using CrawlerProduct product = new(context, ProductTestContext.NoVariables, showLaunchTitle: true);
+        product.Start();
+        product.Update(ProductTestContext.Update(1, 1, ProductTestContext.Digital(ProductIdentity.CreationAcceptIntent)));
+        product.Update(ProductTestContext.Update(2, 1, ProductTestContext.Payload("{\"action\":\"session.open-save-load\"}")));
+
+        ProjectedNode save = ProjectedNode.Of(ui.Latest().Value).Field("menu").Field("save");
+        Assert.False(save.Field("available").AsBoolean());
+        Assert.False(save.Field("present").AsBoolean());
+        Assert.Equal(SaveCodes.SaveStoreUnopened, save.Field("code").AsString());
+    }
+
+    [Fact]
+    public void Save_load_with_corrupt_existing_bytes_keeps_the_slot_present_and_names_the_read_failure()
+    {
+        InMemoryPersistenceService persistence = new();
+        persistence.Seed(
+            MightAndMagic7Persistence.StoreScope,
+            MightAndMagic7Persistence.SaveSlot,
+            Encoding.UTF8.GetBytes("{\"party\": {\"nextMemberValue\": 1"));
+        (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(
+            persistence,
+            ProductTestContext.DoorWorld());
+        using CrawlerProduct product = new(context, ProductTestContext.NoVariables, showLaunchTitle: true);
+        product.Start();
+        product.Update(ProductTestContext.Update(1, 1, ProductTestContext.Digital(ProductIdentity.CreationAcceptIntent)));
+        product.Update(ProductTestContext.Update(2, 1, ProductTestContext.Payload("{\"action\":\"session.open-save-load\"}")));
+
+        ProjectedNode save = ProjectedNode.Of(ui.Latest().Value).Field("menu").Field("save");
+        Assert.True(save.Field("available").AsBoolean());
+        Assert.True(save.Field("present").AsBoolean());
+        Assert.Equal(SaveCodes.SaveUnreadable, save.Field("code").AsString());
+    }
+
+    [Fact]
     public void Save_load_screen_shows_the_saved_expedition_and_requires_overwrite_confirmation()
     {
         InMemoryPersistenceService persistence = new();
@@ -129,20 +172,36 @@ public sealed class ProductMenuTests
         Assert.NotEqual(string.Empty, saved.Field("save").Field("calendar").AsString());
         Assert.Contains("Saved the expedition", saved.Field("save").Field("message").AsString(), StringComparison.Ordinal);
 
-        // The second save reaches the same canonical boundary only after the player answers the overwrite prompt.
-        product.Update(ProductTestContext.Update(4, 1, ProductTestContext.Payload("{\"action\":\"session.menu-save\"}")));
+        // Ordinary semantic and F requests arriving together still produce one deliberate overwrite decision.
+        product.Update(ProductTestContext.Update(
+            4,
+            1,
+            ProductTestContext.Digital(ProductIdentity.SaveIntent),
+            ProductTestContext.Payload("{\"action\":\"session.save\"}")));
         Assert.Equal("confirm-overwrite", ProjectedNode.Of(ui.Latest().Value).Field("menu").Field("screen").AsString());
         product.Update(ProductTestContext.Update(5, 1, ProductTestContext.Payload("{\"action\":\"session.cancel-overwrite\"}")));
         Assert.Equal("save-load", ProjectedNode.Of(ui.Latest().Value).Field("menu").Field("screen").AsString());
 
-        product.Update(ProductTestContext.Update(6, 1, ProductTestContext.Payload("{\"action\":\"session.menu-save\"}")));
+        // The declared F intent is subject to the same decision while the explicit screen is open.
+        product.Update(ProductTestContext.Update(6, 1, ProductTestContext.Digital(ProductIdentity.SaveIntent)));
         Assert.Equal("confirm-overwrite", ProjectedNode.Of(ui.Latest().Value).Field("menu").Field("screen").AsString());
-        product.Update(ProductTestContext.Update(7, 1, ProductTestContext.Payload("{\"action\":\"session.menu-save\"}")));
+        product.Update(ProductTestContext.Update(7, 1, ProductTestContext.Payload("{\"action\":\"session.cancel-overwrite\"}")));
+        Assert.Equal("save-load", ProjectedNode.Of(ui.Latest().Value).Field("menu").Field("screen").AsString());
+
+        // A second menu save reaches the same canonical boundary only after the player answers the overwrite prompt.
+        product.Update(ProductTestContext.Update(8, 1, ProductTestContext.Payload("{\"action\":\"session.menu-save\"}")));
+        Assert.Equal("confirm-overwrite", ProjectedNode.Of(ui.Latest().Value).Field("menu").Field("screen").AsString());
+        product.Update(ProductTestContext.Update(9, 1, ProductTestContext.Payload("{\"action\":\"session.cancel-overwrite\"}")));
+        Assert.Equal("save-load", ProjectedNode.Of(ui.Latest().Value).Field("menu").Field("screen").AsString());
+
+        product.Update(ProductTestContext.Update(10, 1, ProductTestContext.Payload("{\"action\":\"session.menu-save\"}")));
+        Assert.Equal("confirm-overwrite", ProjectedNode.Of(ui.Latest().Value).Field("menu").Field("screen").AsString());
+        product.Update(ProductTestContext.Update(11, 1, ProductTestContext.Payload("{\"action\":\"session.menu-save\"}")));
         ProjectedNode overwritten = ProjectedNode.Of(ui.Latest().Value).Field("menu");
         Assert.Equal("save-load", overwritten.Field("screen").AsString());
         Assert.Equal("saved", overwritten.Field("save").Field("state").AsString());
 
-        product.Update(ProductTestContext.Update(8, 1, ProductTestContext.Payload("{\"action\":\"session.close-save-load\"}")));
+        product.Update(ProductTestContext.Update(12, 1, ProductTestContext.Payload("{\"action\":\"session.close-save-load\"}")));
         Assert.Equal(SessionMode.Running, product.Mode);
         Assert.False(ProjectedNode.Of(ui.Latest().Value).Field("menu").Field("visible").AsBoolean());
     }
@@ -187,5 +246,24 @@ public sealed class ProductMenuTests
         ProjectedNode menu = ProjectedNode.Of(ui.Latest().Value).Field("menu");
         Assert.False(menu.Field("visible").AsBoolean());
         Assert.Equal("adventure", menu.Field("screen").AsString());
+    }
+
+    /// <summary>An engine persistence service whose host selected no persistence root.</summary>
+    private sealed class NoPersistenceRoot : IPersistenceService
+    {
+        public PersistenceStore OpenStore(PersistenceOpenRequest request) =>
+            throw new EngineCallException("Persistence", "OpenStore", 0);
+
+        public PersistenceSaveReceipt Save(PersistenceSaveRequest request) => throw new NotSupportedException();
+
+        public PersistenceDeleteReceipt Delete(PersistenceDeleteRequest request) => throw new NotSupportedException();
+
+        public PersistenceBlob Load(PersistenceLoadRequest request) => throw new NotSupportedException();
+
+        public PersistenceBlobInfo DescribeBlob(PersistenceBlob blob) => throw new NotSupportedException();
+
+        public void CopyBlob(PersistenceCopyBlobRequest request) => throw new NotSupportedException();
+
+        public ReadOnlyMemory<byte> ReadBlobBytes(PersistenceBlob blob) => throw new NotSupportedException();
     }
 }

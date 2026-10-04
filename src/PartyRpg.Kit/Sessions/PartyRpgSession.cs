@@ -385,6 +385,7 @@ public sealed class PartyRpgSession : IGameSession
         // Every payload the update carried is parsed once, here, and each reader takes the actions it acts on;
         // what nobody took is reported when the update is done.
         ActionInbox input = new(update.Input);
+        DurableMutationReading before = DurableMutationReading.Read(this);
 
         // A save request is settled before the step it accompanies: the player asked at the moment whose
         // projection they were reading, so the document describes that moment rather than one tick later.
@@ -507,19 +508,38 @@ public sealed class PartyRpgSession : IGameSession
         ResolveMode();
         ReportUnclaimed(input);
         Advance(tick);
-        // A save is clean at the exact boundary it captured. Any admitted game time or accepted gameplay action
-        // after that boundary makes the live expedition dirty again; menu and pause actions do not.
-        if (seconds > 0 || ((_mode is SessionMode.Running or SessionMode.TurnBased) && GameplayAction(input)))
-            _saves.MarkChanged();
+        // A save is clean at the exact boundary it captured. The canonical owners and the one clock decide
+        // whether this update changed anything durable; feedback, refused input, and other projection-only
+        // readings do not make the expedition dirty.
+        if (before != DurableMutationReading.Read(this)) _saves.MarkChanged();
         _menu.SetUnsaved(_saves.State.Dirty);
         return input.Actions.Count > 0 || !input.Digital.IsEmpty;
     }
 
-    /// <summary>Whether an action can change the durable expedition rather than only the Host/menu lifecycle.</summary>
-    private static bool GameplayAction(ActionInbox input) => input.Actions.Any(action =>
-        !SessionMenuActions.IsMenuAction(action.Name) &&
-        action.Name is not SaveActions.Save and not SaveActions.MenuSave &&
-        action.Name is not UiActionPayload.PauseSession and not UiActionPayload.ResumeSession);
+    /// <summary>
+    /// The canonical durable readings used to restore the save marker after one admitted update. These are
+    /// owner stamps and the clock's elapsed value, never a serialized capture or a second copy of gameplay state.
+    /// </summary>
+    private readonly record struct DurableMutationReading(
+        long ClockMilliseconds,
+        long Party,
+        long World,
+        long Quests,
+        long Journal,
+        long Knowledge,
+        long Maps,
+        long Combat)
+    {
+        internal static DurableMutationReading Read(PartyRpgSession session) => new(
+            session.Clock?.Elapsed.Milliseconds ?? 0,
+            session.Party?.Stamp ?? 0,
+            session.LiveWorld?.Stamp ?? 0,
+            session._owners.Quests?.Stamp ?? 0,
+            session._owners.Journal?.Stamp ?? 0,
+            session._owners.Knowledge?.Stamp ?? 0,
+            session._owners.Maps?.Stamp ?? 0,
+            session._owners.Combat?.Stamp ?? 0);
+    }
 
     /// <summary>
     /// Reports every action on this session's own contracts that nothing took, so a control the panel offered and

@@ -38,6 +38,9 @@ public sealed class InteractionLedger
     private readonly Dictionary<PlaceId, HashSet<PlacementContentId>> _deaths = [];
     private readonly Dictionary<PlaceId, Dictionary<PlacementContentId, PlacementPurseSnapshot>> _purses = [];
 
+    /// <summary>Moves whenever a place's captured interaction state changes.</summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     /// <summary>Notifies owners whose projection depends on a place's target words or values.</summary>
     public event Action<PlaceId>? Changed;
 
@@ -74,7 +77,7 @@ public sealed class InteractionLedger
     public void Defeated(PlaceId place, PlacementContentId target)
     {
         if (!_deaths.TryGetValue(place, out var down)) _deaths[place] = down = [];
-        down.Add(target);
+        if (down.Add(target)) Stamp = ChangeStamp.Next();
     }
 
     /// <summary>A placement's purse if it has already been drawn.</summary>
@@ -85,7 +88,9 @@ public sealed class InteractionLedger
     public void KeepPurse(PlaceId place, PlacementPurseSnapshot purse)
     {
         if (!_purses.TryGetValue(place, out var purses)) _purses[place] = purses = [];
+        if (purses.TryGetValue(purse.Target, out PlacementPurseSnapshot? before) && before == purse) return;
         purses[purse.Target] = purse;
+        Stamp = ChangeStamp.Next();
     }
 
     /// <summary>
@@ -122,6 +127,7 @@ public sealed class InteractionLedger
         InteractionTargetState before = StateOf(place, content);
         InteractionTargetState next = before with { State = state, Revision = before.Revision + 1 };
         targets[content] = next;
+        Stamp = ChangeStamp.Next();
         if (before.State != state) Changed?.Invoke(place);
         return next;
     }
@@ -153,7 +159,11 @@ public sealed class InteractionLedger
             changed |= !kept.TryGetValue(key, out long before) || before != value;
             kept[key] = value;
         }
-        if (changed) Changed?.Invoke(place);
+        if (changed)
+        {
+            Stamp = ChangeStamp.Next();
+            Changed?.Invoke(place);
+        }
     }
 
     /// <summary>
@@ -163,12 +173,16 @@ public sealed class InteractionLedger
     /// <param name="place">The place being restored.</param>
     public void Forget(PlaceId place)
     {
-        bool changed = _places.ContainsKey(place) || _values.ContainsKey(place);
+        bool changed = _places.ContainsKey(place) || _values.ContainsKey(place) || _deaths.ContainsKey(place) || _purses.ContainsKey(place);
         _places.Remove(place);
         _values.Remove(place);
         _deaths.Remove(place);
         _purses.Remove(place);
-        if (changed) Changed?.Invoke(place);
+        if (changed)
+        {
+            Stamp = ChangeStamp.Next();
+            Changed?.Invoke(place);
+        }
     }
 
     /// <summary>The ledger's durable reading, every place in identity order and its values by name.</summary>

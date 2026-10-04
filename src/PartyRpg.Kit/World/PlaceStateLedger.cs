@@ -36,6 +36,9 @@ public sealed class PlaceStateLedger
     private readonly Dictionary<PlaceId, int?> _respawnDays = [];
     private readonly Dictionary<PlaceId, PlaceState> _states = [];
 
+    /// <summary>Moves whenever this ledger's captured state changes.</summary>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     /// <summary>Creates a ledger for a world, resolving every place's reset interval from content.</summary>
     /// <remarks>
     /// Intervals are resolved once, here, for every place in the world rather than lazily on the day the
@@ -215,6 +218,7 @@ public sealed class PlaceStateLedger
         }
 
         ElapsedGameDays = elapsedGameDays;
+        Stamp = ChangeStamp.Next();
         return restored;
     }
 
@@ -290,7 +294,9 @@ public sealed class PlaceStateLedger
     /// <summary>Writes a state back and hands the same value to the caller.</summary>
     private PlaceState Store(PlaceState state)
     {
+        if (_states.TryGetValue(state.Place, out PlaceState? before) && before == state) return state;
         _states[state.Place] = state;
+        Stamp = ChangeStamp.Next();
         return state;
     }
 

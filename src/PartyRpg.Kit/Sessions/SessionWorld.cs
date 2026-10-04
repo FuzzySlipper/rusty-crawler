@@ -191,6 +191,13 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// <summary>The place-owned memories of uses, purses and defeated placements.</summary>
     public InteractionLedger Interactions => _interactions;
 
+    /// <summary>The latest change stamp among the world owners whose state a save carries.</summary>
+    /// <remarks>
+    /// This is a reading of canonical owners, not a second world state. The session uses it to distinguish an
+    /// accepted movement or place mutation from a refused zero-time action when it updates the save marker.
+    /// </remarks>
+    public long Stamp => Math.Max(Party.Stamp, Math.Max(Places.Stamp, Interactions.Stamp));
+
     /// <summary>Remembers a content placement's death; summoned creatures belong to the live fight instead.</summary>
     public void Died(CreatureDeath death)
     {

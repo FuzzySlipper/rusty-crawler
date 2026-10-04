@@ -123,7 +123,10 @@ export function mountMenu(host: Host): Menu {
   // its backdrop and native controls participate in the same pointer arbitration as the buttons themselves.
   overlay.dataset.rustyUiInteractive = '';
 
-  launch.addEventListener('click', () => host.claim(ACTIONS.returnTitle));
+  // The expedition launcher is the ordinary entry to the lifecycle surface.  Save/Load owns the
+  // explicit Return to title control, so opening it here keeps saving reachable without treating a
+  // return request as a hidden shortcut.
+  launch.addEventListener('click', () => host.claim(ACTIONS.openSaveLoad));
   newGame.addEventListener('click', () => host.claim(ACTIONS.newGame));
   continueGame.addEventListener('click', () => host.claim(ACTIONS.continue));
   menuSave.addEventListener('click', () => host.claim(ACTIONS.menuSave));

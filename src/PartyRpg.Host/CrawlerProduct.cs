@@ -423,13 +423,17 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
             }
         }
 
-        // The normal HUD save action remains owned by SaveRequests. A menu save has its own action so an
-        // existing slot can be confirmed before the same canonical save boundary receives it. The confirmed
-        // menu action is deliberately left unclaimed and SaveRequests settles it in this admitted update.
-        if ((_menu.Snapshot.Screen is SessionMenuScreen.SaveLoad or SessionMenuScreen.ConfirmOverwrite) &&
-            _menu.Snapshot.Save.Present)
+        // A save key or the save action while the explicit screen is open follows the same overwrite decision
+        // as the screen's own button. The action is deliberately left for SaveRequests after this state change:
+        // on the first press the session sees ConfirmOverwrite and does not write, while the confirming press
+        // sees SaveLoad and reaches the same canonical save boundary.
+        if (_menu.Snapshot.Save.Present &&
+            (_menu.Snapshot.Screen is SessionMenuScreen.SaveLoad or SessionMenuScreen.ConfirmOverwrite))
         {
-            foreach (UiAction action in input.Take(ProductIdentity.UiActionContract, SaveActions.MenuSave))
+            bool requested = input.Activated(System.Text.Encoding.UTF8.GetBytes(_save.Intent)) || input.Take(
+                ProductIdentity.UiActionContract,
+                name => name is SaveActions.Save or SaveActions.MenuSave).Count > 0;
+            if (requested)
             {
                 if (_menu.Snapshot.Screen == SessionMenuScreen.SaveLoad)
                     _menu.ShowOverwriteConfirmation();
@@ -485,12 +489,7 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
             {
                 // A failed load never disposes the live expedition. It remains held behind the load screen,
                 // with the current save refusal named so the player can cancel, save, or return safely.
-                _menu.RecordLoadFailure(
-                    available: _session.Inspect().Save.Available,
-                    slot: _session.Inspect().Save.Slot,
-                    code: refused.Problems.FirstOrDefault()?.Code ?? "load-failed",
-                    message: refused.Message,
-                    present: true);
+                RecordLoadFailure(_session.Inspect(), refused);
                 ShowSaveLoad();
                 return;
             }
@@ -528,12 +527,7 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
         }
         catch (SessionSaveException refused)
         {
-            _menu.RecordLoadFailure(
-                current.Save.Available,
-                current.Save.Slot,
-                refused.Problems.FirstOrDefault()?.Code ?? "load-failed",
-                refused.Message,
-                present: true);
+            RecordLoadFailure(current, refused);
         }
         catch (InvalidOperationException unavailable)
         {
@@ -545,6 +539,20 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
         }
 
         ShowSaveLoad();
+    }
+
+    /// <summary>Projects a load refusal without claiming that an unavailable or empty slot contains a document.</summary>
+    private void RecordLoadFailure(SessionSnapshot current, SessionSaveException refused)
+    {
+        bool unavailable = refused.Kind == SessionSaveFailure.Unavailable || refused.Problems.Any(problem =>
+            problem.Code is SaveCodes.SaveStoreAbsent or SaveCodes.SaveStoreUnopened);
+        bool empty = refused.Problems.Any(problem => problem.Code == SaveCodes.SaveSlotEmpty);
+        _menu.RecordLoadFailure(
+            available: !unavailable && current.Save.Available,
+            slot: current.Save.Slot,
+            code: refused.Problems.FirstOrDefault()?.Code ?? "load-failed",
+            message: refused.Message,
+            present: !unavailable && !empty);
     }
 
     /// <summary>Shows the save/load screen and keeps the Host-applied hold in force.</summary>

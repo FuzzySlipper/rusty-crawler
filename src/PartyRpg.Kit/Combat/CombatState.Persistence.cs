@@ -15,6 +15,23 @@ public sealed partial class CombatState
 
     internal CombatSave Capture(PlacePopulation population)
     {
+        // Capture refreshes transient combatant handles before reading the document. That composition work is
+        // part of the save read itself, not a gameplay mutation after the boundary, so its stamp changes are
+        // suppressed while the canonical document is being assembled.
+        bool wasSuppressed = _suppressStamp;
+        _suppressStamp = true;
+        try
+        {
+            return CaptureCore(population);
+        }
+        finally
+        {
+            _suppressStamp = wasSuppressed;
+        }
+    }
+
+    private CombatSave CaptureCore(PlacePopulation population)
+    {
         Step();
         if (_saving is null)
         {

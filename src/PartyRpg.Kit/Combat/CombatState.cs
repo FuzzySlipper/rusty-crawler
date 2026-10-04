@@ -63,6 +63,8 @@ public sealed partial class CombatState : IGameTimeObserver
     private CombatResult? _lastOrder;
     private CombatResolution? _lastResolution;
     private long _attacksResolved;
+    private long _stamp = ChangeStamp.Next();
+    private bool _suppressStamp;
 
     /// <summary>Creates a fight over the party and the world it stands in.</summary>
     /// <param name="rules">
@@ -119,6 +121,15 @@ public sealed partial class CombatState : IGameTimeObserver
     /// </remarks>
     public CombatPacing Pacing { get; private set; } = CombatPacing.RealTime;
 
+    /// <summary>Moves whenever saved fight state changes.</summary>
+    public long Stamp => _stamp;
+
+    /// <summary>Marks a canonical fight mutation for the session save boundary.</summary>
+    internal void Touch()
+    {
+        if (!_suppressStamp) _stamp = ChangeStamp.Next();
+    }
+
     /// <summary>The party this fight is fought by.</summary>
     public PartyEntity Party => _party;
 
@@ -152,6 +163,7 @@ public sealed partial class CombatState : IGameTimeObserver
         Pacing = Pacing == CombatPacing.TurnBased ? CombatPacing.RealTime : CombatPacing.TurnBased;
         if (Pacing == CombatPacing.TurnBased) Turns.Enter();
         else Turns.Leave();
+        Touch();
 
         Report(
             "combat-pacing",
@@ -295,6 +307,7 @@ public sealed partial class CombatState : IGameTimeObserver
     /// </remarks>
     public void Step()
     {
+        Dictionary<CombatantId, CombatSide> beforeSides = _combatants.ToDictionary(actor => actor.Id, actor => actor.Side);
         List<Combatant> live = [];
         PlaceId place = _world?.Place ?? default;
         PlacePose partyPose = _world?.Pose ?? PlacePose.Origin;
@@ -357,7 +370,10 @@ public sealed partial class CombatState : IGameTimeObserver
         // What the party has done is remembered for the actors that are here to be angry about it. A
         // provocation that outlived its actor would make the next visit's entity hostile for something done
         // to a creature that no longer exists.
-        _provoked.RemoveWhere(id => !_byId.ContainsKey(id));
+        bool provocationChanged = _provoked.RemoveWhere(id => !_byId.ContainsKey(id)) > 0;
+        bool rosterChanged = beforeSides.Count != _byId.Count || beforeSides.Any(before =>
+            !_byId.TryGetValue(before.Key, out Combatant? actor) || actor.Side != before.Value);
+        if (rosterChanged || provocationChanged) Touch();
 
         // The turn-based pacing reads the fight after every re-read, so a round begins when a fight the party
         // can take turns in begins and lets go when it ends: what it holds is always this fight, never a
@@ -439,7 +455,12 @@ public sealed partial class CombatState : IGameTimeObserver
     /// a decision about this round rather than a way to act again sooner.
     /// </remarks>
     /// <param name="combatant">The actor whose turn was passed.</param>
-    internal void ChargeTurn(Combatant combatant) => combatant.Spend(RecoveryOf(combatant));
+    internal void ChargeTurn(Combatant combatant)
+    {
+        GameDuration before = combatant.Recovery;
+        combatant.Spend(RecoveryOf(combatant));
+        if (combatant.Recovery != before) Touch();
+    }
 
     /// <summary>
     /// Applies one order to attack, resolves what it does, if the actor may act.
@@ -556,11 +577,12 @@ public sealed partial class CombatState : IGameTimeObserver
 
         GameDuration recovery = _rule.RecoveryAfter(actor.Subject, kind);
         actor.Spend(recovery);
+        bool durable = !recovery.IsNone;
 
         // What the party has done is what puts a creature into the fight: attacking it is remembered, so it
         // stays an enemy for as long as it stands there, whatever pacing is in force. A creature standing with the
         // party is not provoked by being struck by one of the other side.
-        if (target is not null && !OnPartysSide(target)) ProvokeWithOthers(target);
+        if (target is not null && !OnPartysSide(target)) durable |= ProvokeWithOthers(target);
 
         AttackInitiation initiation = new(
             actor.Id,
@@ -578,6 +600,8 @@ public sealed partial class CombatState : IGameTimeObserver
         // that damage a target differently.
         CombatResolution? resolution = Resolve(actor, target, kind, ability);
         _lastResolution = resolution;
+        durable |= resolution is not null;
+        if (durable) Touch();
 
         return Report(CombatResult.Applied(initiation, resolution));
     }
@@ -812,7 +836,7 @@ public sealed partial class CombatState : IGameTimeObserver
     public bool Provoke(CombatantId target)
     {
         if (!_byId.TryGetValue(target, out Combatant? combatant) || combatant.Side == CombatSide.Party) return false;
-        ProvokeWithOthers(combatant);
+        if (ProvokeWithOthers(combatant)) Touch();
         return true;
     }
 
@@ -825,19 +849,20 @@ public sealed partial class CombatState : IGameTimeObserver
     /// and what made a creature stand with the party outranks what the party did, so it is not turned by this either.
     /// </remarks>
     /// <param name="target">The creature acted against.</param>
-    private void ProvokeWithOthers(Combatant target)
+    private bool ProvokeWithOthers(Combatant target)
     {
-        _provoked.Add(target.Id);
+        bool changed = _provoked.Add(target.Id) || target.Side != CombatSide.Opposition;
         target.Provoke();
-        if (_provocation is null) return;
+        if (_provocation is null) return changed;
 
         foreach (Combatant other in _combatants)
         {
             if (other.Id == target.Id || OnPartysSide(other) || IsDown(other)) continue;
             if (!_provocation.ProvokedWith(target.Subject, other.Subject)) continue;
-            _provoked.Add(other.Id);
+            changed |= _provoked.Add(other.Id) || other.Side != CombatSide.Opposition;
             other.Provoke();
         }
+        return changed;
     }
 
     /// <summary>Adds game time to what an actor must recover before it may act again.</summary>
@@ -851,7 +876,9 @@ public sealed partial class CombatState : IGameTimeObserver
     public bool Delay(CombatantId actor, GameDuration by)
     {
         if (!_byId.TryGetValue(actor, out Combatant? combatant)) return false;
+        if (by.IsNone) return true;
         combatant.Spend(GameDuration.FromMilliseconds(checked(combatant.Recovery.Milliseconds + by.Milliseconds)));
+        Touch();
         return true;
     }
 

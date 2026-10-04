@@ -7,6 +7,7 @@ using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Promotion;
+using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Sessions;
@@ -359,6 +360,64 @@ public sealed class SessionDiagnosticsTests
     }
 
     [Fact]
+    public void A_refused_zero_time_turn_action_after_a_clean_save_does_not_mark_the_expedition_dirty()
+    {
+        RecordingDiagnosticsService diagnostics = new();
+        RecordingSaveStore store = new();
+        using PartyEntity party = TestParty.OfFour();
+        using SessionWorld world = Arena(party);
+        using RecordingUiProjectionChannel channel = new();
+        using PartyRpgSession session = new(
+            Composition,
+            channel,
+            new SessionOwners(TestClock.Create(), diagnostics),
+            new SessionParty.Playing(World: world, Party: party),
+            new SessionRules
+            {
+                Combat = Capabilities.Combat(new CombatStateTests.TestCombatRule(null)) with
+                {
+                    Saving = new TestCombatSaveRule(),
+                },
+            },
+            new SessionControls
+            {
+                Save = new SaveIntentNames("test.save", Contract),
+                Combat = new CombatIntentNames(
+                    "test.attack",
+                    Contract,
+                    new TurnIntentNames("test.turn-based", "test.turn-skip", "test.turn-wait", Contract)),
+            },
+            new SessionSaving(store));
+        session.Start();
+        session.Update(Admitted.Update(1, 1));
+        session.Update(Admitted.Update(2, 1, Admitted.Digital("test.turn-based")));
+        Assert.True(session.Combat!.Turns.WaitsForPlayer);
+
+        CombatantId first = session.Combat.Turns.Current!.Id;
+        ulong step = 3;
+        for (int member = 0; member < party.Members.Count; member++)
+        {
+            // Waiting in turn-based mode is an instant action; keeping the admitted interval at zero makes the
+            // final refused request exercise the action result itself rather than a clock advance.
+            session.Update(Admitted.Update(step++, 0, Admitted.Digital("test.turn-wait")));
+        }
+
+        session.Update(Admitted.Update(step++, 0, Admitted.Digital("test.save")));
+        Assert.True(store.Writes.Count > 0, session.Inspect().Save.Message);
+        Assert.Single(store.Writes);
+        Assert.False(session.Inspect().Save.Dirty);
+        Assert.False(session.Inspect().Menu.HasUnsaved);
+
+        session.Update(Admitted.Update(step, 0, Admitted.Digital("test.turn-wait")));
+
+        DiagnosticsPublishRequest refused = Assert.Single(diagnostics.Published, report => report.Code == "already-waited");
+        Assert.Equal("combat", refused.Source);
+        Assert.Equal(first, session.Combat.Turns.Current!.Id);
+        Assert.False(session.Inspect().Save.Dirty);
+        Assert.False(session.Inspect().Menu.HasUnsaved);
+    }
+
+    [Fact]
     public void A_finished_party_whose_world_refuses_to_be_composed_is_refused_as_creation_refused()
     {
         RecordingDiagnosticsService diagnostics = new();
@@ -488,6 +547,37 @@ public sealed class SessionDiagnosticsTests
             clock: clock,
             partyEntity: party,
             vitals: Capabilities.PlacementHitPoints);
+    }
+
+    /// <summary>Records the one save boundary used by the dirty-state regression.</summary>
+    private sealed class RecordingSaveStore : ISessionSaveStore
+    {
+        internal List<SessionSave> Writes { get; } = [];
+
+        public void Write(string slot, SessionSave save) => Writes.Add(save);
+
+        public SessionSave? Read(string slot) => Writes.Count == 0 ? null : Writes[^1];
+
+        public void Dispose()
+        {
+        }
+    }
+
+    /// <summary>The test's content-only fight reading, so the dirty regression can save a live fight.</summary>
+    private sealed class TestCombatSaveRule : ICombatSaveRule
+    {
+        public SavedCreatureDefinition? Creature(PlacementDefinition placement, PartySave party, long elapsedMilliseconds) =>
+            placement.Content.Kind == "creature"
+                ? new SavedCreatureDefinition("test-creature", Health: 40, RecoveryLimitMilliseconds: 120_000, ActionRecoveryLimitMilliseconds: 120_000)
+                : null;
+
+        public long MemberRecoveryLimit(PartyMemberSave member) => 120_000;
+
+        public IEnumerable<string> CreatedProblems(CreatureCombatSave creature, PartySave party) => [];
+
+        public bool KnowsEffect(EffectId effect, int magnitude) => true;
+
+        public bool KnowsLoot(ItemDefinitionId item) => true;
     }
 
     /// <summary>One member's creation, finished by its defaults: a race, a class, a portrait, and a skill.</summary>

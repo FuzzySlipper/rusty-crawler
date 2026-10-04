@@ -778,7 +778,7 @@ function snapshot(mode, seconds = 0, steps = 0, _updates = 0, facts = undefined,
   return value;
 }
 
-test('the lifecycle menu shows title choices, ordinary return, and the unsaved confirmation', () => {
+test('the lifecycle menu shows title choices, ordinary save/load access, and the unsaved confirmation', () => {
   const h = harness();
   try {
     const ui = mountProductUi(h.root, h.context);
@@ -811,6 +811,19 @@ test('the lifecycle menu shows title choices, ordinary return, and the unsaved c
     h.emit(snapshot('running', 0, 0, 2, movement()));
     assert.equal(menu.querySelector('.crawler-menu-launch').hidden, false);
     menu.querySelector('.crawler-menu-launch').click();
+    assert.equal(h.claims.at(-1).value.data.action, 'session.open-save-load');
+
+    // The same ordinary click path publishes the explicit save/load screen. Its return control is the
+    // deliberate route back to the title decision; a fixture-only save/load projection must not be the
+    // only way to exercise this launcher.
+    h.emit(snapshot('paused', 0, 0, 3, movement(), {
+      menu: {
+        visible: true, screen: 'save-load', canNewGame: false, canContinue: false, canReturnTitle: true,
+        hasUnsaved: true, state: 'none', code: '', message: '',
+      },
+    }));
+    assert.equal(menu.querySelector('.crawler-menu-save-load').hidden, false);
+    menu.querySelector('.crawler-menu-save-return-title').click();
     assert.equal(h.claims.at(-1).value.data.action, 'session.return-title');
     ui.dispose();
   } finally {

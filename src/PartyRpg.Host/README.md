@@ -46,7 +46,8 @@ Implemented today:
   party, member count, coins, provisions, place and ruleset calendar, marks unsaved live work, asks before overwriting
   a slot or discarding changes for a load, and keeps the current held session usable when a slot is empty, missing or
   corrupt. Save and load errors remain visible in the menu; they do not create a parallel store or silently start a
-  fresh expedition.
+  fresh expedition. The ordinary Save action and F key use the same overwrite confirmation while this screen is open;
+  an empty slot remains directly writable.
 - The project file declares the product metadata and 25 input intents, each digital with its key: pause
   (`session.pause-toggle`, P) and save (`session.save`, F); the movement intents (W/S/A/D, Q/E, Space, and
   flight's `party.ascend` and `party.descend` on the up and down arrows, held — the original's Page Up and Insert
