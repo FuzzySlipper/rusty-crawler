@@ -232,6 +232,30 @@ public sealed class ClockTests
     }
 
     [Fact]
+    public void The_deadline_stamp_tracks_registration_cancellation_and_firing_without_a_snapshot()
+    {
+        GameClock clock = Clock();
+        long initial = clock.DeadlineStamp;
+        clock.Advance(GameDuration.FromMinutes(1));
+        Assert.Equal(initial, clock.DeadlineStamp);
+
+        DeadlineId scheduled = clock.ScheduleAfter(GameDuration.FromHours(1));
+        long registered = clock.DeadlineStamp;
+        Assert.NotEqual(initial, registered);
+        Assert.True(clock.Cancel(scheduled));
+        long cancelled = clock.DeadlineStamp;
+        Assert.NotEqual(registered, cancelled);
+        Assert.False(clock.Cancel(scheduled));
+        Assert.Equal(cancelled, clock.DeadlineStamp);
+
+        clock.ScheduleAfter(GameDuration.None);
+        long waiting = clock.DeadlineStamp;
+        Assert.NotEqual(cancelled, waiting);
+        clock.Advance(GameDuration.FromSeconds(1));
+        Assert.NotEqual(waiting, clock.DeadlineStamp);
+    }
+
+    [Fact]
     public void An_hour_boundary_is_crossed_once_however_the_advance_is_split()
     {
         // Half past nine in one advance, and the same half hour in thirty: the boundary at ten o'clock is

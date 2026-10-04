@@ -207,6 +207,29 @@ public sealed class ProductMenuTests
     }
 
     [Fact]
+    public void Leaving_the_save_load_screen_takes_precedence_over_a_same_update_save_request()
+    {
+        InMemoryPersistenceService persistence = new();
+        (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(persistence, ProductTestContext.DoorWorld());
+        using CrawlerProduct product = new(context, ProductTestContext.NoVariables, showLaunchTitle: true);
+        product.Start();
+        product.Update(ProductTestContext.Update(1, 1, ProductTestContext.Digital(ProductIdentity.CreationAcceptIntent)));
+        product.Update(ProductTestContext.Update(2, 1, ProductTestContext.Payload("{\"action\":\"session.open-save-load\"}")));
+        product.Update(ProductTestContext.Update(3, 1, ProductTestContext.Payload("{\"action\":\"session.menu-save\"}")));
+
+        byte[] before = persistence.Payload(MightAndMagic7Persistence.StoreScope, MightAndMagic7Persistence.SaveSlot)!;
+        product.Update(ProductTestContext.Update(
+            4,
+            1,
+            ProductTestContext.Digital(ProductIdentity.SaveIntent),
+            ProductTestContext.Payload("{\"action\":\"session.return-title\"}")));
+
+        ProjectedNode menu = ProjectedNode.Of(ui.Latest().Value).Field("menu");
+        Assert.Equal("confirm-return", menu.Field("screen").AsString());
+        Assert.Equal(before, persistence.Payload(MightAndMagic7Persistence.StoreScope, MightAndMagic7Persistence.SaveSlot));
+    }
+
+    [Fact]
     public void Continue_restores_the_existing_save_without_restarting_the_product()
     {
         InMemoryPersistenceService persistence = new();

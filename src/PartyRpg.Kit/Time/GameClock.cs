@@ -41,6 +41,7 @@ public sealed class GameClock : IWorldTimeSource
     private readonly long _startMilliseconds;
     private long _elapsedMilliseconds;
     private long _nextDeadline;
+    private long _deadlineStamp = ChangeStamp.Next();
     private double _unconvertedRealMilliseconds;
 
     /// <summary>Creates the clock a session runs on.</summary>
@@ -110,6 +111,13 @@ public sealed class GameClock : IWorldTimeSource
 
     /// <summary>How many deadlines the clock is holding.</summary>
     public int PendingDeadlines => _deadlines.Count;
+
+    /// <summary>
+    /// The stamp of the clock's pending deadline set. Registering, cancelling, firing, or rearming a deadline
+    /// moves it; advancing time without changing the pending set does not. It is a canonical mutation signal,
+    /// not a copy of any deadline's saved values.
+    /// </summary>
+    public long DeadlineStamp => _deadlineStamp;
 
     /// <summary>The deadlines the clock is holding, in the order they were set.</summary>
     public IReadOnlyList<DeadlineId> Pending => [.. _deadlines.Select(held => new DeadlineId(held.Id))];
@@ -280,6 +288,7 @@ public sealed class GameClock : IWorldTimeSource
         int index = _deadlines.FindIndex(held => held.Id == deadline.Value);
         if (index < 0) return false;
         _deadlines.RemoveAt(index);
+        _deadlineStamp = ChangeStamp.Next();
         return true;
     }
 
@@ -291,6 +300,7 @@ public sealed class GameClock : IWorldTimeSource
     {
         Deadline held = new(_nextDeadline++, due, interval);
         _deadlines.Add(held);
+        _deadlineStamp = ChangeStamp.Next();
         return new DeadlineId(held.Id);
     }
 
@@ -323,6 +333,8 @@ public sealed class GameClock : IWorldTimeSource
             if (deadline.Interval is { } interval) deadline.Due = checked(to + interval.Milliseconds);
             else _deadlines.Remove(deadline);
         }
+
+        _deadlineStamp = ChangeStamp.Next();
 
         return due;
     }

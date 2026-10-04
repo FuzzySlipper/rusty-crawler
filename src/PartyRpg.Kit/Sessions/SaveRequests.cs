@@ -112,7 +112,10 @@ internal sealed class SaveRequests
     public bool Asked(ActionInbox inbox)
     {
         if (_intent is null || _actionContract is null) return false;
-        bool confirmationPending = _menu.Snapshot.Screen == SessionMenuScreen.ConfirmOverwrite;
+        bool confirmationPending = _menu.Snapshot.Screen is
+            SessionMenuScreen.ConfirmOverwrite or
+            SessionMenuScreen.ConfirmReturn or
+            SessionMenuScreen.ConfirmLoad;
         bool asked = !confirmationPending && inbox.Activated(_intent);
         IReadOnlyList<UiAction> actions = inbox.Take(_actionContract, name => name is SaveActions.Save or SaveActions.MenuSave);
         // The Host turns the first menu-save press into the overwrite screen before this session reads the

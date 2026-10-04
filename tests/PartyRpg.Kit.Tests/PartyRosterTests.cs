@@ -44,6 +44,25 @@ public sealed class PartyRosterTests
     }
 
     [Fact]
+    public void Selecting_a_member_moves_the_party_stamp_but_refusal_feedback_does_not()
+    {
+        using PartyEntity party = new PartyEntityFactory().Create(new PartyCreation(
+            [Member("Roderick", "human-man", hitPoints: 40, spellPoints: 0), Member("Aelina", "elf-woman", hitPoints: 20, spellPoints: 15)],
+            coins: 0, foodPortions: 0, reputation: 0, fame: 0));
+
+        long before = party.Stamp;
+        Assert.Null(party.Roster.Select(party.Members[1].Id, Verdict.Met));
+        Assert.Equal(party.Members[1].Id, party.Roster.SelectedMember);
+        Assert.NotEqual(before, party.Roster.Stamp);
+        Assert.NotEqual(before, party.Stamp);
+
+        long after = party.Stamp;
+        Refusal refused = Assert.IsType<Refusal>(party.Roster.Select(new PartyMemberId(999), Verdict.Met));
+        Assert.Equal(PartySelectionCodes.UnknownMember, refused.Code);
+        Assert.Equal(after, party.Stamp);
+    }
+
+    [Fact]
     public void A_pool_below_empty_or_without_a_measure_draws_an_empty_bar()
     {
         PartyMemberSnapshot member = new("1", "Borin", "Cleric", string.Empty, string.Empty, -12, 25, 3, 0, string.Empty, false);

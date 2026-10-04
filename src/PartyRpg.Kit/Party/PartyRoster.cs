@@ -59,6 +59,14 @@ public sealed class PartyRoster
     /// <summary>The member an ordinary order addresses, or none while nobody can act.</summary>
     public PartyMemberId? SelectedMember { get; private set; }
 
+    /// <summary>The change stamp for the selected member, excluding transient selection feedback.</summary>
+    /// <remarks>
+    /// Selection is part of the party save, so choosing another member is a durable mutation even when the
+    /// action takes no game time. A refusal and its sentence are projection feedback only and do not move this
+    /// stamp.
+    /// </remarks>
+    public long Stamp { get; private set; } = ChangeStamp.Next();
+
     /// <summary>The last selection's named refusal, if that choice was refused.</summary>
     public Refusal? SelectionRefusal { get; private set; }
 
@@ -73,7 +81,7 @@ public sealed class PartyRoster
         if (!capability.IsMet)
             return Refuse(new(PartySelectionCodes.Incapable, $"{member.Profile.Name} cannot be selected: {capability.Explanation}"));
 
-        SelectedMember = id;
+        SetSelection(id);
         SelectionRefusal = null;
         SelectionMessage = $"{member.Profile.Name} is selected to act.";
         return null;
@@ -100,7 +108,7 @@ public sealed class PartyRoster
         PartyMember? replacement = _members.FirstOrDefault(member => capability(member).IsMet);
         if (replacement?.Id == SelectedMember) return;
         string previous = SelectedMember is { } prior && TryMember(prior, out PartyMember? before) ? before.Profile.Name : "Nobody";
-        SelectedMember = replacement?.Id;
+        SetSelection(replacement?.Id);
         SelectionRefusal = null;
         SelectionMessage = replacement is null
             ? $"{previous} cannot act; the party has nobody able to select."
@@ -111,6 +119,13 @@ public sealed class PartyRoster
     // Restore keeps the recorded choice. Membership is checked at the save boundary, and capability is
     // reconciled after the action rule is composed; recovery never picks somebody else for the player.
     internal void RestoreSelection(PartyMemberId? selected) => SelectedMember = selected;
+
+    private void SetSelection(PartyMemberId? selected)
+    {
+        if (SelectedMember == selected) return;
+        SelectedMember = selected;
+        Stamp = ChangeStamp.Next();
+    }
 
     private Refusal Refuse(Refusal refusal)
     {

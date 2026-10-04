@@ -130,8 +130,8 @@ Owns:
   saved place and calendar words, while the kit supplies party/member, purse,
   provisions, dirty, overwrite and load-failure state. After each admitted
   update the session derives its dirty marker from the one clock and canonical
-  owner change stamps, so a refused or projection-only zero-time action does not
-  turn a clean save into unsaved work.
+  owner change stamps, including the party's saved member selection, durable quest instances, and the clock's
+  pending deadline set, so a refused or projection-only zero-time action does not turn a clean save into unsaved work.
 
 Boundary rules:
 
@@ -299,7 +299,7 @@ structured UI value builder, the Engine-backed projection channel, `ContentImage
 portraits, its items' pictures — granted to the panel once each through the Engine's `Ui.OpenImage`, their
 same-origin URLs published in the party block's `roster` beside each member's pools, the percentage a bar is drawn
 at, conditions and selection, in the creation block, and on every worn piece and pack row, and revoked with the
-session; the roster's reading is keyed on the selected member too, which no change stamp moves), a person's portrait on the conversation
+session; the roster's reading is keyed on the selected member too, and that saved choice moves the roster's change stamp), a person's portrait on the conversation
 block, item pictures on a counter's lots and on the party's items it would buy, identify or mend, the inventory page's
 readings (`IItemReadingRule`, the game's kind word, facts and picture key for an item instance, published on the
 equipment block's worn rows and on its `pack` — every item the party carries, with its slots, its ordinary use and

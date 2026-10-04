@@ -135,6 +135,7 @@ public sealed class PartyEntity : IDisposable
         get
         {
             long stamp = Math.Max(Inventory.Stamp, Purse.Stamp);
+            stamp = Math.Max(stamp, Roster.Stamp);
             stamp = Math.Max(stamp, Food.Stamp);
             stamp = Math.Max(stamp, Followers.Stamp);
             stamp = Math.Max(stamp, Reputation.Stamp);

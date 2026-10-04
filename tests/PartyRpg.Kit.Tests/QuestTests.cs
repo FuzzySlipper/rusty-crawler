@@ -43,6 +43,25 @@ public sealed class QuestTests
     private static readonly string Monster = "7";
 
     [Fact]
+    public void Refused_quest_feedback_does_not_move_the_durable_quest_stamp()
+    {
+        using PartyEntity party = PartyOf(Member("Tester"));
+        QuestDefinition quest = new(new QuestId("stamp-check"), "Stamp check", "marshal", objectives: []);
+        PartyQuests quests = new(new TestQuests(quest), party);
+
+        long initialDurable = quests.DurableStamp;
+        long initialProjection = quests.Stamp;
+        Assert.Equal(QuestCodes.QuestNotOffered, quests.Accept(quest.Id).Refusal!.Code);
+        Assert.Equal(initialDurable, quests.DurableStamp);
+        Assert.NotEqual(initialProjection, quests.Stamp);
+
+        Assert.True(quests.Offer(quest.Id, "marshal").IsApplied);
+        long offered = quests.DurableStamp;
+        Assert.Equal(QuestCodes.QuestAlreadyKnown, quests.Offer(quest.Id, "marshal").Refusal!.Code);
+        Assert.Equal(offered, quests.DurableStamp);
+    }
+
+    [Fact]
     public void Distinct_completed_quests_accumulate_deeds_and_a_save_cannot_pay_one_twice()
     {
         using PartyEntity party = PartyOf(Member("Tester"));

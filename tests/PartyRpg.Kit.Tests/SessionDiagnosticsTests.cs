@@ -316,6 +316,46 @@ public sealed class SessionDiagnosticsTests
     }
 
     [Fact]
+    public void A_zero_time_counter_handoff_marks_dirty_when_it_registers_a_restock_deadline()
+    {
+        RecordingDiagnosticsService diagnostics = new();
+        RecordingSaveStore store = new();
+        using PartyEntity party = TestParty.OfFour();
+        using Hall hall = Hall.Build(party);
+        using RecordingUiProjectionChannel channel = new();
+        using PartyRpgSession session = new(
+            Composition,
+            channel,
+            new SessionOwners(hall.Clock, diagnostics),
+            new SessionParty.Playing(World: hall.World, Party: party),
+            new SessionRules { Conversation = new Speakers(), Service = new Stable() },
+            new SessionControls
+            {
+                Save = new SaveIntentNames("test.save", Contract),
+                Use = UseControls,
+                Conversation = ConversationControls,
+                Service = new ServiceIntentNames("test.service.leave", Contract),
+            },
+            new SessionSaving(store));
+        session.Start();
+
+        session.Update(Admitted.Update(1, 0, Admitted.Digital("test.save")));
+        Assert.Single(store.Writes);
+        Assert.False(session.Inspect().Save.Dirty);
+
+        // The person and its counter are reached through the ordinary conversation handoff in the same admitted
+        // update; no time passes, but laying out the shelf registers the service's canonical clock deadline.
+        session.Update(Admitted.Update(2, 0));
+        session.Update(Admitted.Update(3, 0, Admitted.Digital("test.use")));
+        Assert.True(session.Conversations!.IsOpen);
+        session.Update(Admitted.Update(4, 0, Topic("counter")));
+
+        Assert.True(session.Services!.IsOpen);
+        Assert.True(hall.Clock.PendingDeadlines > 0);
+        Assert.True(session.Inspect().Save.Dirty);
+    }
+
+    [Fact]
     public void Waiting_twice_in_one_round_of_a_paced_fight_is_refused_as_already_waited()
     {
         RecordingDiagnosticsService diagnostics = new();
@@ -415,6 +455,54 @@ public sealed class SessionDiagnosticsTests
         Assert.Equal(first, session.Combat.Turns.Current!.Id);
         Assert.False(session.Inspect().Save.Dirty);
         Assert.False(session.Inspect().Menu.HasUnsaved);
+    }
+
+    [Fact]
+    public void A_zero_time_member_selection_after_a_clean_save_marks_the_expedition_dirty()
+    {
+        RecordingDiagnosticsService diagnostics = new();
+        RecordingSaveStore store = new();
+        using PartyEntity party = TestParty.OfFour();
+        using SessionWorld world = Arena(party);
+        using RecordingUiProjectionChannel channel = new();
+        using PartyRpgSession session = new(
+            Composition,
+            channel,
+            new SessionOwners(TestClock.Create(), diagnostics),
+            new SessionParty.Playing(World: world, Party: party),
+            new SessionRules
+            {
+                Combat = Capabilities.Combat(new CombatStateTests.TestCombatRule(null)) with
+                {
+                    Saving = new TestCombatSaveRule(),
+                },
+            },
+            new SessionControls
+            {
+                Save = new SaveIntentNames("test.save", Contract),
+                Combat = new CombatIntentNames(
+                    "test.attack",
+                    Contract,
+                    new TurnIntentNames("test.turn-based", "test.turn-skip", "test.turn-wait", Contract)),
+            },
+            new SessionSaving(store));
+        session.Start();
+        session.Update(Admitted.Update(1, 1));
+        session.Update(Admitted.Update(2, 1, Admitted.Digital("test.turn-based")));
+        Assert.True(session.Combat!.Turns.WaitsForPlayer);
+
+        session.Update(Admitted.Update(3, 0, Admitted.Digital("test.save")));
+        Assert.Single(store.Writes);
+        Assert.False(session.Inspect().Save.Dirty);
+
+        session.Update(Admitted.Update(
+            4,
+            0,
+            Payload($$"""{"action":"party.select-member","member":"{{party.Members[1].Id}}"}""")));
+
+        Assert.Equal(party.Members[1].Id, party.Roster.SelectedMember);
+        Assert.True(session.Inspect().Save.Dirty);
+        Assert.True(session.Inspect().Menu.HasUnsaved);
     }
 
     [Fact]
@@ -752,9 +840,11 @@ public sealed class SessionDiagnosticsTests
             "The stable",
             [ServiceOperationKind.Fare],
             stock: [],
-            lessons: []);
+            lessons: [],
+            refreshInterval: GameDuration.FromHours(24));
 
-        public ServiceDefinition? Describe(ServiceTargetRequest request) => null;
+        public ServiceDefinition? Describe(ServiceTargetRequest request) =>
+            request.Placement.Content.Kind == "person" ? Counter : null;
 
         public IReadOnlyList<ServiceStockLine> Stock(ServiceStockRequest request) => [];
 

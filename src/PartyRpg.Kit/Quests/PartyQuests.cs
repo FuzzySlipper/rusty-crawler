@@ -93,11 +93,17 @@ public sealed class PartyQuests : IItemRetentionRule
     public PartyEntity Party => _party;
 
     /// <summary>
-    /// The change stamp this owner took when the errands it holds or the last outcome it reports last changed, or
-    /// when it was made: a reader that kept what it built beside it reads the owner again only when it has moved
-    /// (<see cref="ChangeStamp"/>).
+    /// The change stamp this owner took when the errands it holds, their recorded progress, or the last outcome it
+    /// reports changed, or when it was made. Presentation readers use it to retain the latest feedback as well as
+    /// the journal (<see cref="ChangeStamp"/>).
     /// </summary>
     public long Stamp { get; private set; } = ChangeStamp.Next();
+
+    /// <summary>
+    /// The stamp of the quest instances and their recorded progress only. A refusal changes <see cref="Stamp"/>
+    /// so the projection can show its feedback, but it does not move this save-owned mutation signal.
+    /// </summary>
+    public long DurableStamp { get; private set; } = ChangeStamp.Next();
 
     /// <summary>What the last operation did, or null before any has been asked for.</summary>
     public QuestResult? Last { get; private set; }
@@ -200,7 +206,7 @@ public sealed class PartyQuests : IItemRetentionRule
         }
 
         _instances.Add(new QuestInstance(quest, QuestStage.Offered, definition.Giver, place.Value));
-        Stamp = ChangeStamp.Next();
+        TouchDurable();
         return Record(QuestResult.Applied(QuestAction.Offer, quest, QuestStage.Offered));
     }
 
@@ -223,7 +229,7 @@ public sealed class PartyQuests : IItemRetentionRule
             return Refuse(QuestAction.Accept, quest, refusal);
 
         _instances[_instances.IndexOf(instance)] = instance with { Stage = QuestStage.Accepted };
-        Stamp = ChangeStamp.Next();
+        TouchDurable();
         if (_rule is IQuestAcceptanceRule accepted) accepted.Accepted(acceptance);
         return Record(QuestResult.Applied(QuestAction.Accept, quest, QuestStage.Accepted));
     }
@@ -346,7 +352,7 @@ public sealed class PartyQuests : IItemRetentionRule
         }
 
         _instances[_instances.IndexOf(instance)] = instance with { Stage = QuestStage.TurnedIn };
-        Stamp = ChangeStamp.Next();
+        TouchDurable();
         return Record(QuestResult.Applied(
             QuestAction.TurnIn,
             quest,
@@ -385,7 +391,7 @@ public sealed class PartyQuests : IItemRetentionRule
 
             if (ReferenceEquals(current, instance)) continue;
             _instances[index] = current;
-            Stamp = ChangeStamp.Next();
+            TouchDurable();
         }
     }
 
@@ -423,7 +429,7 @@ public sealed class PartyQuests : IItemRetentionRule
 
             if (ReferenceEquals(current, instance)) continue;
             _instances[index] = current;
-            Stamp = ChangeStamp.Next();
+            TouchDurable();
         }
     }
 
@@ -560,5 +566,11 @@ public sealed class PartyQuests : IItemRetentionRule
         Last = result;
         Stamp = ChangeStamp.Next();
         return result;
+    }
+
+    private void TouchDurable()
+    {
+        DurableStamp = ChangeStamp.Next();
+        Stamp = ChangeStamp.Next();
     }
 }

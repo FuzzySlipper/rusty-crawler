@@ -522,6 +522,7 @@ public sealed class PartyRpgSession : IGameSession
     /// </summary>
     private readonly record struct DurableMutationReading(
         long ClockMilliseconds,
+        long ClockDeadlines,
         long Party,
         long World,
         long Quests,
@@ -532,9 +533,10 @@ public sealed class PartyRpgSession : IGameSession
     {
         internal static DurableMutationReading Read(PartyRpgSession session) => new(
             session.Clock?.Elapsed.Milliseconds ?? 0,
+            session.Clock?.DeadlineStamp ?? 0,
             session.Party?.Stamp ?? 0,
             session.LiveWorld?.Stamp ?? 0,
-            session._owners.Quests?.Stamp ?? 0,
+            session._owners.Quests?.DurableStamp ?? 0,
             session._owners.Journal?.Stamp ?? 0,
             session._owners.Knowledge?.Stamp ?? 0,
             session._owners.Maps?.Stamp ?? 0,
