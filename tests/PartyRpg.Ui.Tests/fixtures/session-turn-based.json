@@ -1523,6 +1523,11 @@
       "enabled": true,
       "key": "G"
     },
+    "nextTarget": {
+      "action": "party.next-target",
+      "enabled": false,
+      "key": "T"
+    },
     "attack": {
       "action": "party.attack",
       "enabled": true,
@@ -1561,7 +1566,7 @@
     "waitDawn": {
       "action": "rest.wait-dawn",
       "enabled": false,
-      "key": "T"
+      "key": "O"
     },
     "waitHour": {
       "action": "rest.wait-hour",

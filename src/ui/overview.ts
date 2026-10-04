@@ -255,6 +255,7 @@ export interface ControlsView {
   readonly use: ControlView;
   readonly attack: ControlView;
   readonly nextMember: ControlView;
+  readonly nextTarget: ControlView;
   readonly turnBased: ControlView;
   readonly turnSkip: ControlView;
   readonly turnWait: ControlView;
@@ -436,6 +437,7 @@ export function readControls(f: Fields): ControlsView {
     use: readControl(f.object('use')),
     attack: readControl(f.object('attack')),
     nextMember: readControl(f.object('nextMember')),
+    nextTarget: readControl(f.object('nextTarget')),
     turnBased: readControl(f.object('turnBased')),
     turnSkip: readControl(f.object('turnSkip')),
     turnWait: readControl(f.object('turnWait')),

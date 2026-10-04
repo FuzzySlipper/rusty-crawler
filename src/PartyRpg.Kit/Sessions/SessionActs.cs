@@ -56,7 +56,8 @@ internal sealed class SessionActs(SessionOwners owners, SessionControls controls
     public void Interact(ActionInbox input)
     {
         if (owners.World is not { } world) return;
-        InteractionResult? result = world.Interact(_use is not null && _use.Read(input));
+        int cycleDirection = _use?.ReadCycle(input) ?? 0;
+        InteractionResult? result = world.Interact(_use is not null && _use.Read(input), cycleDirection);
 
         if (result is { IsApplied: true, Learned.Count: > 0 } taught && owners.Knowledge is { } knowledge)
         {

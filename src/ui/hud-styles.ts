@@ -112,6 +112,18 @@ export const HUD_STYLES = `
 }
 .crawler-reticle-target { color: #f0e4c4; font-weight: 600; }
 .crawler-reticle-range { color: #b9ad8c; }
+.crawler-session .crawler-reticle-action {
+  width: auto;
+  margin-top: 0.25rem;
+  padding: 0.18rem 0.5rem;
+  border-color: rgba(226, 176, 96, 0.65);
+  background: rgba(30, 25, 18, 0.88);
+  font-size: 0.72rem;
+  pointer-events: auto;
+  text-shadow: none;
+}
+.crawler-session .crawler-reticle-action:focus-visible { outline: 2px solid #f0dca0; outline-offset: 2px; }
+.crawler-session .crawler-reticle-action:disabled { border-color: rgba(210, 196, 158, 0.35); }
 .crawler-reticle[data-state='out-of-reach'] .crawler-reticle-range,
 .crawler-reticle[data-state='occluded'] .crawler-reticle-range,
 .crawler-reticle[data-state='unavailable'] .crawler-reticle-range,

@@ -117,7 +117,8 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
             ProductIdentity.UiActionContract);
         _use = new UseIntentNames(
             ProductIdentity.UseIntent,
-            ProductIdentity.UiActionContract);
+            ProductIdentity.UiActionContract,
+            ProductIdentity.NextTargetIntent);
         _service = new ServiceIntentNames(
             ProductIdentity.ServiceLeaveIntent,
             ProductIdentity.UiActionContract);

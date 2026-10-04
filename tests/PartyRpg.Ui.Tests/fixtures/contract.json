@@ -30,6 +30,7 @@
     "party.item.use",
     "party.mix",
     "party.next-member",
+    "party.next-target",
     "party.quick-spell",
     "party.raise-skill",
     "party.select-member",
@@ -144,6 +145,11 @@
       "key": "G"
     },
     {
+      "intent": "party.next-target",
+      "value": "digital",
+      "key": "T"
+    },
+    {
       "intent": "service.leave",
       "value": "digital",
       "key": "X"
@@ -166,7 +172,7 @@
     {
       "intent": "rest.wait-dawn",
       "value": "digital",
-      "key": "T"
+      "key": "O"
     },
     {
       "intent": "rest.wait-hour",

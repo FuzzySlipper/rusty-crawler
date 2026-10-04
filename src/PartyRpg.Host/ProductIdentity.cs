@@ -94,6 +94,12 @@ internal static class ProductIdentity
     internal const string UseIntent = "party.use";
 
     /// <summary>
+    /// The digital intent that advances the existing Engine interaction focus to the next eligible target.
+    /// T is used instead of browser Tab, which the installed Engine keyboard contract does not carry.
+    /// </summary>
+    internal const string NextTargetIntent = UseActions.NextTarget;
+
+    /// <summary>
     /// The payload action name that uses whatever the party is facing, sent by the DOM companion's use
     /// control on the UI action contract.
     /// </summary>
@@ -144,7 +150,7 @@ internal static class ProductIdentity
     /// <summary>The digital intent that makes camp in the open, on the key the original would spend casting.</summary>
     internal const string CampIntent = RestActions.Camp;
 
-    /// <summary>The digital intent that waits until the next dawn, on a key the original gives to a book.</summary>
+    /// <summary>The digital intent that waits until the next dawn, on O because T is the target-cycle control and V opens the map.</summary>
     internal const string WaitUntilDawnIntent = RestActions.WaitUntilDawn;
 
     /// <summary>The digital intent that waits an hour, on a key the original gives to a book.</summary>

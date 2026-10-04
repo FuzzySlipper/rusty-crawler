@@ -53,12 +53,12 @@ Implemented today:
   corrupt. Save and load errors remain visible in the menu; they do not create a parallel store or silently start a
   fresh expedition. The ordinary Save action and F key use the same overwrite confirmation while this screen is open;
   an empty slot remains directly writable.
-- The project file declares the product metadata and 25 input intents, each digital with its key: pause
+- The project file declares the product metadata and its input intents, each digital with its key: pause
   (`session.pause-toggle`, P) and save (`session.save`, F); the movement intents (W/S/A/D, Q/E, Space, and
   flight's `party.ascend` and `party.descend` on the up and down arrows, held — the original's Page Up and Insert
   are not keys the engine carries); use
-  (`party.use`, G); the ways out of a counter and a conversation (`service.leave`, X; `conversation.leave`,
-  Escape); the stops (`rest.rest` R, `rest.camp` C, `rest.wait-dawn` T, `rest.wait-hour` H,
+  (`party.use`, G) and target cycling (`party.next-target`, T); the ways out of a counter and a conversation (`service.leave`, X; `conversation.leave`,
+  Escape); the stops (`rest.rest` R, `rest.camp` C, `rest.wait-dawn` O, `rest.wait-hour` H,
   `rest.wait-five-minutes` M); the act control (`party.attack`, B, held, so a held key keeps attacking as each
   member's recovery elapses — the donor's own key and trigger); the pace controls (`combat.turn-based` on
   Enter, the original's own key, and `combat.turn-skip` K and `combat.turn-wait` Y); and creation's two
@@ -90,3 +90,10 @@ selection input until their closing update finishes, so N cannot change the part
 the product's selected flag and selection/refusal message; it owns no choice, capability rule or timer.
 N adapts the donor's Tab cycling to the installed Engine keyboard vocabulary. B is this product's
 attack binding; the donor uses A for attack and B for passing a turn (`OpenEnroth/src/Application/GameConfig.h:536,542,554`).
+
+`party.next-target` is the interaction owner's declared digital T press, and the same action is available on the
+existing `crawler.ui` payload contract. It advances the Engine's current eligible reticle focus through the one
+admitted update; the next ordinary update keeps that focus through the existing sticky selection. T is used because
+the installed Engine keyboard contract has no browser Tab control. The Host reserves T for target cycling and keeps
+V available for the companion's map book, so dawn wait uses O and the two ordinary controls cannot fire together. Menus retain their existing update ownership, and deliberate service or
+conversation screens disable target cycling while they are open.

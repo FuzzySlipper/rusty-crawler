@@ -1,4 +1,5 @@
 using PartyRpg.Kit.Combat;
+using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Rulesets;
@@ -129,11 +130,42 @@ public sealed class ControlsProjectionTests
 
         InteractionSnapshot door = new(true, "door", "A door", "open", "closed", 128, "ready", [], "none", string.Empty, string.Empty, string.Empty);
         Assert.True(ControlsSnapshot.Read(Session(SessionMode.Running) with { Interaction = door }).Use.Enabled);
+        Assert.True(ControlsSnapshot.Read(Session(SessionMode.Running) with { Interaction = door }).NextTarget.Enabled);
         // A use is an instant, so a held session may still use what it faces.
         Assert.True(ControlsSnapshot.Read(Session(SessionMode.Paused) with { Interaction = door }).Use.Enabled);
         Assert.False(ControlsSnapshot.Read(Session(SessionMode.Running) with { Interaction = door with { Label = string.Empty } }).Use.Enabled);
+        Assert.False(ControlsSnapshot.Read(Session(SessionMode.Running) with
+        {
+            Interaction = door with { Label = string.Empty, Reason = "no-candidate" },
+        }).NextTarget.Enabled);
+        Assert.False(ControlsSnapshot.Read(Session(SessionMode.Running) with
+        {
+            Interaction = door,
+            Service = ServiceSnapshot.None with { Open = true },
+        }).NextTarget.Enabled);
+        Assert.False(ControlsSnapshot.Read(Session(SessionMode.Running) with
+        {
+            Interaction = door,
+            Conversation = ConversationSnapshot.None with { Open = true },
+        }).NextTarget.Enabled);
         Assert.False(ControlsSnapshot.Read(Session(SessionMode.Creating) with { Interaction = door }).Use.Enabled);
         Assert.False(ControlsSnapshot.Read(Session(SessionMode.Running) with { Interaction = door with { Available = false } }).Use.Enabled);
+        Assert.False(ControlsSnapshot.Read(Session(SessionMode.Running) with { Interaction = door with { Available = false } }).NextTarget.Enabled);
+    }
+
+    [Theory]
+    [InlineData(SessionMode.Running, true)]
+    [InlineData(SessionMode.TurnBased, true)]
+    [InlineData(SessionMode.Paused, false)]
+    [InlineData(SessionMode.Creating, false)]
+    [InlineData(SessionMode.Starting, false)]
+    [InlineData(SessionMode.Stopped, false)]
+    public void Target_cycling_is_offered_only_when_the_session_admits_world_interaction(SessionMode mode, bool enabled)
+    {
+        InteractionSnapshot door = new(true, "door", "A door", "open", "closed", 128, "ready", [], "none", string.Empty, string.Empty, string.Empty);
+        SessionSnapshot snapshot = Session(mode) with { Interaction = door };
+        Assert.Equal(enabled, ControlsSnapshot.Read(snapshot).NextTarget.Enabled);
+        Assert.Equal(enabled, Project(snapshot).Field(SessionProjection.ControlsField).Field("nextTarget").Field("enabled").AsBoolean());
     }
 
     [Fact]
@@ -146,6 +178,7 @@ public sealed class ControlsProjectionTests
         Assert.Equal("Enter", controls.TurnBased.Key);
         Assert.Equal(ConversationActions.Leave, controls.ConversationLeave.Action);
         Assert.Equal("Escape", controls.ConversationLeave.Key);
+        Assert.Equal(UseActions.NextTarget, controls.NextTarget.Action);
         // A control the host bound to no key has none, and a screen names its button alone.
         Assert.Equal(string.Empty, controls.Rest.Key);
 

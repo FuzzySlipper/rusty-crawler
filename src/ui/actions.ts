@@ -5,8 +5,8 @@
  * Every name here is the product's wire vocabulary, and the companion suite holds this list against the names
  * the product itself declares (`tests/PartyRpg.Ui.Tests/fixtures/contract.json`, written by the host suite), so a
  * name that drifts on either side fails a test rather than becoming a button nothing answers. The stand-alone
- * controls — pause, save, use, the fight's five, the five stops, the two ways out, and creation's two — are not
- * here: the projection publishes the action each of them sends, and the panel claims exactly that.
+ * controls — pause, save, use, next target, the fight's five, the five stops, the two ways out, and creation's two
+ * — are not here: the projection publishes the action each of them sends, and the panel claims exactly that.
  */
 
 /** The projection contract this companion renders; any other contract is not ours to interpret. */

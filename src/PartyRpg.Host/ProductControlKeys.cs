@@ -46,6 +46,7 @@ internal static class ProductControlKeys
             Pause = Key(ProductIdentity.PauseToggleIntent),
             Save = Key(ProductIdentity.SaveIntent),
             Use = Key(ProductIdentity.UseIntent),
+            NextTarget = Key(ProductIdentity.NextTargetIntent),
             Attack = Key(ProductIdentity.AttackIntent),
             NextMember = Key(ProductIdentity.NextMemberIntent),
             TurnBased = Key(ProductIdentity.TurnBasedToggleIntent),

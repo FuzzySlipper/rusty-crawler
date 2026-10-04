@@ -22,6 +22,12 @@ function variant(blocks, from = published) {
 const running = variant({
   conversation: { ...structuredClone(published.conversation), open: false },
   service: { ...structuredClone(published.service), open: false },
+  controls: {
+    ...structuredClone(published.controls),
+    // The real running fixture has the product's action and host key. Closing the contextual screens is the only
+    // fact this local variant changes for the inline world control.
+    nextTarget: { ...structuredClone(published.controls.nextTarget), enabled: true },
+  },
 });
 
 /** Presses a key the way a player's keyboard does, on the page. */
@@ -75,6 +81,47 @@ test('the purse, larder and clock are the product’s, and the adventure control
     assert.equal(use.disabled, !running.controls.use.enabled);
     assert.equal(use.dataset.action, running.controls.use.action);
     ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
+test('the adventure reticle offers the product-controlled next-target action and returns focus to the game', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+    h.emit(running);
+    const action = h.panel().querySelector('.crawler-reticle-action');
+    assert.equal(action.tagName, 'BUTTON');
+    assert.equal(action.type, 'button');
+    assert.equal(action.textContent, `Next target (${running.controls.nextTarget.key})`);
+    assert.equal(action.disabled, false);
+    const before = h.focused;
+    action.click();
+    assert.deepEqual(h.claims.at(-1).value.data, { action: running.controls.nextTarget.action });
+    assert.ok(h.focused > before, 'activating the inline world control returns keyboard focus to gameplay');
+
+    const unavailable = variant({
+      controls: {
+        ...structuredClone(running.controls),
+        nextTarget: { ...structuredClone(running.controls.nextTarget), enabled: false },
+      },
+    }, running);
+    h.emit(unavailable);
+    assert.equal(action.textContent, `Next target (${unavailable.controls.nextTarget.key})`);
+    assert.equal(action.disabled, true, 'the product controls the empty or unavailable state');
+
+    const contextual = variant({
+      conversation: { ...structuredClone(running.conversation), open: true },
+      controls: {
+        ...structuredClone(running.controls),
+        nextTarget: { ...structuredClone(running.controls.nextTarget), enabled: false },
+      },
+    }, running);
+    h.emit(contextual);
+    assert.equal(h.panel().querySelector('.crawler-reticle').hidden, true, 'contextual screens hide the world control');
+    h.emit(running);
+    assert.equal(h.panel().querySelector('.crawler-reticle').hidden, false, 'returning to the world restores the control');
   } finally {
     h.restore();
   }

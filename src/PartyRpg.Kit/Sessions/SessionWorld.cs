@@ -343,8 +343,8 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
 
     /// <summary>
     /// Steps the interaction mechanism inside the admitted update: the reticle is refreshed from where the
-    /// party now stands and what its place holds, and a use the player asked for is applied to whatever it
-    /// holds.
+    /// party now stands and what its place holds, an explicit cycle advances the Engine's existing focus, and
+    /// a use the player asked for is applied to whatever it holds.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -359,12 +359,13 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// </para>
     /// </remarks>
     /// <param name="use">Whether the player asked to use what the party faces.</param>
+    /// <param name="cycleDirection">An explicit move through the Engine's eligible candidates: zero keeps normal sticky focus, +1 selects the next target.</param>
     /// <returns>The use's result, or null when the world has no interaction or the player asked for none.</returns>
-    public InteractionResult? Interact(bool use)
+    public InteractionResult? Interact(bool use, int cycleDirection = 0)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (Interaction is not { } interaction) return null;
-        interaction.Update();
+        interaction.Update(cycleDirection);
         if (!use) return null;
 
         // The use is reported where it was made, before any journey it leads to moves the party.

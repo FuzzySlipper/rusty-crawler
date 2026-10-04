@@ -111,9 +111,9 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   effects and records. One ledger settles every charge. Creation and scenario starts share the factory
   and owner composition, proved by the parity suite; the scenario's `party` word selects the flow
   (creation by default), and the projection names it.
-- **Interaction and services.** One use workflow serves doors, containers, people and fixtures. Engine reticle
-  selection uses a forward hemisphere, so elevated containers remain usable within the same reach, and distant
-  targets carry an out-of-reach refusal ([live reading](docs/evidence/elevation-reach.md)). A fixture, and a
+- **Interaction and services.** One use workflow serves doors, containers, people and fixtures. Engine selects
+  in a forward hemisphere, including elevated targets at the same reach. T or Next target cycles its focus;
+  distant targets carry an out-of-reach refusal ([live reading](docs/evidence/elevation-reach.md)). A fixture, and a
   house whose own event does more than open it, runs the steps of its imported map event this game interprets and
   refuses the rest by name; a person's house and greeting are what those events left on the party's records. One service
   mechanism, an operation table judged before anything is settled, serves every shipped service kind; towns

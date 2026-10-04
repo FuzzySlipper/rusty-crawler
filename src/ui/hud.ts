@@ -193,15 +193,18 @@ export function mountHud(host: Host, navigation: Navigation): Hud {
   const said = element('p', 'crawler-hud-said');
   message.append(facing, said);
 
-  // The reticle is presentation only: its state is copied from the Engine-backed interaction projection. It never
-  // stores a target or decides whether an action is legal, so turning and using always continue through the same
-  // canonical world owner.
+  // The reticle context is presentation only: its state is copied from the Engine-backed interaction projection. It
+  // never stores a target or decides whether an action is legal; its adjacent next-target button is a product control,
+  // so turning, cycling and using continue through the same canonical world owner.
   const reticle = element('div', 'crawler-reticle');
   const reticleMark = element('span', 'crawler-reticle-mark');
   reticleMark.textContent = '✣';
   const reticleTarget = element('span', 'crawler-reticle-target');
   const reticleRange = element('span', 'crawler-reticle-range');
-  reticle.append(reticleMark, reticleTarget, reticleRange);
+  // This is an ordinary world action beside the current context, not a second focus owner: the product decides
+  // whether cycling is possible and the claim goes through the same UI action channel as every other control.
+  const nextTarget = controlButton(claim, 'Next target', 'crawler-reticle-action');
+  reticle.append(reticleMark, reticleTarget, reticleRange, nextTarget.element);
   let showing = 'world';
   let worldProjectionActive = false;
 
@@ -258,6 +261,7 @@ export function mountHud(host: Host, navigation: Navigation): Hud {
       use.render(controls.use);
       attack.render(controls.attack);
       next.render(controls.nextMember);
+      nextTarget.render(controls.nextTarget);
       // The pacing control names the pacing a press switches to, as the fight beside the world does.
       pace.render(controls.turnBased, combat.pacing === 'turnbased' ? 'Real-time' : 'Turn-based');
       save.render(controls.save);

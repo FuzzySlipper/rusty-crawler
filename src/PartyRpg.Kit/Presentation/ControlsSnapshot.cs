@@ -36,6 +36,9 @@ public sealed record ControlKeys
     /// <summary>The key that uses what the party faces.</summary>
     public string Use { get; init; } = string.Empty;
 
+    /// <summary>The key that advances the Engine's interaction focus to the next eligible target.</summary>
+    public string NextTarget { get; init; } = string.Empty;
+
     /// <summary>The key that orders the party to attack.</summary>
     public string Attack { get; init; } = string.Empty;
 
@@ -151,6 +154,9 @@ public sealed record ControlsSnapshot(
     /// <summary>The control that cycles the party's selected acting member.</summary>
     public ControlSnapshot NextMember { get; init; } = new(CombatActions.NextMember, false, string.Empty);
 
+    /// <summary>The control that cycles the Engine's current interaction target.</summary>
+    public ControlSnapshot NextTarget { get; init; } = new(UseActions.NextTarget, false, string.Empty);
+
     /// <summary>Reads every control's answer from the session the snapshot describes.</summary>
     /// <param name="snapshot">The session as the projection publishes it.</param>
     /// <returns>Each control's action, whether it is offered, and its key.</returns>
@@ -179,6 +185,11 @@ public sealed record ControlsSnapshot(
         bool uses = interaction.Available
             && !string.IsNullOrEmpty(interaction.Label)
             && mode is not (SessionMode.Creating or SessionMode.Stopped);
+        bool cyclesTargets = interaction.Available
+            && interaction.Reason == "ready"
+            && mode is SessionMode.Running or SessionMode.TurnBased
+            && !snapshot.Service.Open
+            && !snapshot.Conversation.Open;
 
         // The act control is offered exactly when the fight would take the order. Outside a round that is when
         // somebody may act; inside one it is the party's own turn, or its movement phase, which the act ends —
@@ -222,6 +233,7 @@ public sealed record ControlsSnapshot(
             new(CreationActions.Accept, creating, keys.CreationAccept))
         {
             NextMember = new(CombatActions.NextMember, combat.Available && combat.Members.Count > 0, keys.NextMember),
+            NextTarget = new(UseActions.NextTarget, cyclesTargets, keys.NextTarget),
         };
     }
 
@@ -233,6 +245,7 @@ public sealed record ControlsSnapshot(
             ("pause", Pause.Write(builder)),
             ("save", Save.Write(builder)),
             ("use", Use.Write(builder)),
+            ("nextTarget", NextTarget.Write(builder)),
             ("attack", Attack.Write(builder)),
             ("nextMember", NextMember.Write(builder)),
             ("turnBased", TurnBased.Write(builder)),

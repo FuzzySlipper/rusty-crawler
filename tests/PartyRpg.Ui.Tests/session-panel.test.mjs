@@ -41,6 +41,7 @@ function controls(mode = 'running', overrides = {}) {
     pause,
     save: control('session.save'),
     use: control('party.use'),
+    nextTarget: control('party.next-target'),
     attack: control('party.attack'),
     nextMember: control('party.next-member'),
     turnBased: control('combat.turn-based'),

@@ -133,7 +133,7 @@ public sealed class InteractionTests
 
     private static readonly ContentLayout Layout = new("packs", "imports", "bundles");
     private static readonly PlaceId HallPlace = new("1");
-    private static readonly UseIntentNames UseControls = new("test.use", "test.ui.action.v1");
+    private static readonly UseIntentNames UseControls = new("test.use", "test.ui.action.v1", "test.next-target");
     private const double StepSeconds = 1.0 / 60.0;
 
     [Fact]
@@ -499,6 +499,42 @@ public sealed class InteractionTests
         session.Update(Admitted.Update(8, 1, Admitted.Digital("test.use", InputEdge.Pressed)));
         Assert.Equal("door-already-open", session.LiveWorld!.LastInteraction!.Code);
         Assert.Equal("refused", channel.Latest().Field(SessionProjection.InteractionField).Field("outcome").AsString());
+    }
+
+    [Fact]
+    public void A_next_target_key_and_payload_cycle_existing_candidates_then_keep_sticky_focus()
+    {
+        using PartyEntity party = Party();
+        using Hall hall = Hall.Build(
+            new TestRule(),
+            Hall.Facing("door-0"),
+            party,
+            tuning: new InteractionTuning(Math.PI * 0.4, Math.PI * 0.5));
+        using RecordingUiProjectionChannel channel = new();
+        using PartyRpgSession session = new(
+            new SessionComposition(new RulesetId("test.ruleset"), "Test"),
+            channel,
+            new SessionOwners(null),
+            new SessionParty.Playing(World: hall.World, Party: party),
+            controls: new SessionControls { Use = UseControls });
+
+        session.Update(Admitted.Update(1, 1));
+        PlacementContentId first = hall.Interaction.FocusedTarget!.Content;
+
+        // The digital request is consumed by the interaction owner inside the same admitted update and advances
+        // the Engine's eligible candidate list rather than adding a product-side target cache.
+        session.Update(Admitted.Update(2, 1, Admitted.Digital("test.next-target", InputEdge.Pressed)));
+        PlacementContentId second = hall.Interaction.FocusedTarget!.Content;
+        Assert.NotEqual(first, second);
+
+        // The semantic action reaches the same reader and wraps through the existing eligible candidates.
+        session.Update(Admitted.Update(3, 1, Admitted.Payload(UseControls.ActionContract, $$"""{ "action": "{{UseActions.NextTarget}}" }""")));
+        PlacementContentId third = hall.Interaction.FocusedTarget!.Content;
+        Assert.Equal(first, third);
+
+        // A normal update still uses direction zero, preserving the Engine's normal sticky focus.
+        session.Update(Admitted.Update(4, 1));
+        Assert.Equal(third, hall.Interaction.FocusedTarget!.Content);
     }
 
     [Fact]

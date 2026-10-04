@@ -88,12 +88,14 @@ public sealed class ControlDeclarationTests
     // R is the original's own rest key.
     [InlineData(ProductIdentity.RestIntent, "key:key-r:pressed", "R")]
     [InlineData(ProductIdentity.CampIntent, "key:key-c:pressed", "C")]
-    [InlineData(ProductIdentity.WaitUntilDawnIntent, "key:key-t:pressed", "T")]
+    [InlineData(ProductIdentity.WaitUntilDawnIntent, "key:key-o:pressed", "O")]
     [InlineData(ProductIdentity.WaitAnHourIntent, "key:key-h:pressed", "H")]
     [InlineData(ProductIdentity.WaitFiveMinutesIntent, "key:key-m:pressed", "M")]
-    // B is this product's adapted attack key; N adapts the donor's Tab character cycle.
+    // B is this product's adapted attack key; N adapts the donor's Tab character cycle, and T cycles
+    // the interaction focus because the installed Engine has no browser Tab control.
     [InlineData(ProductIdentity.AttackIntent, "key:key-b:held", "B")]
     [InlineData(ProductIdentity.NextMemberIntent, "key:key-n:pressed", "N")]
+    [InlineData(ProductIdentity.NextTargetIntent, "key:key-t:pressed", "T")]
     // Enter is the original's own turn-based toggle; the two turn actions take letters no other control claims.
     [InlineData(ProductIdentity.TurnBasedToggleIntent, "key:enter:pressed", "Enter")]
     [InlineData(ProductIdentity.TurnSkipIntent, "key:key-k:pressed", "K")]
@@ -111,6 +113,7 @@ public sealed class ControlDeclarationTests
             ProductIdentity.PauseToggleIntent => keys.Pause,
             ProductIdentity.SaveIntent => keys.Save,
             ProductIdentity.UseIntent => keys.Use,
+            ProductIdentity.NextTargetIntent => keys.NextTarget,
             ProductIdentity.AttackIntent => keys.Attack,
             ProductIdentity.NextMemberIntent => keys.NextMember,
             ProductIdentity.TurnBasedToggleIntent => keys.TurnBased,
@@ -145,6 +148,7 @@ public sealed class ControlDeclarationTests
         Assert.Equal(TurnActions.Skip, ProductIdentity.TurnSkipIntent);
         Assert.Equal(TurnActions.Wait, ProductIdentity.TurnWaitIntent);
         Assert.Equal(UseActions.Use, ProductIdentity.UseAction);
+        Assert.Equal(UseActions.NextTarget, ProductIdentity.NextTargetIntent);
         Assert.Equal(SaveActions.Save, ProductIdentity.SaveAction);
         Assert.Equal(CombatActions.Attack, ProductIdentity.AttackAction);
         Assert.Equal(CastActions.Cast, ProductIdentity.CastAction);
@@ -157,7 +161,7 @@ public sealed class ControlDeclarationTests
         // And every one of those actions is one the companion is held to sending.
         foreach (string action in new[]
         {
-            ProductIdentity.UseAction, ProductIdentity.SaveAction, ProductIdentity.AttackAction, ProductIdentity.CastAction,
+            ProductIdentity.UseAction, ProductIdentity.NextTargetIntent, ProductIdentity.SaveAction, ProductIdentity.AttackAction, ProductIdentity.CastAction,
             ProductIdentity.SelectPartyMemberAction, ProductIdentity.NextMemberIntent,
             ProductIdentity.QuickSpellAction, ProductIdentity.MixAction, ProductIdentity.SkillRaiseAction,
             ProductIdentity.EquipAction, ProductIdentity.UnequipAction,

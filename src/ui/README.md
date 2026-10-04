@@ -31,7 +31,7 @@ its own:
 | `equipment.ts` | The equipment block's reader, and its whole-party diagnostic section: what each member wears, named working powers and permanent gifts, the pack's wearable and usable things, and Equip, Take off and Use rows. |
 | `character.ts`, `inventory.ts` | The character book (`I`): the selected member's Stats (the game's sheet, growth with training at the hall the party stands at, the ranks the class leads to), Skills (rung, ceiling, the priced next point or the reason there is none), Inventory (the figure's every slot beside the party's one pack, item pictures, and an inspector offering Equip, Take off, Use, or a spell item's Use/Fire through the spellbook's casting) and Awards; a face at the top selects another member through the product. |
 | `quests.ts`, `journal.ts`, `map.ts` | The quests and journal blocks' readers and their diagnostic sections, and the automap (the Map book's, with zoom that draws it larger and finds the party, and the adventure frame's small one). |
-| `hud.ts` | The adventure frame's persistent parts: the four portraits with the face the product granted, pools at the percentage it published, conditions and the fight's own readiness, a click selecting the member; the purse, larder and clock; the adventure controls and the book buttons; the place, automap, running effects and companions down the right; and the Engine-backed reticle/context line naming the current target, ruleset disposition, verb, range and honest no-target or refusal reason beside the answer to the latest act. |
+| `hud.ts` | The adventure frame's persistent parts: the four portraits with the face the product granted, pools at the percentage it published, conditions and the fight's own readiness, a click selecting the member; the purse, larder and clock; the adventure controls and the book buttons; the place, automap, running effects and companions down the right; and the Engine-backed reticle/context line naming the current target, ruleset disposition, verb, range and honest no-target or refusal reason beside the inline product-controlled next-target action and the answer to the latest act. |
 | `frame.ts` | The screens over the world: the books a player opens (Character `I`, Spellbook `L`, Journal `J`, Map `V`, Rest), the contextual screens the product holds open, the keyboard handed to a book and back to the world, and the diagnostic panel (`` ` ``) holding every fact and session control. |
 | `styles.ts` | The stylesheet, laid out for the supported desktop viewport of 1280×720 and wider. |
 
@@ -46,6 +46,10 @@ Boundary rules:
   step reaches, the side a spell names, the items a counter would identify or mend, an automap mark's size and
   the party marker's corners — is published rather than worked out. The companion suite fails on any module that
   combines a published quantity with anything or disables a control from anything but a published verdict.
+- The adventure reticle's next-target button is an ordinary world control. It uses the `nextTarget` control the
+  product publishes, labels the host key from that control, and claims its published action on click or keyboard
+  activation. A disabled control is the product's bounded answer when no cycle can be taken; the companion does not
+  count candidates, test reach, scan the world, or retain a target of its own.
 - A projection field this companion reads and does not find is a broken contract, not a quiet session: it is named
   in the panel's problem list (`data-problems` on the panel), and the block it belongs to is read as unknown. The
   fixtures the companion suite mounts are the product's own output, so a renamed C# field fails a test.

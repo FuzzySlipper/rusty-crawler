@@ -92,6 +92,11 @@
          in ProductIdentity.cs are the two halves of the same control. -->
     <RustyEngineProductInputIntent Include="party.use" Value="digital" />
     <RustyEngineProductInputMapping Include="party.use.key-g" Intent="party.use" Trigger="key:key-g:pressed" />
+    <!-- T advances the existing Engine reticle focus to the next eligible target. Browser Tab is not part of
+         the installed keyboard contract, and the action shares the interaction owner with G/use and the UI
+         payload action on the crawler.ui contract. -->
+    <RustyEngineProductInputIntent Include="party.next-target" Value="digital" />
+    <RustyEngineProductInputMapping Include="party.next-target.key-t" Intent="party.next-target" Trigger="key:key-t:pressed" />
     <!-- The service control: one press leaves the counter a visit has open. Entering a service is not a
          control of its own — the party enters by using whoever keeps the counter, on the use control above —
          and the counter's own commands (buy, sell, identify, repair, teach) are payload actions on the
@@ -109,16 +114,16 @@
     <RustyEngineProductInputIntent Include="conversation.leave" Value="digital" />
     <RustyEngineProductInputMapping Include="conversation.leave.key-escape" Intent="conversation.leave" Trigger="key:escape:pressed" />
     <!-- The stop controls: one per act, because a rest heals and a wait does not, and one key cannot mean
-         both. R is the original's own rest key. T, H, C, and M are letters the original spends on its book
-         screens and its casting, which this build reaches through the panel rather than a key: a change
-         that gives them keys moves these controls deliberately rather than inheriting a collision. Every declaration here has its constant in
-         ProductIdentity.cs, and the engine refuses a mapping whose intent the product never declared. -->
+         both. R is the original's own rest key; O, H, C, and M are the product's stop keys, with T reserved
+         for ordinary target cycling. V opens the companion's map book, so dawn wait uses O rather than stealing
+         that ordinary screen key. Every declaration has its constant in ProductIdentity.cs, and the engine
+         refuses a mapping whose intent the product never declared. -->
     <RustyEngineProductInputIntent Include="rest.rest" Value="digital" />
     <RustyEngineProductInputMapping Include="rest.rest.key-r" Intent="rest.rest" Trigger="key:key-r:pressed" />
     <RustyEngineProductInputIntent Include="rest.camp" Value="digital" />
     <RustyEngineProductInputMapping Include="rest.camp.key-c" Intent="rest.camp" Trigger="key:key-c:pressed" />
     <RustyEngineProductInputIntent Include="rest.wait-dawn" Value="digital" />
-    <RustyEngineProductInputMapping Include="rest.wait-dawn.key-t" Intent="rest.wait-dawn" Trigger="key:key-t:pressed" />
+    <RustyEngineProductInputMapping Include="rest.wait-dawn.key-o" Intent="rest.wait-dawn" Trigger="key:key-o:pressed" />
     <RustyEngineProductInputIntent Include="rest.wait-hour" Value="digital" />
     <RustyEngineProductInputMapping Include="rest.wait-hour.key-h" Intent="rest.wait-hour" Trigger="key:key-h:pressed" />
     <RustyEngineProductInputIntent Include="rest.wait-five-minutes" Value="digital" />

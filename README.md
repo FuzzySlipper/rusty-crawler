@@ -302,7 +302,8 @@ The [imported town reading](docs/evidence/house-ground.md) records two grounded 
 access to the same house before and after its opening time.
 The reticle acquires targets in the forward hemisphere, including containers above or below the party,
 with the existing 512-unit reach. Engine selection still judges sight, availability and fresh use; a
-target beyond reach remains an observation with an out-of-reach refusal. The ruleset README states the
+target beyond reach remains an observation with an out-of-reach refusal. Press `T` or click the reticle's
+Next target control to cycle Engine focus among the current candidates. The ruleset README states the
 elevation band and the deliberate wider-cone adaptation. The [elevated-use reading](docs/evidence/elevation-reach.md)
 records ordinary Manor chest use from the floor and a visible refusal beyond reach.
 An accepted errand's needed item cannot be sold, dropped, consumed, mixed away or have a charge spent.

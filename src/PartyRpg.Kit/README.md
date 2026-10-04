@@ -428,7 +428,9 @@ its `Radius` is passed as the Engine visibility query's endpoint tolerance, so a
 niche is seen by its front. `PartyInteraction` also carries the Engine's current candidate context through
 `ContextTarget`/`ContextDistance` when acquisition refuses an out-of-reach or occluded target, so the projection can
 name the attempted thing without creating a second selection; a ruleset-provided `Disposition` is presentation
-context only. The reticle and its context therefore remain a read of the product-lifetime Engine selection, while one use
+context only. The same owner can read an optional `party.next-target` intent and payload action inside the one
+admitted update, passing `+1` to `PartyInteraction.Update` so the Engine cycles its eligible candidates. A zero
+direction preserves ordinary sticky focus, and screens and menus keep their existing control ownership. The reticle and its context therefore remain a read of the product-lifetime Engine selection, while one use
 workflow that identifies the target, judges each `InteractionRequirement` in the order the ruleset stated
 them, settles what the use costs through the party's one settlement path, asks the ruleset what the use
 produces, applies it against the party's owners, records the `InteractionTargetState` that use left and the

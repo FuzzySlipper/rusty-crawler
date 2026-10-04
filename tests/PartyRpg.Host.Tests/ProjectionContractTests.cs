@@ -109,6 +109,7 @@ public sealed class ProjectionContractTests
         SaveActions.Save,
         SaveActions.MenuSave,
         PartyRpg.Kit.Interaction.UseActions.Use,
+        PartyRpg.Kit.Interaction.UseActions.NextTarget,
         CombatActions.Attack,
         CombatActions.SelectMember,
         CombatActions.NextMember,
