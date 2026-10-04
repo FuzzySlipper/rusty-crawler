@@ -48,8 +48,6 @@ internal static class ProductPlaytest
         ProductIdentity.MoveBackIntent,
         ProductIdentity.StrafeLeftIntent,
         ProductIdentity.StrafeRightIntent,
-        ProductIdentity.TurnLeftIntent,
-        ProductIdentity.TurnRightIntent,
         ProductIdentity.JumpIntent,
     };
 
@@ -126,6 +124,11 @@ internal static class ProductPlaytest
     /// <summary>Whether the session would take a control now, and why not when it would not.</summary>
     private static (bool Available, string? Reason) Availability(SessionSnapshot snapshot, string intent)
     {
+        if (intent is ProductIdentity.TurnLeftIntent or ProductIdentity.TurnRightIntent)
+        {
+            return PlaytestReadout.Turning(snapshot) is { } refused ? (false, refused.Message) : (true, null);
+        }
+
         if (Rising.Contains(intent))
         {
             return PlaytestReadout.Rising(snapshot) is { } grounded ? (false, grounded.Message) : (true, null);

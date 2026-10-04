@@ -1,6 +1,7 @@
 using System.Globalization;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Movement;
@@ -35,6 +36,47 @@ namespace PartyRpg.Kit.Tests;
 /// </remarks>
 public sealed class CombatProjectionTests
 {
+    [Theory]
+    [InlineData("test.turn-left")]
+    [InlineData("test.turn-right")]
+    [InlineData("look")]
+    public void A_waiting_player_can_face_a_foe_without_moving_or_spending_the_turn(string control)
+    {
+        using Fixture fixture = new(creatureAt: -100, creatureHitPoints: 40);
+        fixture.Start();
+        fixture.Update();
+        fixture.TurnBased();
+        SessionSnapshot before = fixture.Session.Inspect();
+        Assert.Equal(SessionMode.TurnBased, before.Mode);
+        GameDuration elapsed = fixture.Session.Clock!.Elapsed;
+
+        if (control == "look") Assert.Null(fixture.Session.Look(180, 0));
+        else fixture.HoldDirection(control, 120);
+        fixture.Update();
+
+        SessionSnapshot after = fixture.Session.Inspect();
+        Assert.Equal(before.World.Pose with { Yaw = 1024 }, after.World.Pose);
+        Assert.Equal(elapsed, fixture.Session.Clock.Elapsed);
+        Assert.Equal(before.SimulationSeconds, after.SimulationSeconds);
+        Assert.Equal(before.Combat.Turn!.Phase, after.Combat.Turn!.Phase);
+        Assert.Equal(before.Combat.Turn.Actor, after.Combat.Turn.Actor);
+        Assert.Equal(before.Combat.Turn.Round, after.Combat.Turn.Round);
+        Assert.Equal(before.Combat.Turn.ElapsedSeconds, after.Combat.Turn.ElapsedSeconds);
+        Assert.Equal(before.Combat.Members.Select(member => member.RecoverySeconds),
+            after.Combat.Members.Select(member => member.RecoverySeconds));
+        Assert.NotEqual(string.Empty, fixture.Combat.Field("aim").AsString());
+
+        fixture.Act();
+        Assert.Equal("applied", fixture.Combat.Field("outcome").AsString());
+        Assert.Equal(40 - BlowDamage, fixture.Combat.Field("enemies").Item(0).Field("hitPoints").AsNumber());
+
+        fixture.Hold();
+        PlacePose heldPose = fixture.Session.Inspect().World.Pose;
+        if (control == "look") Assert.NotNull(fixture.Session.Look(180, 0));
+        else fixture.HoldDirection(control, 120);
+        Assert.Equal(heldPose, fixture.Session.Inspect().World.Pose);
+    }
+
     private static readonly ContentLayout Layout = new("packs", "imports", "bundles");
     private static readonly PlaceId Hall = new("1");
     private static readonly PlaceId Cave = new("2");
@@ -473,6 +515,9 @@ public sealed class CombatProjectionTests
                 },
                 controls: new SessionControls
                 {
+                    Movement = new MovementInput(new MovementIntentNames(
+                        "test.forward", "test.back", "test.left", "test.right",
+                        "test.turn-left", "test.turn-right", "test.jump"), 512),
                     Combat = new CombatIntentNames(
                     "test.attack",
                     "test.actions",
@@ -482,6 +527,15 @@ public sealed class CombatProjectionTests
 
         /// <summary>The fight the session holds, for the assertions that are about the fight itself.</summary>
         internal CombatState Fight => _session.Combat ?? throw new InvalidOperationException("The session composed no fight.");
+
+        internal PartyRpgSession Session => _session;
+
+        internal void HoldDirection(string direction, uint steps)
+        {
+            _session.Update(Tick(++_step, steps, Admitted.Digital(direction, InputEdge.Held),
+                Admitted.Digital("test.forward", InputEdge.Held)));
+            _step += steps - 1;
+        }
 
         /// <summary>The party the session plays, which a test wounds through the party's own entry.</summary>
         internal PartyEntity PartyEntity => _party;

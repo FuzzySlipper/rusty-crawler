@@ -155,7 +155,9 @@ was not checked.
   character cannot act, and the ready light shows it.
 - One key toggles turn-based mode at any time, in the same scene. Combatants act
   in initiative order derived from speed and recovery; fast actors act more than
-  once per round; each round ends with a short party movement phase.
+  once per round; each round ends with a short party movement phase. The party
+  may turn to face a target while choosing its action, without spending that
+  turn or advancing game time.
 - Attacks are melee, ranged, or spell; a single "act" key resolves quick spell,
   then bow or wand, then hand-to-hand.
 - The ready light doubles as an aggro indicator; monsters are hostile on sight.

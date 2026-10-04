@@ -198,7 +198,7 @@ one mode:
 | Party creation | No world stepping; the creation flow is the authority |
 | Adventure (real time) | The world steps every admitted update; screens may be open while it does |
 | Combat (real time) | Same stepping, with combat resolution and recovery included |
-| Combat (turn-based) | The world steps only in response to a committed player action |
+| Combat (turn-based) | The world steps only in response to a committed player action; facing may change while choosing, without translation or game-time advancement |
 | Service or dialogue screen | The world keeps running unless the mode above says otherwise |
 | Rest, camp, travel, training | Discrete clock advancement through the Time owner — not a second loop |
 | Menu, save, load | Session is quiescent; no world stepping |

@@ -1,4 +1,7 @@
 using System.Text.Json;
+using PartyRpg.Kit.Presentation;
+using PartyRpg.Kit.Rulesets;
+using PartyRpg.Kit.Sessions;
 using Rusty.Engine;
 using Rusty.Engine.Debugging;
 using Rusty.Engine.NativeProduct;
@@ -18,6 +21,23 @@ namespace PartyRpg.Host.Tests;
 /// </remarks>
 public sealed class PlaytestRegistrationTests
 {
+    [Theory]
+    [InlineData(ProductIdentity.TurnLeftIntent, true)]
+    [InlineData(ProductIdentity.TurnRightIntent, true)]
+    [InlineData(ProductIdentity.MoveForwardIntent, false)]
+    [InlineData(ProductIdentity.StrafeLeftIntent, false)]
+    [InlineData(ProductIdentity.JumpIntent, false)]
+    public void A_waiting_combat_turn_offers_orientation_but_not_translation(string intent, bool available)
+    {
+        SessionSnapshot snapshot = SessionSnapshots.Bare(
+            new SessionComposition(new RulesetId("test.ruleset"), "Test"),
+            SessionMode.TurnBased, WorldSnapshot.Empty with { Places = 1 });
+        var bindings = ProductPlaytest.Bindings(ProductTestContext.DeclaredInput());
+        Assert.Equal(available, ProductPlaytest.Action(bindings, snapshot, intent).Available);
+        Assert.False(ProductPlaytest.Action(bindings, snapshot with { Mode = SessionMode.Paused }, intent).Available);
+        Assert.False(ProductPlaytest.Action(bindings, snapshot with { Service = snapshot.Service with { Open = true } }, intent).Available);
+    }
+
     [Fact]
     public void The_catalog_holds_the_playtest_and_interaction_commands_with_live_modules()
     {

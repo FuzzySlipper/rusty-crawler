@@ -570,6 +570,8 @@ cycles in roster order, and reconciles an incapable choice to the first capable 
 does not alter selection. The ordinary payload/key driver orders only the selected combatant through
 the existing attack gate; a recovering choice receives its named refusal. Each new paced player turn
 selects its actual actor; changing to a ready off-turn member refuses without spending that turn.
+While a player turn waits, held turning controls and a relative look still turn the canonical party pose.
+They spend neither the combat turn nor game time; walking remains for the existing movement phase.
 Selection fields and messages are projected for the thin panel, which sends the actual durable identity.
 Lifecycle menus suppress member selection through their closing update; counters and conversations may
 still select the member their operation addresses.

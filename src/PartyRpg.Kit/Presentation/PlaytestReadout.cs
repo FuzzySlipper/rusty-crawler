@@ -18,8 +18,8 @@ namespace PartyRpg.Kit.Presentation;
 /// <para>
 /// <b>Steering is the session's rule, stated over the snapshot.</b> The party's movement keys step it only while
 /// the session runs, holds a world, and no screen or awaited turn holds the controls: that is when the session
-/// hands what the player holds to the world. <see cref="Steering"/> states that rule once, for the harness that
-/// asks whether a movement key would do anything and for the look that turns the party between updates.
+/// hands what the player holds to the world. <see cref="Steering"/> states that rule for translation;
+/// <see cref="Turning"/> also admits orientation while a player chooses a combat action.
 /// </para>
 /// </remarks>
 public static class PlaytestReadout
@@ -29,7 +29,14 @@ public static class PlaytestReadout
     /// </summary>
     /// <param name="snapshot">The session as its projection reads it.</param>
     /// <returns>The refusal, or null when a held movement key would move the party.</returns>
-    public static Refusal? Steering(SessionSnapshot snapshot) => snapshot.Mode switch
+    public static Refusal? Steering(SessionSnapshot snapshot) => Controls(snapshot, turning: false);
+
+    /// <summary>Why the party cannot turn now, or null when facing may change without walking.</summary>
+    /// <param name="snapshot">The session as its projection reads it.</param>
+    /// <returns>The refusal, or null when turning is admitted.</returns>
+    public static Refusal? Turning(SessionSnapshot snapshot) => Controls(snapshot, turning: true);
+
+    private static Refusal? Controls(SessionSnapshot snapshot, bool turning) => snapshot.Mode switch
     {
         SessionMode.Creating => new Refusal(
             PlaytestCodes.SteerCreating,
@@ -37,19 +44,19 @@ public static class PlaytestReadout
         SessionMode.Paused => new Refusal(
             PlaytestCodes.SteerHeld,
             "The session is held, so nothing moves until it is resumed."),
-        SessionMode.TurnBased => new Refusal(
+        SessionMode.TurnBased when !turning => new Refusal(
             PlaytestCodes.SteerTurn,
             "A paced fight is waiting for one of the party's turns: act, skip, or wait to pass it."),
-        SessionMode.Running when !snapshot.World.HasWorld => new Refusal(
+        SessionMode.Running or SessionMode.TurnBased when !snapshot.World.HasWorld => new Refusal(
             PlaytestCodes.SteerNoWorld,
             "The session holds no places, so there is nowhere to walk."),
-        SessionMode.Running when snapshot.Service.Open => new Refusal(
+        SessionMode.Running or SessionMode.TurnBased when snapshot.Service.Open => new Refusal(
             PlaytestCodes.SteerScreen,
             "A counter is open and holds the controls: leave it first."),
-        SessionMode.Running when snapshot.Conversation.Open => new Refusal(
+        SessionMode.Running or SessionMode.TurnBased when snapshot.Conversation.Open => new Refusal(
             PlaytestCodes.SteerScreen,
             "A conversation is open and holds the controls: leave it first."),
-        SessionMode.Running => null,
+        SessionMode.Running or SessionMode.TurnBased => null,
         _ => new Refusal(
             PlaytestCodes.SteerNotRunning,
             $"The session is {SessionProjection.WireName(snapshot.Mode)}, so nothing it holds is stepped."),

@@ -346,7 +346,7 @@ public sealed class PartyRpgSession : IGameSession
     /// <inheritdoc />
     /// <remarks>
     /// A look turns the party exactly as its turn controls do — through the pose owner's facing rule — and only
-    /// when those controls would: a session that would not step the party for a held turn key does not turn it
+    /// when those controls would: a session that would not turn the party for a held turn key does not turn it
     /// for a look either. The party does not look up or down in play, because no control pitches it, so a look
     /// with any pitch is refused rather than leaving the party at a pitch play could never reach. What the party
     /// faces is re-aimed by the next admitted update, as it is after a turn key.
@@ -366,7 +366,7 @@ public sealed class PartyRpgSession : IGameSession
                 "The party turns but does not look up or down: no control pitches it in play, so a look is a yaw alone.");
         }
 
-        if (PlaytestReadout.Steering(Inspect()) is { } refused) return refused;
+        if (PlaytestReadout.Turning(Inspect()) is { } refused) return refused;
         if (LiveWorld is not { } world) return new Refusal(PlaytestCodes.SteerNoWorld, "The session holds no places, so there is nowhere to turn.");
 
         // A look turns right for a positive yaw; the party's facing grows as it turns left, which is the sign its
@@ -438,6 +438,14 @@ public sealed class PartyRpgSession : IGameSession
         if (!screenOwnsControls)
         {
             if (controls == ControlHolder.Party && _movement is not null && seconds > 0) LiveWorld?.Step(intent, seconds);
+            else if (controls == ControlHolder.Turn && !quiescent && intent.TurnRate != 0)
+            {
+                // Facing is a choice within the waiting turn. Use the admitted input interval for the held
+                // key's turn rate, but neither step the world nor advance its clock or combat recovery.
+                double inputSeconds = tick.AdmittedStepCount * tick.FixedDeltaSeconds;
+                if (double.IsFinite(inputSeconds) && inputSeconds > 0)
+                    LiveWorld?.Party.Turn(intent.TurnRate * inputSeconds, 0);
+            }
 
             // A use and a stop are instants rather than intervals, so they follow the step that carried the
             // party to what it faces, in the same update, and still apply while a turn is being taken.
@@ -607,7 +615,7 @@ public sealed class PartyRpgSession : IGameSession
         /// <summary>A counter or a conversation: the screen is what the player acts on, and the party stands still.</summary>
         Screen,
 
-        /// <summary>A paced fight waiting for a committed turn: the party does not walk, and an instant still applies.</summary>
+        /// <summary>A paced fight waiting for a committed turn: the party may turn but not walk, and an instant still applies.</summary>
         Turn,
     }
 
