@@ -213,7 +213,9 @@ public sealed class QuestPolicyTests
         ProjectedNode finished = ProjectedNode.Of(ui.Latest().Value).Field("quests");
         Assert.Equal("applied", finished.Field("outcome").AsString());
         Assert.Equal("turned-in", finished.Field("journal").Item(0).Field("state").AsString());
-        Assert.Equal(MightAndMagic7Tuning.ErrandExperience.Default, finished.Field("experience").AsNumber());
+        Assert.Equal(
+            condition.Length == 0 ? MightAndMagic7Tuning.ErrandExperience.Default : 0,
+            finished.Field("experience").AsNumber());
         Assert.Equal(MightAndMagic7Tuning.ErrandCoins.Default, finished.Field("coins").AsNumber());
         Assert.Equal(
             (double)(banked + (condition.Length == 0 ? MightAndMagic7Tuning.ErrandExperience.Default : 0)),
