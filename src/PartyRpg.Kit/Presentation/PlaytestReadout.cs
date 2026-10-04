@@ -183,6 +183,7 @@ public static class PlaytestReadout
         writer.WriteBoolean("available", facing.Available);
         writer.WriteString("target", facing.Target);
         writer.WriteString("label", facing.Label);
+        writer.WriteString("disposition", facing.Disposition);
         writer.WriteString("verb", facing.Verb);
         writer.WriteString("state", facing.State);
         writer.WriteNumber("distance", facing.Distance);

@@ -7,7 +7,9 @@ namespace PartyRpg.Kit.Interaction;
 /// <para>
 /// This is the ruleset's whole answer about a placement: what kind of thing it is, what a person calls it,
 /// which use applies, how close the party must stand, what it currently reads as, what that use requires,
-/// and what it costs. The kit discovers placements from the place's content and asks for this; a placement
+/// and what it costs. When the target is a person, the ruleset may also state its disposition so the
+/// adventure frame can distinguish a peaceful speaker from an object before an intentional attack. The kit
+/// discovers placements from the place's content and asks for this; a placement
 /// the ruleset answers nothing about is not usable and is not a silent failure, because it was never a
 /// target. What guards a target — a trap — is a second answer asked for when it is used, because what the
 /// party brings to it is read from the party.
@@ -43,6 +45,10 @@ public sealed record InteractionTargetDefinition
     /// time it is used.
     /// </param>
     /// <param name="requires">What the use requires, in the order the checks happen; empty when it requires nothing.</param>
+    /// <param name="disposition">
+    /// The ruleset's reading of the target's disposition, such as <c>peaceful</c> for a person the party may
+    /// talk to; empty when the target has no disposition to show, such as an entrance or container.
+    /// </param>
     /// <exception cref="ArgumentException">The name is blank, which names nothing a person could be shown.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The reach is not a finite, positive distance.</exception>
     public InteractionTargetDefinition(
@@ -51,7 +57,8 @@ public sealed record InteractionTargetDefinition
         InteractionVerb verb,
         double reach,
         string state = "",
-        IReadOnlyList<InteractionRequirement>? requires = null)
+        IReadOnlyList<InteractionRequirement>? requires = null,
+        string disposition = "")
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         if (!double.IsFinite(reach) || reach <= 0)
@@ -68,6 +75,7 @@ public sealed record InteractionTargetDefinition
         Reach = reach;
         State = state;
         Requires = requires ?? [];
+        Disposition = disposition;
     }
 
     /// <summary>What kind of thing the target is.</summary>
@@ -87,6 +95,13 @@ public sealed record InteractionTargetDefinition
 
     /// <summary>What the use requires, in the order the checks happen.</summary>
     public IReadOnlyList<InteractionRequirement> Requires { get; init; }
+
+    /// <summary>
+    /// The ruleset's word for the target's disposition, or empty when the target is not a being whose disposition
+    /// is meaningful. This is presentation context, not a combat permission: an intentional attack still goes
+    /// through the combat owner's existing provocation path.
+    /// </summary>
+    public string Disposition { get; init; }
 
     /// <summary>
     /// How high above its placement's feet the reticle aims at the target and judges it in sight and in reach, in the

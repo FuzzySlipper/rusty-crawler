@@ -192,6 +192,7 @@
     "available": true,
     "target": "door",
     "label": "A door",
+    "disposition": "",
     "verb": "unlock",
     "state": "closed",
     "distance": 128,

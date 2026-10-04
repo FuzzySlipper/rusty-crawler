@@ -78,6 +78,31 @@ test('the purse, larder and clock are the product’s, and the adventure control
   }
 });
 
+test('the world reticle names the canonical target, disposition, range and honest no-target state', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+    const focused = variant({
+      interaction: {
+        ...structuredClone(running.interaction),
+        label: 'Aldous', target: 'person', disposition: 'peaceful', verb: 'talk', distance: 144, reason: 'ready',
+      },
+    }, running);
+    h.emit(focused);
+    const reticle = h.panel().querySelector('.crawler-reticle');
+    assert.equal(reticle.hidden, false);
+    assert.equal(reticle.querySelector('.crawler-reticle-target').textContent, 'Aldous · peaceful');
+    assert.equal(reticle.querySelector('.crawler-reticle-range').textContent, 'ready · 144 away');
+
+    h.emit(variant({ interaction: { ...structuredClone(running.interaction), label: '', reason: 'no-candidate' } }, running));
+    assert.equal(reticle.querySelector('.crawler-reticle-target').textContent, 'No target · no target in sight');
+    assert.equal(reticle.querySelector('.crawler-reticle-range').textContent, 'no target in sight');
+    ui.dispose();
+  } finally {
+    h.restore();
+  }
+});
+
 test('a book opens by its button or key over the world, Escape returns to the world, and the keyboard stays with the game', () => {
   const h = harness();
   try {
@@ -87,11 +112,14 @@ test('a book opens by its button or key over the world, Escape returns to the wo
     assert.equal(panel.dataset.screen, 'world');
     const character = panel.querySelector('.crawler-screen[data-screen="character"]');
     assert.equal(character.hidden, true);
+    const reticle = panel.querySelector('.crawler-reticle');
+    assert.equal(reticle.hidden, false);
 
     const before = h.focused;
     press(h, 'i');
     assert.equal(panel.dataset.screen, 'character');
     assert.equal(character.hidden, false);
+    assert.equal(reticle.hidden, true, 'the world reticle is hidden while a character book is open');
     // The host's own keys — rest, leave, attack — keep working over a book, so the game keeps the keyboard.
     assert.equal(h.context.ui.interactionMode(), 'gameplay');
     assert.ok(h.focused > before, 'opening a book hands the keyboard back to the game view');
@@ -102,8 +130,10 @@ test('a book opens by its button or key over the world, Escape returns to the wo
     // Another book replaces it; the same book again closes it; Escape closes whatever is open.
     panel.querySelector('.crawler-hud-book[data-screen="map"]').click();
     assert.equal(panel.dataset.screen, 'map');
+    assert.equal(reticle.hidden, true, 'the world reticle is hidden while the map is open');
     press(h, 'v');
     assert.equal(panel.dataset.screen, 'world');
+    assert.equal(reticle.hidden, false, 'returning to the world restores the reticle');
     press(h, 'j');
     const focused = h.focused;
     press(h, 'Escape');

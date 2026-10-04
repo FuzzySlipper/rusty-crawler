@@ -218,6 +218,8 @@ export interface InteractionView {
   /** The focused target's kind, empty when nothing is focused. */
   readonly target: string;
   readonly label: string;
+  /** The ruleset's disposition for a being, empty for doors, containers and other objects. */
+  readonly disposition: string;
   /** The use that applies to it, empty when nothing is focused. */
   readonly verb: string;
   /** What the party has already done to it. */
@@ -409,6 +411,7 @@ export function readInteraction(f: Fields): InteractionView {
     available: f.flag('available'),
     target: f.text('target'),
     label: f.text('label'),
+    disposition: f.text('disposition'),
     verb: f.text('verb'),
     state: f.text('state'),
     distance: f.number('distance'),

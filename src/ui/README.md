@@ -31,7 +31,7 @@ its own:
 | `equipment.ts` | The equipment block's reader, and its whole-party diagnostic section: what each member wears, named working powers and permanent gifts, the pack's wearable and usable things, and Equip, Take off and Use rows. |
 | `character.ts`, `inventory.ts` | The character book (`I`): the selected member's Stats (the game's sheet, growth with training at the hall the party stands at, the ranks the class leads to), Skills (rung, ceiling, the priced next point or the reason there is none), Inventory (the figure's every slot beside the party's one pack, item pictures, and an inspector offering Equip, Take off, Use, or a spell item's Use/Fire through the spellbook's casting) and Awards; a face at the top selects another member through the product. |
 | `quests.ts`, `journal.ts`, `map.ts` | The quests and journal blocks' readers and their diagnostic sections, and the automap (the Map book's, with zoom that draws it larger and finds the party, and the adventure frame's small one). |
-| `hud.ts` | The adventure frame's persistent parts: the four portraits with the face the product granted, pools at the percentage it published, conditions and the fight's own readiness, a click selecting the member; the purse, larder and clock; the adventure controls and the book buttons; the place, automap, running effects and companions down the right; and the line saying what the party faces and the answer to its latest act. |
+| `hud.ts` | The adventure frame's persistent parts: the four portraits with the face the product granted, pools at the percentage it published, conditions and the fight's own readiness, a click selecting the member; the purse, larder and clock; the adventure controls and the book buttons; the place, automap, running effects and companions down the right; and the Engine-backed reticle/context line naming the current target, ruleset disposition, verb, range and honest no-target or refusal reason beside the answer to the latest act. |
 | `frame.ts` | The screens over the world: the books a player opens (Character `I`, Spellbook `L`, Journal `J`, Map `V`, Rest), the contextual screens the product holds open, the keyboard handed to a book and back to the world, and the diagnostic panel (`` ` ``) holding every fact and session control. |
 | `styles.ts` | The stylesheet, laid out for the supported desktop viewport of 1280×720 and wider. |
 
@@ -79,6 +79,11 @@ each counter, conversation, and stop, and the party's records on the same terms:
 refusal keeps its own code and sentence, and nothing on screen counts down or ticks on its own — a recovering
 member shows the game time the product published, because a screen that timed recovery itself would show a
 character ready before the fight agreed.
+
+The central reticle in `hud.ts` is presentation of the product's current Engine selection. It names the target context,
+ruleset disposition, verb, distance and selection reason, or says when no target is in sight; it owns no selection,
+preview mutation, range check or action. Contextual screens hide it while the product owns input and show it again when
+the world receives the next admitted update, so a stale facing or refusal cannot stand in for the current world.
 
 The service offer rows carry each patient or party choice, the quoted quantity, charge, payment and refusal.
 Cures and training therefore choose the member they were priced for. The bank amount field asks the

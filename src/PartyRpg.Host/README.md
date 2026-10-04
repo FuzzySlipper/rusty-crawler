@@ -20,7 +20,10 @@ Implemented today:
   or the steering rule for movement, and that rule with the party's flight for rising and sinking), and `playtest.look` by turning the party through its facing rule
   (yaw only). Every query resolves the session held when it is asked, so a restart or an accepted creation
   never leaves a stale module; `interaction.inspect` reads the host's one `InteractionSelection`, which every
-  session's world aims through. `PlaytestRegistrationTests` drives the generated catalog itself.
+  session's world aims through. The adventure frame's reticle and target context are a projection of that same
+  selection; the Host adds no focus cache or targeting rule. Closing a creation, conversation, counter or book hands
+  input back to the world through the next admitted update, where the existing explicit use and attack controls apply.
+  `PlaytestRegistrationTests` drives the generated catalog itself.
 - `ProductIdentity` declares the product id, title, projection stream and contract, and the two
   input names once; the project file declares the same values, and the host suite (`ControlDeclarationTests`,
   which reads the constants by reference and the project file as XML) fails when the two drift.

@@ -390,6 +390,7 @@
     "available": false,
     "target": "",
     "label": "",
+    "disposition": "",
     "verb": "",
     "state": "",
     "distance": 0,

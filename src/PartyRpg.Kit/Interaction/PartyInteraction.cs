@@ -89,8 +89,18 @@ public sealed class PartyInteraction : IWorldInteractionScene
     /// <summary>The target the reticle holds, or null when nothing usable is in reach and in sight.</summary>
     public InteractionTarget? FocusedTarget { get; private set; }
 
+    /// <summary>
+    /// The target the reticle is addressing even when the Engine refuses to acquire it, or null when the aim has
+    /// no candidate. A target outside reach or sight is still useful context: the frame can name what the player
+    /// tried to use instead of collapsing a meaningful refusal into an empty reticle.
+    /// </summary>
+    public InteractionTarget? ContextTarget { get; private set; }
+
     /// <summary>How far the focused target stands from the party, or zero when nothing is focused.</summary>
     public double FocusedDistance { get; private set; }
+
+    /// <summary>How far the current contextual candidate stands, including one the Engine could not acquire.</summary>
+    public double ContextDistance { get; private set; }
 
     /// <summary>Why the reticle holds what it holds: the engine's own reason for the selection.</summary>
     public InteractionReason FocusReason { get; private set; } = InteractionReason.NoCandidate;
@@ -131,6 +141,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
     public InteractionResult Use()
     {
         _result = null;
+        InteractionTarget? attempted = FocusedTarget ?? ContextTarget;
         InteractionUseReceipt receipt = _selection.Claim(this).UseFocused();
         if (_result is not null) return _result;
 
@@ -148,7 +159,16 @@ public sealed class PartyInteraction : IWorldInteractionScene
         // was faced before the use for the rest of the update, which is the one frame a player looks at.
         _focus = _selection.Claim(this).Update();
         AdoptFocus();
-        _result = InteractionResult.Refused(FocusedTarget, new Refusal(CodeFor(reason), MessageFor(reason, receipt.Message)));
+        bool attemptedTargetRemains = attempted is { } attemptedIdentity
+            && ContextTarget is { } currentContext
+            && attemptedIdentity.Id == currentContext.Id;
+        _result = InteractionResult.Refused(
+            attempted,
+            new Refusal(CodeFor(reason), MessageFor(
+                reason,
+                receipt.Message,
+                attempted?.Definition.Name ?? string.Empty,
+                attemptedTargetRemains)));
         return _result;
     }
 
@@ -531,6 +551,20 @@ public sealed class PartyInteraction : IWorldInteractionScene
         FocusReason = _focus.Reason;
         FocusedTarget = null;
         FocusedDistance = 0;
+        ContextTarget = null;
+        ContextDistance = 0;
+
+        // InteractionFocus keeps observations for candidates inside its release query, including a candidate that
+        // is visible but beyond its own reach. Preserve that call-local candidate as context without turning it into
+        // a second selection: only the Engine's Selected row becomes FocusedTarget.
+        foreach (InteractionObservation observation in _focus.Candidates)
+        {
+            if (!observation.WithinAcquisition) continue;
+            ContextDistance = observation.Distance;
+            ContextTarget = _targets.Find(target => target.Number == observation.Candidate.Target.Id);
+            break;
+        }
+
         if (_focus.Selected is not { } selected) return;
 
         foreach (InteractionObservation observation in _focus.Candidates)
@@ -538,6 +572,8 @@ public sealed class PartyInteraction : IWorldInteractionScene
             if (observation.Candidate.Target != selected) continue;
             FocusedDistance = observation.Distance;
             FocusedTarget = _targets.Find(target => target.Number == selected.Id);
+            ContextDistance = FocusedDistance;
+            ContextTarget = FocusedTarget;
             return;
         }
     }
@@ -573,21 +609,44 @@ public sealed class PartyInteraction : IWorldInteractionScene
     /// as it is. When nothing was selected there is no such message to keep, and the reason word alone is
     /// not what a player reads, so each reason gets the sentence it means.
     /// </remarks>
-    private static string MessageFor(InteractionReason reason, string selected) =>
-        reason == InteractionReason.NoCandidate && selected.Length > 0
-            ? selected
-            : reason switch
-            {
-                InteractionReason.NoCandidate => "Nothing the party can use is in front of it.",
-                InteractionReason.OutsideQuery => "What the party faces is outside where it is looking.",
-                InteractionReason.OutOfReach => "What the party faces is out of reach.",
-                InteractionReason.Occluded => "What the party faces is not in sight.",
-                InteractionReason.VisibilityUnknown => "Whether the party can see what it faces is not known.",
-                InteractionReason.Unavailable => "What the party faces cannot be used.",
-                InteractionReason.Locked => "What the party faces is locked.",
-                InteractionReason.InvalidTarget or InteractionReason.StaleTarget => "What the party was using is no longer there.",
-                _ => selected,
-            };
+    private static string MessageFor(InteractionReason reason, string selected, string attemptedName, bool attemptedTargetRemains)
+    {
+        if (reason == InteractionReason.NoCandidate && selected.Length > 0) return selected;
+
+        return reason switch
+        {
+            InteractionReason.NoCandidate => "Nothing the party can use is in front of it.",
+            InteractionReason.OutsideQuery => attemptedName.Length > 0
+                ? $"{attemptedName} is outside where the party is looking."
+                : "What the party faces is outside where it is looking.",
+            InteractionReason.OutOfReach => attemptedName.Length > 0
+                ? $"{attemptedName} is out of reach."
+                : "What the party faces is out of reach.",
+            InteractionReason.Occluded => attemptedName.Length > 0
+                ? $"{attemptedName} is not in sight."
+                : "What the party faces is not in sight.",
+            InteractionReason.VisibilityUnknown => attemptedName.Length > 0
+                ? $"The party cannot confirm sight of {attemptedName}."
+                : "Whether the party can see what it faces is not known.",
+            InteractionReason.Unavailable => attemptedName.Length > 0
+                ? $"{attemptedName} cannot be used."
+                : "What the party faces cannot be used.",
+            InteractionReason.Locked => attemptedName.Length > 0
+                ? $"{attemptedName} is locked."
+                : "What the party faces is locked.",
+            InteractionReason.InvalidTarget => attemptedName.Length > 0
+                ? $"{attemptedName} is no longer there."
+                : "What the party was using is no longer there.",
+            InteractionReason.StaleTarget => attemptedName.Length > 0
+                ? attemptedTargetRemains
+                    ? $"{attemptedName} changed before this use; try again."
+                    : $"{attemptedName} is no longer there."
+                : attemptedTargetRemains
+                    ? "What the party was using changed before this use; try again."
+                    : "What the party was using is no longer there.",
+            _ => selected,
+        };
+    }
 
     /// <summary>The refusal code for a use the engine's own selection refused before it reached the scene.</summary>
     /// <remarks>

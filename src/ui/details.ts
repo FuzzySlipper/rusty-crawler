@@ -319,7 +319,7 @@ export function mountDetails(host: Host): Details {
       ? '—'
       : interaction.label === ''
         ? interaction.reason
-        : `${interaction.label} · ${interaction.verb}${interaction.state === '' ? '' : ` · ${interaction.state}`} · ${interaction.distance.toFixed(0)}`;
+        : `${interaction.label}${interaction.disposition === '' ? '' : ` · ${interaction.disposition}`} · ${interaction.verb}${interaction.state === '' ? '' : ` · ${interaction.state}`} · ${interaction.distance.toFixed(0)}`;
     rows.bodies.textContent = interaction.available ? String(interaction.bodies) : '—';
     rows.requires.textContent = interaction.requires.length === 0 ? '—' : interaction.requires.join(', ');
     rows.use.textContent = interaction.outcome === 'none' ? '—' : interaction.outcome;

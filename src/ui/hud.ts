@@ -52,6 +52,8 @@ export interface Hud {
   readonly bar: HTMLElement;
   readonly side: HTMLElement;
   readonly message: HTMLElement;
+  /** The world reticle and the canonical focus context drawn beside it. */
+  readonly reticle: HTMLElement;
   render(snapshot: SnapshotView): void;
   /** Marks which screen shows, which is presentation only and changes no projection. */
   mark(screen: string): void;
@@ -191,18 +193,56 @@ export function mountHud(host: Host, navigation: Navigation): Hud {
   const said = element('p', 'crawler-hud-said');
   message.append(facing, said);
 
+  // The reticle is presentation only: its state is copied from the Engine-backed interaction projection. It never
+  // stores a target or decides whether an action is legal, so turning and using always continue through the same
+  // canonical world owner.
+  const reticle = element('div', 'crawler-reticle');
+  const reticleMark = element('span', 'crawler-reticle-mark');
+  reticleMark.textContent = '✣';
+  const reticleTarget = element('span', 'crawler-reticle-target');
+  const reticleRange = element('span', 'crawler-reticle-range');
+  reticle.append(reticleMark, reticleTarget, reticleRange);
+  let showing = 'world';
+  let worldProjectionActive = false;
+
+  const focusReason = (reason: string, available: boolean): string => {
+    if (!available) return 'interaction unavailable';
+    switch (reason) {
+      case 'no-candidate': return 'no target in sight';
+      case 'outside-query': return 'outside view';
+      case 'out-of-reach': return 'out of reach';
+      case 'occluded': return 'not in sight';
+      case 'visibility-unknown': return 'sight unknown';
+      case 'unavailable': return 'unavailable';
+      case 'locked': return 'locked';
+      case 'invalid-target':
+      case 'stale-target': return 'target changed';
+      case 'ready': return 'ready';
+      default: return reason === '' ? 'no target in sight' : reason;
+    }
+  };
+
   return {
     bar,
     side,
     message,
+    reticle,
     mark(screen) {
+      showing = screen;
       for (const made of bookButtons) made.dataset.open = made.dataset.screen === screen ? 'yes' : 'no';
+      // Frame navigation is presentation state. Hide the world-only reticle immediately when a book opens, so
+      // the old world context cannot sit over the screen between the click and the next product projection.
+      reticle.hidden = !worldProjectionActive || showing !== 'world';
     },
     render(snapshot) {
       const { party, combat, clock, controls, interaction, world, magic } = snapshot;
+      const worldActive = party.present && !snapshot.menu.visible && snapshot.session.mode !== 'creating'
+        && !snapshot.conversation.open && !snapshot.service.open;
+      worldProjectionActive = worldActive;
       bar.hidden = !party.present;
       side.hidden = !party.present;
       message.hidden = !party.present;
+      reticle.hidden = !worldActive || showing !== 'world';
 
       cards.forEach((card, index) => {
         const member = party.roster[index];
@@ -239,13 +279,22 @@ export function mountHud(host: Host, navigation: Navigation): Hud {
       effects.hidden = effects.childElementCount === 0;
 
       // What the party faces, and why the reticle holds or refuses it.
+      const disposition = interaction.disposition === '' ? '' : ` · ${interaction.disposition}`;
       facing.textContent = interaction.label === ''
-        ? ''
+        ? interaction.available ? `No target · ${focusReason(interaction.reason, true)}` : 'No interaction target'
         : interaction.verb === ''
-          ? interaction.label
-          : `${interaction.label} — ${interaction.verb} · ${interaction.distance.toFixed(0)}`;
+          ? `${interaction.label}${disposition}`
+          : `${interaction.label}${disposition} — ${interaction.verb} · ${interaction.distance.toFixed(0)}`;
       facing.dataset.reason = interaction.reason;
-      facing.hidden = facing.textContent === '';
+      facing.hidden = !worldActive;
+
+      reticle.dataset.state = interaction.reason;
+      reticleTarget.textContent = interaction.label === ''
+        ? interaction.available ? `No target · ${focusReason(interaction.reason, true)}` : 'No interaction target'
+        : `${interaction.label}${disposition}`;
+      reticleRange.textContent = interaction.label === '' || interaction.distance <= 0
+        ? focusReason(interaction.reason, interaction.available)
+        : `${focusReason(interaction.reason, interaction.available)} · ${interaction.distance.toFixed(0)} away`;
       // The answer to the party's latest act, under the act it answers: the product numbers each answer, so this line
       // is always the latest one and never an older owner's result standing in for it.
       const { feedback } = snapshot;

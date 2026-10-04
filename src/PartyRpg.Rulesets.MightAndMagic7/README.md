@@ -178,6 +178,9 @@ Owns:
   is our adaptation for the product's horizontal keyboard looking, not a donor-equivalence claim.
   The [elevated-use reading](../../docs/evidence/elevation-reach.md) records ordinary imported chest use
   from the floor and a visible refusal for a target beyond reach.
+  Person interaction definitions also publish the ruleset's `peaceful` disposition to the adventure reticle before
+  an intentional attack; this is player-facing context, while whether an attack is admitted remains the combat owner's
+  canonical decision.
 
 - Time, calendar, rest, fatigue, and travel policy, including service hours.
 

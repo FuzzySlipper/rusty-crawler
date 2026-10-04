@@ -89,7 +89,8 @@ internal sealed class MightAndMagic7PeopleInteraction : IInteractionRule
             Reach,
             requires: _conversation.HouseHours(new ConversationTargetRequest(request.Place, request.Placement)) is { } hours
                 ? [new InteractionRequirement(InteractionRequirementKind.TimeOfDay, HouseOpenRequirement, label: $"the hours {hours}")]
-                : []);
+                : [],
+            disposition: "peaceful");
     }
 
     /// <inheritdoc />

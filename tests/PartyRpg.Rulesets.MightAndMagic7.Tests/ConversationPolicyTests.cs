@@ -226,6 +226,7 @@ public sealed class ConversationPolicyTests
         // the greeting, the topics on offer, and what the state withholds with its reason.
         session.Update(RulesetTestContext.Update(1, 1));
         Assert.Equal("Tester Two", ProjectedNode.Of(ui.Latest().Value).Field("interaction").Field("label").AsString());
+        Assert.Equal("peaceful", ProjectedNode.Of(ui.Latest().Value).Field("interaction").Field("disposition").AsString());
         session.Update(RulesetTestContext.Update(2, 1, RulesetTestContext.Digital(Declared.UseIntent)));
         ProjectedNode talking = ProjectedNode.Of(ui.Latest().Value).Field("conversation");
         Assert.True(talking.Field("open").AsBoolean());

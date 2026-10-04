@@ -156,7 +156,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   // The rows the character book draws from are kept here whole as well, every member at once.
   frame.diagnostics.append(...details.top, ...details.bottom, combat.element, equipment.element, skills.element, progression.element, promotion.element, spellbook.element, conversation.element, service.element, journal.element, problems);
   hud.side.append(details.companions);
-  panel.append(menu.element, hud.message, fight, hud.side, frame.element, hud.bar, frame.diagnostics);
+  panel.append(menu.element, hud.reticle, hud.message, fight, hud.side, frame.element, hud.bar, frame.diagnostics);
   root.append(style, panel);
 
   const render = (snapshot: SnapshotView): void => {

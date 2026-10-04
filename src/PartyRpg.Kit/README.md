@@ -419,7 +419,10 @@ with each candidate's own reach still controlling selection and use, so an out-o
 name (the [elevated-use reading](../../docs/evidence/elevation-reach.md) records both paths); a definition's
 `AimHeight` is the height above its feet a candidate is aimed and judged at in place of the body-centre height, and
 its `Radius` is passed as the Engine visibility query's endpoint tolerance, so a thing standing on a shelf or in a
-niche is seen by its front — one use
+niche is seen by its front. `PartyInteraction` also carries the Engine's current candidate context through
+`ContextTarget`/`ContextDistance` when acquisition refuses an out-of-reach or occluded target, so the projection can
+name the attempted thing without creating a second selection; a ruleset-provided `Disposition` is presentation
+context only. The reticle and its context therefore remain a read of the product-lifetime Engine selection, while one use
 workflow that identifies the target, judges each `InteractionRequirement` in the order the ruleset stated
 them, settles what the use costs through the party's one settlement path, asks the ruleset what the use
 produces, applies it against the party's owners, records the `InteractionTargetState` that use left and the

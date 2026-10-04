@@ -195,6 +195,7 @@ function interaction(overrides = {}) {
     available: true,
     target: '',
     label: '',
+    disposition: '',
     verb: '',
     state: '',
     distance: 0,

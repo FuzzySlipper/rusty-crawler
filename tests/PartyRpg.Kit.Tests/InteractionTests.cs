@@ -53,10 +53,84 @@ public sealed class InteractionTests
         hall.Interaction.Update();
         Assert.Equal(InteractionReason.OutOfReach, hall.Interaction.FocusReason);
         Assert.Null(hall.Interaction.FocusedTarget);
+        Assert.Equal("A chest", hall.Interaction.ContextTarget?.Definition.Name);
+        Assert.Equal(385, hall.Interaction.ContextDistance, 3);
         InteractionResult refused = hall.Interaction.Use();
         Assert.Equal(InteractionCodes.InteractionOutOfReach, refused.Code);
+        Assert.Equal("A chest", refused.Target?.Definition.Name);
+        Assert.Contains("A chest", refused.Message, StringComparison.Ordinal);
         Assert.Contains("out of reach", refused.Message, StringComparison.Ordinal);
+
+        InteractionSnapshot projection = InteractionSnapshot.From(hall.Interaction);
+        Assert.Equal("A chest", projection.Label);
+        Assert.Equal("search", projection.Verb);
+        Assert.Equal("out-of-reach", projection.Reason);
+        Assert.Equal(385, projection.Distance, 3);
     }
+
+    [Fact]
+    public void Interaction_projection_does_not_pair_a_previous_use_with_a_new_focus()
+    {
+        using Hall hall = Hall.Build(new TestRule(), Hall.Facing("door-0"));
+        hall.Interaction.Update();
+        Assert.True(hall.Interaction.Use().IsApplied);
+
+        hall.Move(Hall.Facing("door-1"));
+        hall.Interaction.Update();
+
+        InteractionSnapshot projection = InteractionSnapshot.From(hall.Interaction);
+        Assert.Equal("A door", projection.Label);
+        Assert.Equal("open", projection.Verb);
+        Assert.Equal("none", projection.Outcome);
+        Assert.Empty(projection.Code);
+        Assert.Empty(projection.Message);
+    }
+
+    [Fact]
+    public void Interaction_projection_keeps_an_applied_result_for_the_current_incarnation_but_drops_it_after_place_restore()
+    {
+        using Hall hall = Hall.Build(new TestRule(), Hall.Facing("door-0"));
+        hall.Interaction.Update();
+        InteractionResult opened = hall.Interaction.Use();
+        Assert.True(opened.IsApplied);
+        Assert.Equal(1, opened.Target!.State.Revision);
+
+        InteractionSnapshot applied = InteractionSnapshot.From(hall.Interaction);
+        Assert.Equal("applied", applied.Outcome);
+        Assert.Equal("open", applied.State);
+
+        // Respawn forgets the place's interaction ledger, so the same placement identity begins a new
+        // incarnation at revision zero. The retained result belongs to the old visit and must not appear
+        // under the freshly rebuilt target.
+        hall.World.Places.MarkCleared(HallPlace);
+        hall.Time.ElapsedGameDays = 3;
+        Assert.Single(hall.World.AdvanceTime());
+        hall.Interaction.Update();
+
+        InteractionSnapshot restored = InteractionSnapshot.From(hall.Interaction);
+        Assert.Equal("A door", restored.Label);
+        Assert.Equal("closed", restored.State);
+        Assert.Equal("none", restored.Outcome);
+        Assert.Empty(restored.Code);
+        Assert.Empty(restored.Message);
+    }
+
+    [Fact]
+    public void A_stale_use_names_a_current_target_that_changed_before_use()
+    {
+        using Hall hall = Hall.Build(new TestRule(), Hall.Facing("door-0"));
+        hall.Interaction.Update();
+
+        // Change the existing placement's state after focus was acquired. Engine revalidation rejects the
+        // old incarnation, while the same placement remains present for a useful retry message.
+        hall.World.Interactions.Record(HallPlace, new PlacementContentId("door", "door-0"), "open");
+        InteractionResult refused = hall.Interaction.Use();
+
+        Assert.False(refused.IsApplied);
+        Assert.Equal(InteractionCodes.InteractionTargetChanged, refused.Code);
+        Assert.Contains("A door changed before this use; try again.", refused.Message, StringComparison.Ordinal);
+    }
+
     private static readonly ContentLayout Layout = new("packs", "imports", "bundles");
     private static readonly PlaceId HallPlace = new("1");
     private static readonly UseIntentNames UseControls = new("test.use", "test.ui.action.v1");
@@ -243,6 +317,11 @@ public sealed class InteractionTests
         Assert.Null(nothing.Target);
         Assert.Equal("interaction-no-target", nothing.Code);
         Assert.NotEmpty(nothing.Message);
+        InteractionSnapshot noTargetProjection = InteractionSnapshot.From(hall.Interaction);
+        Assert.Empty(noTargetProjection.Target);
+        Assert.Equal("refused", noTargetProjection.Outcome);
+        Assert.Equal("interaction-no-target", noTargetProjection.Code);
+        Assert.Equal(nothing.Message, noTargetProjection.Message);
 
         // A target the party faces but cannot see is refused with that reason, and the sight line comes from
         // the world rather than from the mechanism: the mover is what holds the collision.
