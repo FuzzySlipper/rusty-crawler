@@ -26,7 +26,7 @@
             "label": "Bring a Potion Bottle back to Ailyssa"
           }
         ],
-        "experience": 250,
+        "experience": 4000,
         "coins": 25,
         "records": [
           { "record": "opening:shore-guide", "amount": 1 }

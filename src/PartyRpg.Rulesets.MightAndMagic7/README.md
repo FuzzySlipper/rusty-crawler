@@ -605,9 +605,10 @@ before effects or payment, with the same errand and objective named. A met item 
 its carried item until turn-in; the turn-in's own delivery can hand it over. The ruleset retains only its
 sale provenance policy, with no second quest-item list. The authored `mm7-new-game` pack also carries the
 opening `opening-island-guide` reading: Ailyssa (`npc-4`) offers the new party a two-step island errand to
-speak with Sally (`npc-5`) and deliver a Potion Bottle back to her, for 250 experience, 25 coin, and an
+speak with Sally (`npc-5`) and deliver a Potion Bottle back to her, for 4,000 total experience, 25 coin, and an
 `opening:shore-guide` record on return. The imported Emerald Island placements and signs provide the route
-and visible service surface. The authored `mm7-new-game` pack's `service-stock` entry supplies explicit
+and visible service surface. A healthy four-member party receives 1,000 experience each, enough for first training.
+The authored `mm7-new-game` pack's `service-stock` entry supplies explicit
 affordable gear, introductory school books, Potion Bottles, and Widowsweep Berries to the existing imported Tor
 service (`service` 1); the imported placement remains the only counter placement and generated operator packs
 are untouched. The authored counts and labels leave each item's imported value in force for both buying and

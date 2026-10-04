@@ -13,8 +13,9 @@ party able to buy four Bow/Leather Armor/Fire Bolt sets for 2,700 coin at Tor's 
 carried introductory book, and retain the four-coin bottle/reagent purchase; this is authored opening tuning
 rather than a claim about original values.
 That errand is given by the imported Ailyssa placement (`npc-4`), asks the party to speak with the imported Sally
-placement (`npc-5`) and deliver a `Potion Bottle` to Ailyssa, and pays through the existing quest owners. The
-imported Emerald Island signs, people, counter, and entrances supply the visible route.
+placement (`npc-5`) and deliver a `Potion Bottle` to Ailyssa, and pays 4,000 total experience plus 25 coins through
+the existing quest owners. A healthy four-member party receives 1,000 experience per member, enough to reach the
+first training step. The imported Emerald Island signs, people, counter, and entrances supply the visible route.
 Everything else the product plays is
 imported from the operator's own data into [`../imports`](../imports), and a live check's hand-written scenario
 is staged there too ([`../../../docs/live-checks.md`](../../../docs/live-checks.md)). A pack authored for the repository — a

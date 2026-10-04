@@ -1,8 +1,12 @@
+using System.Text.Json;
 using PartyRpg.Kit.Conversation;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Quests;
+using PartyRpg.Kit.Services;
+using PartyRpg.Kit.Skills;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
@@ -31,7 +35,7 @@ public sealed class OpeningContentTests
         QuestDefinition definition = quests.Definition(OpeningQuest)!;
 
         Assert.Equal("npc-4", definition.Giver);
-        Assert.Equal(250, definition.Rewards.Experience);
+        Assert.Equal(4000, definition.Rewards.Experience);
         Assert.Equal(25, definition.Rewards.Coins);
         Assert.Equal(["met:npc-5", "220"], definition.Objectives.Select(objective => objective.Target).ToArray());
         Assert.Equal("supply-bottle", definition.Objectives[1].Id);
@@ -95,7 +99,9 @@ public sealed class OpeningContentTests
             QuestNeed needed = journal.Needs(new ItemDefinitionId("220")) ?? throw new Xunit.Sdk.XunitException("the accepted opening errand must retain its bottle objective");
             Assert.Equal(OpeningQuest.Value, needed.Quest.Value);
             Assert.Equal("quest-item-needed", journal.Retains(new ItemDefinitionId("220"))!.Code);
-            Assert.True(party.AcquireItem(new ItemDefinitionId("220")).Admitted);
+            ItemAcquisition bottle = party.AcquireItem(new ItemDefinitionId("220"));
+            Assert.True(bottle.Admitted);
+            Assert.Equal("quest-item-needed", party.JudgeItemRemoval(bottle.Item!.Id)!.Code);
             QuestReading carrying = journal.Read(OpeningQuest)!;
             Assert.True(carrying.IsComplete);
             Assert.Equal(2, carrying.Objectives.Count(objective => objective.IsMet));
@@ -105,14 +111,16 @@ public sealed class OpeningContentTests
             ConversationResult turnInLine = dialogue.Choose("turn-in:opening-island-guide");
             Assert.Equal(HandoffOwner.ErrandTurnIn, turnInLine.Handoff!.Owner);
             int coinsBefore = party.Purse.Coins;
-            long experienceBefore = party.Members[0].Progression.Experience;
+            long[] experienceBefore = [.. party.Members.Select(member => member.Progression.Experience)];
             QuestResult paid = journal.TurnIn(OpeningQuest, "npc-4");
             Assert.True(paid.IsApplied);
             Assert.Equal(25, paid.Payment.Coins);
-            Assert.Equal(250, paid.Payment.Experience!.Awarded);
+            Assert.Equal(4000, paid.Payment.Experience!.Awarded);
             Assert.Equal("220", Assert.Single(paid.Payment.Delivered).Item);
             Assert.Equal(coinsBefore + 25, party.Purse.Coins);
-            Assert.Equal(experienceBefore + 250, party.Members[0].Progression.Experience);
+            Assert.All(
+                party.Members.Select((member, index) => (member, index)),
+                result => Assert.Equal(experienceBefore[result.index] + 1000, result.member.Progression.Experience));
             Assert.Equal(0, party.Inventory.TotalOf(new ItemDefinitionId("220")));
             Assert.Null(journal.Retains(new ItemDefinitionId("220")));
             Assert.True(party.Records.Has("opening:shore-guide"));
@@ -121,7 +129,152 @@ public sealed class OpeningContentTests
             Assert.False(repeated.IsApplied);
             Assert.Equal("quest-already-finished", repeated.Refusal!.Code);
             Assert.Equal(coinsBefore + 25, party.Purse.Coins);
-            Assert.Equal(experienceBefore + 250, party.Members[0].Progression.Experience);
+            Assert.All(
+                party.Members.Select((member, index) => (member, index)),
+                result => Assert.Equal(experienceBefore[result.index] + 1000, result.member.Progression.Experience));
+        }
+    }
+
+    [Fact]
+    public void Opening_errand_pending_and_completed_state_survive_save_load_with_custody_and_once_only_payment()
+    {
+        (ProductCreateContext context, _) = RulesetTestContext.Create(OpeningFiles());
+        ContentCatalog catalog = ContentCatalogLoader.Load(RulesetTestContext.Content(context), Layout).RequireValid();
+        MightAndMagic7Quests quests = MightAndMagic7Quests.Read(catalog, promotions: null)!;
+        using PartyEntity party = CreateParty();
+        GameClock clock = Clock();
+        PartyResourceLedger ledger = new(party);
+        PartyProgression progression = new(MightAndMagic7Progression.Instance, party);
+        PartyQuests journal = new(quests, party, ledger, progression, clock);
+
+        Assert.True(journal.Offer(OpeningQuest, "npc-4", Island).IsApplied);
+        Assert.True(journal.Accept(OpeningQuest).IsApplied);
+        party.Records.Set("met:npc-4", 1);
+        party.Records.Set("met:npc-5", 1);
+        ItemAcquisition bottle = party.AcquireItem(new ItemDefinitionId("220"));
+        Assert.True(bottle.Admitted);
+        Assert.Equal("quest-item-needed", party.JudgeItemRemoval(bottle.Item!.Id)!.Code);
+
+        SessionSave pending = SaveRoundTrip(party, clock, journal);
+        using PartyEntity pendingParty = new PartyEntityFactory().Restore(pending.Party);
+        GameClock pendingClock = Clock();
+        PartyResourceLedger pendingLedger = new(pendingParty);
+        PartyProgression pendingProgression = new(MightAndMagic7Progression.Instance, pendingParty);
+        PartyQuests pendingJournal = new(
+            quests,
+            pendingParty,
+            pendingLedger,
+            pendingProgression,
+            pendingClock,
+            pending.Quests);
+
+        Assert.Equal(QuestStage.Accepted, pendingJournal.Instance(OpeningQuest)!.Stage);
+        Assert.True(pendingJournal.Read(OpeningQuest)!.IsComplete);
+        ItemInstance pendingBottle = Assert.Single(pendingParty.Inventory.Items, item => item.Definition.Value == "220");
+        Assert.Equal("quest-item-needed", pendingParty.JudgeItemRemoval(pendingBottle.Id)!.Code);
+
+        QuestResult paid = pendingJournal.TurnIn(OpeningQuest, "npc-4");
+        Assert.True(paid.IsApplied);
+        Assert.Equal(4000, paid.Payment.Experience!.Awarded);
+        Assert.Equal(25, paid.Payment.Coins);
+        Assert.Equal(0, pendingParty.Inventory.TotalOf(new ItemDefinitionId("220")));
+        Assert.All(pendingParty.Members, member => Assert.Equal(1000, member.Progression.Experience));
+
+        SessionSave completed = SaveRoundTrip(pendingParty, pendingClock, pendingJournal);
+        using PartyEntity completedParty = new PartyEntityFactory().Restore(completed.Party);
+        PartyResourceLedger completedLedger = new(completedParty);
+        PartyProgression completedProgression = new(MightAndMagic7Progression.Instance, completedParty);
+        PartyQuests completedJournal = new(
+            quests,
+            completedParty,
+            completedLedger,
+            completedProgression,
+            Clock(),
+            completed.Quests);
+
+        Assert.Equal(QuestStage.TurnedIn, completedJournal.Instance(OpeningQuest)!.Stage);
+        Assert.Equal(0, completedParty.Inventory.TotalOf(new ItemDefinitionId("220")));
+        Assert.Equal(225, completedParty.Purse.Coins);
+        Assert.True(completedParty.Records.Has("opening:shore-guide"));
+        Assert.All(completedParty.Members, member => Assert.Equal(1000, member.Progression.Experience));
+
+        QuestResult repeated = completedJournal.TurnIn(OpeningQuest, "npc-4");
+        Assert.False(repeated.IsApplied);
+        Assert.Equal(QuestCodes.QuestAlreadyFinished, repeated.Refusal!.Code);
+        Assert.Equal(225, completedParty.Purse.Coins);
+        Assert.All(completedParty.Members, member => Assert.Equal(1000, member.Progression.Experience));
+    }
+
+    [Fact]
+    public void Opening_reward_reaches_first_training_and_skill_points_use_the_ruleset_owner_and_name_refusals()
+    {
+        (ProductCreateContext context, _) = RulesetTestContext.Create(OpeningFiles());
+        ContentCatalog catalog = ContentCatalogLoader.Load(RulesetTestContext.Content(context), Layout).RequireValid();
+        MightAndMagic7Quests quests = MightAndMagic7Quests.Read(catalog, promotions: null)!;
+        MightAndMagic7Skills skills = MightAndMagic7Skills.Read(catalog)!;
+        MightAndMagic7Services services = MightAndMagic7Services.Read(catalog, quests: quests)!;
+        ServiceDefinition training = services.Find(new ServiceId("89"))!;
+        using PartyEntity party = CreateParty();
+        GameClock clock = Clock();
+        PartyResourceLedger ledger = new(party);
+        PartyProgression progression = new(MightAndMagic7Progression.Instance, party, skills);
+        PartyQuests journal = new(quests, party, ledger, progression, clock);
+
+        Assert.True(journal.Offer(OpeningQuest, "npc-4", Island).IsApplied);
+        Assert.True(journal.Accept(OpeningQuest).IsApplied);
+        party.Records.Set("met:npc-4", 1);
+        party.Records.Set("met:npc-5", 1);
+        Assert.True(party.AcquireItem(new ItemDefinitionId("220")).Admitted);
+        Assert.True(journal.TurnIn(OpeningQuest, "npc-4").IsApplied);
+        Assert.All(party.Members, member => Assert.Equal(1000, member.Progression.Experience));
+
+        ServiceOffer offer = Assert.Single(services.Offers(new ServiceOfferRequest(training, party, clock)));
+        Assert.Equal(ServiceOfferKind.Training, offer.Kind);
+        Assert.Equal(5, offer.Limit);
+        foreach (PartyMember member in party.Members)
+        {
+            ServiceSubject subject = ServiceSubject.OfOffer(offer);
+            ServiceEligibility eligibility = services.Judge(new ServiceEligibilityRequest(
+                training,
+                ServiceOperationKind.Train,
+                subject,
+                member.Id,
+                party,
+                clock));
+            Assert.Null(eligibility.Refusal);
+
+            ServiceQuote quote = services.Quote(new ServiceQuoteRequest(
+                training,
+                ServiceOperationKind.Train,
+                subject,
+                member.Id,
+                party,
+                clock));
+            // The training table's base is ten coins. The completed errand also raises the party's standing by
+            // four points for its 4,000 experience, so the canonical merchant quote is nine coins here.
+            Assert.Equal(9, quote.Charge.Coins);
+            Assert.True(ledger.Settle(quote.Charge).Admitted);
+
+            ProgressionTrainingResult trained = progression.Train(
+                member.Id,
+                new ProgressionTrainingTerms(training.Name, quote.Charge.Coins, offer.Limit));
+            Assert.True(trained.IsTrained);
+            Assert.Equal(2, member.Progression.Level);
+            Assert.Equal(5, member.Progression.SkillPoints);
+
+            SkillRaisePlan plan = progression.Plan(member.Id, new SkillId("Sword"));
+            Assert.True(plan.IsPossible);
+            Assert.Equal(2, plan.Points);
+            SkillRaiseResult raised = progression.RaiseSkill(member.Id, new SkillId("Sword"));
+            Assert.True(raised.IsRaised);
+            Assert.Equal(2, member.Skills.LevelOf(new SkillId("Sword")));
+            Assert.Equal(3, member.Progression.SkillPoints);
+
+            SkillRaiseResult refused = progression.RaiseSkill(member.Id, new SkillId("Sword"), levels: 2);
+            Assert.False(refused.IsRaised);
+            Assert.Equal(ProgressionCodes.InsufficientSkillPoints, refused.Refusal!.Code);
+            Assert.Equal(2, member.Skills.LevelOf(new SkillId("Sword")));
+            Assert.Equal(3, member.Progression.SkillPoints);
         }
     }
 
@@ -134,7 +287,8 @@ public sealed class OpeningContentTests
                 ("places", "place"),
                 ("people", "person"),
                 ("items", "item"),
-                ("services", "service"))),
+                ("services", "service"),
+                ("skills", "skill"))),
         ($"{RulesetTestContext.ContentDirectory}/content-packs/world/places.json",
             """
             {
@@ -148,7 +302,8 @@ public sealed class OpeningContentTests
                     { "id": "person-8", "kind": "person", "x": 11904, "y": 4672, "z": 96, "people": [ "npc-4" ] },
                     { "id": "person-7", "kind": "person", "x": 15000, "y": 16000, "z": 96, "people": [ "npc-5" ] },
                     { "id": "fixture-69", "kind": "fixture", "name": "Shops", "x": 12552, "y": 7136, "z": 288 },
-                    { "id": "service-42", "kind": "service", "houseId": "42", "x": 9000, "y": 9000, "z": 96 }
+                    { "id": "service-42", "kind": "service", "houseId": "42", "x": 9000, "y": 9000, "z": 96 },
+                    { "id": "service-89", "kind": "service", "houseId": "89", "x": 9000, "y": 10000, "z": 96 }
                   ]
                 }
               ]
@@ -179,6 +334,14 @@ public sealed class OpeningContentTests
               ]
             }
             """),
+        ($"{RulesetTestContext.ContentDirectory}/content-packs/world/skills.json",
+            """
+            {
+              "documentId": "skills",
+              "definitionKind": "skill",
+              "entries": [ { "id": "Sword" } ]
+            }
+            """),
         ($"{RulesetTestContext.ContentDirectory}/content-packs/world/services.json",
             """
             {
@@ -186,7 +349,9 @@ public sealed class OpeningContentTests
               "definitionKind": "service",
               "entries": [
                 { "id": "42", "kind": "Opening Counter", "name": "The Blue Bottle", "proprietor": "Kethry",
-                  "openHour": 6, "closedHour": 18 }
+                  "openHour": 6, "closedHour": 18 },
+                { "id": "89", "kind": "Training", "name": "Island Training Grounds", "proprietor": "Trajan",
+                  "mapId": 1, "openHour": 6, "closedHour": 18, "priceMultiplier": 10, "trainingCap": 5 }
               ]
             }
             """),
@@ -207,14 +372,30 @@ public sealed class OpeningContentTests
         new GameTimeScale(1),
         new DaylightWindow(new TimeOfDay(5, 0), new TimeOfDay(21, 0)));
 
-    private static PartyEntity CreateParty() => new PartyEntityFactory().Create(new PartyCreation(
-        [
-            new MemberCreation(new PartyMemberSeed(
-                "Tester",
+    private static SessionSave SaveRoundTrip(PartyEntity party, GameClock clock, PartyQuests journal)
+    {
+        PlaceStateLedger places = new(PlaceGraph.From([], []), PlaceRespawnRule.FromContent());
+        SessionSave document = new(
+            party.Capture(),
+            ClockSave.Capture(clock),
+            new WorldSave(new PartyPose(Island, PlacePose.Origin), places.Capture()),
+            journal.Capture());
+        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(document, SessionSaveJson.TypeInfo);
+        return JsonSerializer.Deserialize(bytes, SessionSaveJson.TypeInfo)
+            ?? throw new Xunit.Sdk.XunitException("opening save did not deserialize");
+    }
+
+    private static PartyEntity CreateParty()
+    {
+        List<MemberCreation> members = [];
+        for (int index = 0; index < 4; index++)
+        {
+            members.Add(new MemberCreation(new PartyMemberSeed(
+                $"Tester {index + 1}",
                 new RaceId("Human"),
                 new ClassId("Knight"),
                 [new AttributeScore(new AttributeId("Might"), 15)],
-                skills: [],
+                skills: [new SkillEntry(new SkillId("Sword"), 1, new SkillTier(1), 1)],
                 spells: [],
                 experience: 0,
                 level: 1,
@@ -222,11 +403,15 @@ public sealed class OpeningContentTests
                 classRank: 1,
                 conditions: [],
                 hitPoints: ResourcePool.Full(40),
-                spellPoints: ResourcePool.Full(0))),
-        ],
-        coins: 200,
-        foodPortions: 10,
-        ProvisionUnit.Portions,
-        reputation: 0,
-        fame: 0));
+                spellPoints: ResourcePool.Full(0))));
+        }
+
+        return new PartyEntityFactory().Create(new PartyCreation(
+            members,
+            coins: 200,
+            foodPortions: 10,
+            ProvisionUnit.Portions,
+            reputation: 0,
+            fame: 0));
+    }
 }
