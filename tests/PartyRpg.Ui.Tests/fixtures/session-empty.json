@@ -362,6 +362,12 @@
     "detection": "",
     "detectionMessage": "",
     "detectionEnds": "",
+    "orientation": {
+      "top": "",
+      "bottom": "",
+      "left": "",
+      "right": ""
+    },
     "drawing": null
   },
   "equipment": {

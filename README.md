@@ -40,7 +40,8 @@ Bundle assembles. Host launches.**
 The adventure frame keeps the drawn world, four party portraits, resources, target and latest response
 visible together. Creation, the character book and shared inventory, spellbook and mixing, dialogue and
 town counters, journal and automap, combat and rest each have deliberate screens over the same canonical
-owners. The [adventure frame reading](docs/evidence/adventure-frame.md) and the screen readings in
+owners. The automap names its world directions and aligns its party arrow through ruleset policy.
+The [adventure frame reading](docs/evidence/adventure-frame.md) and the screen readings in
 [`docs/evidence/`](docs/evidence/README.md) describe their ordinary controls and bounded coverage.
 Title, Save/Load and confirmation menus block underlying creation and expedition input, including the
 admitted update that closes the menu; their visible controls use the existing lifecycle and save owners.

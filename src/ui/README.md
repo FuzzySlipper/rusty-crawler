@@ -69,9 +69,10 @@ Boundary rules:
 
 The automap is the one drawing the panel makes, and it makes none of it: the product publishes the window the
 game's zoom ladder shows, one rectangle per run of squares the party has seen, one point per mark with the kind the
-game gave it, how large a mark is drawn, the party marker's corners and facing in the drawing's own space, and the
-words for what is seen or why nothing is. The panel writes those numbers into SVG shapes and computes no scale, no
-offset, no size, and no position of its own — a reload of the same projection draws the same map.
+game gave it, how large a mark is drawn, the party marker's corners and facing in the drawing's own space, the
+ruleset's words for the drawing edges, and the words for what is seen or why nothing is. The panel writes those
+values into SVG shapes and labels and computes no scale, no offset, no size, and no position of its own — a reload
+of the same projection draws the same map.
 
 It reports the last admitted movement step and the ground under the party — what it stands on, how often and how
 soon that harms it, and what spares whom, each as the product read it — what the party faces and what using it did, the fight and its pacing,

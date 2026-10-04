@@ -226,6 +226,7 @@ public sealed class AutomapTests
         Assert.Equal("the meadow", map.Name);
         Assert.Equal(16, map.Seen);
         Assert.Equal(64, map.Total);
+        Assert.Equal(new MapOrientation("South", "North", "West", "East"), map.Orientation);
 
         // The drawing is numbers in its own space: one run per kind of square the party has seen, the party's own
         // position and facing among them, and no rectangle at all for ground it has not seen.
@@ -237,6 +238,12 @@ public sealed class AutomapTests
         Assert.All(drawing.Drawn, run => Assert.True(run.Width > 0 && run.Height > 0));
         Assert.All(drawing.Drawn, run => Assert.Contains(run.Kind, new[] { "grass", "water" }));
         Assert.Equal(16, drawing.Drawn.Sum(run => (int)Math.Round(run.Width / run.Height)));
+
+        ProjectedNode orientation = MapBlock(map).Field("orientation");
+        Assert.Equal("South", orientation.Field("top").AsString());
+        Assert.Equal("North", orientation.Field("bottom").AsString());
+        Assert.Equal("West", orientation.Field("left").AsString());
+        Assert.Equal("East", orientation.Field("right").AsString());
 
         // The place's own feature on ground the party has walked is marked, and the one standing beyond what it
         // has seen is not: a place's contents are not drawn from the doorway.
@@ -281,6 +288,7 @@ public sealed class AutomapTests
 
         ProjectedNode noOwner = MapBlock(MapSnapshot.From(maps: null, world));
         Assert.False(noOwner.Field("available").AsBoolean());
+        Assert.Equal(string.Empty, noOwner.Field("orientation").Field("top").AsString());
         Assert.True(noOwner.Field("drawing").IsNull());
     }
 
@@ -551,6 +559,8 @@ public sealed class AutomapTests
             "nowhere mapped yet",
             (walked, total) => $"{walked} of {total} squares walked ({(total == 0 ? 0 : (int)Math.Round(walked * 100.0 / total))}%)",
             count => $"{count} place{(count == 1 ? string.Empty : "s")} mapped");
+
+        public MapOrientation Orientation { get; } = new("South", "North", "West", "East");
 
         public int SightRadius => Radius;
 

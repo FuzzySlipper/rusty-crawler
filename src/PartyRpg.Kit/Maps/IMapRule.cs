@@ -37,6 +37,27 @@ public readonly record struct MapWords(
     Func<int, int, string> Seen,
     Func<int, string> Mapped);
 
+/// <summary>How the edges of a map drawing correspond to the directions of the game world.</summary>
+/// <remarks>
+/// A drawing's first axis runs left to right and its second runs top to bottom. The ruleset supplies the words
+/// for those four edges because a source map may keep its second axis in the opposite order from a screen. The
+/// kit carries the answer with the drawing; it does not turn a game's map coordinates into another coordinate
+/// system or ask a screen to guess which way is north.
+/// </remarks>
+/// <param name="Top">The direction at the top edge of the drawing.</param>
+/// <param name="Bottom">The direction at the bottom edge of the drawing.</param>
+/// <param name="Left">The direction at the left edge of the drawing.</param>
+/// <param name="Right">The direction at the right edge of the drawing.</param>
+public readonly record struct MapOrientation(
+    string Top,
+    string Bottom,
+    string Left,
+    string Right)
+{
+    /// <summary>The empty orientation used by a session that has no map rule or drawing.</summary>
+    public static MapOrientation Empty => new(string.Empty, string.Empty, string.Empty, string.Empty);
+}
+
 /// <summary>Which rung of a game's zoom ladder one place is drawn at.</summary>
 /// <remarks>
 /// The ladder is the game's and the rung is chosen from the place's own extent, so a place small enough to
@@ -132,6 +153,9 @@ public interface IMapRule
 {
     /// <summary>What this game calls the automap, and how it words what the map holds.</summary>
     MapWords Words { get; }
+
+    /// <summary>Which world directions the drawing's four edges name.</summary>
+    MapOrientation Orientation { get; }
 
     /// <summary>
     /// How many cells from the party's own cell the walking party can add to the map, before a wall or a

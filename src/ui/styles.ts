@@ -311,7 +311,7 @@ ${HUD_STYLES}
 .crawler-map { margin: 0.4rem 0 0; border-top: 1px solid rgba(210, 196, 158, 0.35); padding-top: 0.5rem; }
 .crawler-map[hidden] { display: none; }
 .crawler-map > .crawler-step-head { margin: 0 0 0.3rem; color: #e0d3ae; font-size: 0.85rem; }
-.crawler-map-state { margin: 0 0 0.3rem; color: #cbbf9e; font-size: 0.8rem; }
+.crawler-map-state, .crawler-map-orientation { margin: 0 0 0.3rem; color: #cbbf9e; font-size: 0.8rem; }
 .crawler-map-detection { margin: 0 0 0.3rem; color: #9fd3e0; font-size: 0.8rem; }
 .crawler-map-detection[hidden] { display: none; }
 .crawler-map-drawing { display: block; width: 12rem; height: 12rem; background: #12100c; border: 1px solid rgba(210, 196, 158, 0.35); }

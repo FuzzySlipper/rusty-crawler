@@ -3,8 +3,9 @@
  *
  * The shapes are SVG in the drawing's own coordinate space — the product says where each run of squares is, where
  * every mark stands, how large a mark is drawn, and the corners of the party's own marker — so this companion
- * places what it was given and works out no scale, no offset, no size, and no position of its own. Nothing is
- * remembered between snapshots, so the same projection draws the same map however many times it arrives.
+ * places what it was given and works out no scale, no offset, no size, and no position of its own. The product
+ * also names the directions at the drawing's edges, so a panel can label its source row order without guessing.
+ * Nothing is remembered between snapshots, so the same projection draws the same map however many times it arrives.
  */
 
 import type { Fields } from './reader.js';
@@ -27,6 +28,14 @@ export interface MapMarkView {
   readonly x: number;
   readonly y: number;
   readonly detected: boolean;
+}
+
+/** The directions the product assigns to the drawing's four screen edges. */
+export interface MapOrientationView {
+  readonly top: string;
+  readonly bottom: string;
+  readonly left: string;
+  readonly right: string;
 }
 
 /** The drawing itself, in the drawing's own space: every number here is ready to place. */
@@ -63,6 +72,7 @@ export interface MapView {
   readonly detection: string;
   readonly detectionMessage: string;
   readonly detectionEnds: string;
+  readonly orientation: MapOrientationView;
   readonly drawing: MapDrawingView | null;
 }
 
@@ -80,6 +90,15 @@ export function readMap(f: Fields): MapView {
     detection: f.text('detection'),
     detectionMessage: f.text('detectionMessage'),
     detectionEnds: f.text('detectionEnds'),
+    orientation: (() => {
+      const orientation = f.object('orientation');
+      return {
+        top: orientation.text('top'),
+        bottom: orientation.text('bottom'),
+        left: orientation.text('left'),
+        right: orientation.text('right'),
+      };
+    })(),
     drawing: f.nullable('drawing', (drawing) => ({
       rung: drawing.number('rung'),
       rungs: drawing.number('rungs'),
@@ -121,6 +140,8 @@ export function mountMap(host: Host, zoomable = false): Section<MapView> {
   const map = section('crawler-map');
   const mapHead = element('p', 'crawler-step-head');
   const state = element('p', 'crawler-map-state');
+  const orientation = element('p', 'crawler-map-orientation');
+  orientation.hidden = true;
   const detection = element('p', 'crawler-map-detection');
   detection.hidden = true;
   const drawing = document.createElementNS(SVG_NAMESPACE, 'svg');
@@ -163,7 +184,7 @@ export function mountMap(host: Host, zoomable = false): Section<MapView> {
   find.addEventListener('click', centre);
   controls.append(zoomOut, zoomLabel, zoomIn, find);
   controls.hidden = !zoomable;
-  map.append(mapHead, state, detection, controls, frame);
+  map.append(mapHead, orientation, state, detection, controls, frame);
 
   const render = (view: MapView): void => {
     panel.dataset.map = !view.available ? 'none' : view.mapped ? 'present' : 'unmapped';
@@ -172,6 +193,11 @@ export function mountMap(host: Host, zoomable = false): Section<MapView> {
     map.dataset.seen = String(view.seen);
     map.dataset.total = String(view.total);
     mapHead.textContent = view.title === '' ? 'Automap' : `${view.title}${view.name === '' ? '' : ` · ${view.name}`}`;
+    const hasOrientation = Object.values(view.orientation).some((word) => word !== '');
+    orientation.hidden = view.drawing === null || !hasOrientation;
+    orientation.textContent = hasOrientation
+      ? `Top: ${view.orientation.top} · Right: ${view.orientation.right} · Bottom: ${view.orientation.bottom} · Left: ${view.orientation.left}`
+      : '';
     state.textContent = view.state;
     detection.hidden = view.detectionMessage === '';
     detection.textContent = view.detectionEnds === '' ? view.detectionMessage : `${view.detectionMessage} Until ${view.detectionEnds}.`;

@@ -896,6 +896,7 @@ function automap(overrides = {}) {
     detection: '',
     detectionMessage: '',
     detectionEnds: '',
+    orientation: { top: 'South', bottom: 'North', left: 'West', right: 'East' },
     drawing: {
       rung: 1,
       rungs: 4,
@@ -4608,6 +4609,7 @@ test('the panel draws the automap the product projected and computes nothing of 
     const drawn = automapPanel(h);
     assert.equal(h.panel().getAttribute('data-map'), 'present');
     assert.equal(drawn.head, 'Automap · Erathia');
+    assert.equal(drawn.orientation, 'Top: South · Right: East · Bottom: North · Left: West');
     assert.equal(drawn.state, '16 of 64 squares walked (25%)');
     assert.equal(drawn.viewBox, '0 0 1000 1000');
     assert.deepEqual(drawn.cells, [
@@ -4678,6 +4680,9 @@ function automapPanel(h) {
   return {
     section,
     head: section.querySelector('.crawler-step-head').textContent,
+    orientation: section.querySelector('.crawler-map-orientation').hidden
+      ? ''
+      : section.querySelector('.crawler-map-orientation').textContent,
     state: section.querySelector('.crawler-map-state').textContent,
     detection: section.querySelector('.crawler-map-detection').hidden
       ? ''

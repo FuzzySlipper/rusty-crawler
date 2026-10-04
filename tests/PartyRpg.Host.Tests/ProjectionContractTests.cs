@@ -6,6 +6,7 @@ using System.Xml.Linq;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Input;
 using PartyRpg.Kit.Magic;
+using PartyRpg.Kit.Maps;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Rulesets;
@@ -579,6 +580,7 @@ public sealed class ProjectionContractTests
             Detection: "wizard-eye",
             DetectionMessage: "Wizard Eye shows what stands nearby.",
             DetectionEnds: "1168-01-02 10:30",
+            Orientation: new MapOrientation("South", "North", "West", "East"),
             Drawing: new MapDrawingSnapshot(
                 1,
                 4,

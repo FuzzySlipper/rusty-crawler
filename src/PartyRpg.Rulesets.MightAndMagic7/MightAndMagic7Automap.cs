@@ -66,6 +66,10 @@ internal sealed class MightAndMagic7Automap : IMapRule
     /// </remarks>
     private const int Sweep = 512;
 
+    /// <summary>The quarter turn from the marker's unturned south-pointing basis to raw zero yaw's east.</summary>
+    /// <remarks>The offset follows the direct-row drawing basis; it is not a tuning value.</remarks>
+    private const double MarkerBasisOffsetDegrees = 90;
+
     /// <summary>The rungs of this game's zoom ladder, as how many cells across a drawing shows.</summary>
     /// <remarks>
     /// <b>Ours.</b> The manual states that the automap zooms with two keys and states no magnifications; these
@@ -99,6 +103,19 @@ internal sealed class MightAndMagic7Automap : IMapRule
         Mapped: count => string.Create(
             CultureInfo.InvariantCulture,
             $"{count} place{(count == 1 ? string.Empty : "s")} mapped"));
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// The imported outdoor raster is written in the place's axes after the payload rows are reversed. A
+    /// drawing keeps those rows in direct SVG coordinates, so its top is south and its bottom is north while
+    /// east remains on the right. Publishing those words beside the drawing lets a player read an authored
+    /// route against the map without asking the companion to infer an axis convention.
+    /// </remarks>
+    public MapOrientation Orientation { get; } = new(
+        Top: "South",
+        Bottom: "North",
+        Left: "West",
+        Right: "East");
 
     /// <inheritdoc />
     public int SightRadius => Radius;
@@ -173,12 +190,14 @@ internal sealed class MightAndMagic7Automap : IMapRule
     /// <inheritdoc />
     /// <remarks>
     /// The place's own facing turns a whole circle in 2048 units, which is the rule this game's movement is
-    /// composed with (<see cref="MightAndMagic7Movement.Facing"/>), so a quarter turn is 512 and the marker is
-    /// turned from the same number the party walks by.
+    /// composed with (<see cref="MightAndMagic7Movement.Facing"/>), so a quarter turn is 512. The drawing's
+    /// unturned triangle points at its top edge (south in this game's direct-row raster), while raw zero yaw
+    /// points east; the quarter-turn offset aligns the marker with the published edges before the party's own
+    /// turn is applied.
     /// </remarks>
     public double FacingDegrees(double yaw)
     {
-        double degrees = yaw / MightAndMagic7Movement.Facing.UnitsPerTurn * 360;
+        double degrees = MarkerBasisOffsetDegrees + (yaw / MightAndMagic7Movement.Facing.UnitsPerTurn * 360);
         degrees %= 360;
         return degrees < 0 ? degrees + 360 : degrees;
     }

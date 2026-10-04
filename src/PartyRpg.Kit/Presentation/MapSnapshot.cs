@@ -156,6 +156,10 @@ public sealed record MapDrawingSnapshot(
 /// rather than keeping a second list, so the book and the automap cannot disagree about where the party has
 /// been.
 /// </para>
+/// <para>
+/// <b>The drawing carries its axis words.</b> A source map's row order may put north at the bottom of a screen;
+/// the ruleset's orientation is published with the map so a panel can label that fact instead of guessing it.
+/// </para>
 /// </remarks>
 /// <param name="Available">Whether the session holds a map owner at all.</param>
 /// <param name="Mapped">Whether the place the party stands in is one the session can map.</param>
@@ -170,6 +174,7 @@ public sealed record MapDrawingSnapshot(
 /// <param name="DetectionMessage">What it is revealing, in the game's own sentence, empty when none runs.</param>
 /// <param name="DetectionEnds">When that detection lapses, as a point on the calendar, empty when nothing says.</param>
 /// <param name="Drawing">The drawing, or null when there is nothing to draw.</param>
+/// <param name="Orientation">Which world directions the drawing's four edges name.</param>
 public sealed record MapSnapshot(
     bool Available,
     bool Mapped,
@@ -183,10 +188,21 @@ public sealed record MapSnapshot(
     string Detection = "",
     string DetectionMessage = "",
     string DetectionEnds = "",
-    MapDrawingSnapshot? Drawing = null)
+    MapDrawingSnapshot? Drawing = null,
+    MapOrientation Orientation = default)
 {
     /// <summary>No map owner: the session's ruleset stated no automap, so there is no map.</summary>
-    public static MapSnapshot None => new(false, false, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, 0, 0);
+    public static MapSnapshot None => new(
+        false,
+        false,
+        string.Empty,
+        string.Empty,
+        string.Empty,
+        string.Empty,
+        string.Empty,
+        0,
+        0,
+        Orientation: MapOrientation.Empty);
 
     /// <summary>
     /// The side of the square a drawing fills, in the drawing's own units.
@@ -208,18 +224,39 @@ public sealed record MapSnapshot(
         if (maps is null) return None;
         IMapRule rule = maps.Rule;
         MapWords words = rule.Words;
+        MapOrientation orientation = rule.Orientation;
         // A session that maps but holds no world yet — one still making its party — says exactly that: the
         // mechanism is there and there is nowhere to draw, which is not the same fact as a ruleset that stated
         // no automap, and a screen must be able to tell them apart.
         if (world is null)
         {
-            return new MapSnapshot(true, false, words.Title, string.Empty, string.Empty, string.Empty, words.NoWorld, 0, 0);
+            return new MapSnapshot(
+                true,
+                false,
+                words.Title,
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                words.NoWorld,
+                0,
+                0,
+                Orientation: orientation);
         }
 
         PlaceDefinition place = world.Graph.Require(world.Place);
         if (maps.Maps.For(world.Place) is not { } map)
         {
-            return new MapSnapshot(true, false, words.Title, place.Id.Value, place.Name, SessionProjection.WireName(place.Kind), words.Unmapped, 0, 0);
+            return new MapSnapshot(
+                true,
+                false,
+                words.Title,
+                place.Id.Value,
+                place.Name,
+                SessionProjection.WireName(place.Kind),
+                words.Unmapped,
+                0,
+                0,
+                Orientation: orientation);
         }
 
         MapTerritory? territory = maps.Find(world.Place);
@@ -281,7 +318,8 @@ public sealed record MapSnapshot(
             reveal?.Scope ?? string.Empty,
             reveal?.Message ?? string.Empty,
             reveal?.EndsAt is { } ends ? Date(ends) : string.Empty,
-            drawing);
+            drawing,
+            orientation);
     }
 
     /// <summary>Whether a detection is marking anything on the place the party stands in now.</summary>
@@ -492,5 +530,10 @@ public sealed record MapSnapshot(
             ("detection", builder.String(Detection)),
             ("detectionMessage", builder.String(DetectionMessage)),
             ("detectionEnds", builder.String(DetectionEnds)),
+            ("orientation", builder.Object(
+                ("top", builder.String(Orientation.Top ?? string.Empty)),
+                ("bottom", builder.String(Orientation.Bottom ?? string.Empty)),
+                ("left", builder.String(Orientation.Left ?? string.Empty)),
+                ("right", builder.String(Orientation.Right ?? string.Empty)))),
             ("drawing", Drawing is { } shape ? shape.Write(builder) : builder.Null()));
 }

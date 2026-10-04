@@ -142,7 +142,7 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   bounties add gold earned, and bound Knight arena opponents earn one win on settlement through those same
   owners ([arena reading](docs/evidence/arena-bouts.md)); current quest/fight saves preserve pending earning.
 - **Record.** Quests (definitions from content, instances on the party), `PartyJournal`, `PartyKnowledge`,
-  standing read from records, and the `PartyMaps` automap. A taken errand's needed item stays in the party:
+  standing read from records, and the `PartyMaps` automap, with ruleset edge words and a matching party arrow. A taken errand's needed item stays in the party:
   removal and charge use ask the quest owner, and its own turn-in delivers through the same custody owner.
 - **Persistence.** One current schema, written only on explicit save requests, carries party, clock, world,
   quests, journal, knowledge, maps and the resident fight, including bodies, held loot and recovery;

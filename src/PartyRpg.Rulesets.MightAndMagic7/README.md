@@ -148,6 +148,11 @@ Owns:
   than per target (ours). Each sum is a list of terms, so a later owner's term — a buff, an enchantment — is one
   more line in it. A save carries the figure as the party's item custody, and the ruleset suite resumes it and
   reads the same blow back.
+- Automap policy (`MightAndMagic7Automap`): the imported place raster keeps its direct product rows, so the
+  drawing's top is south, bottom is north, left is west and right is east; the published legend carries those
+  words and the party marker's facing adds the quarter-turn basis that makes raw zero yaw point east on that
+  drawing. This preserves the importer and the shared map projection's coordinates while making cardinal routes
+  readable in the ordinary map screen.
 - Monster, item, service, and condition definitions and their interpretation.
 - Combat, damage, resistance, conditions, recovery, reward, and experience formulas.
 - Progression policy: the experience curve, how a party's award divides, what a

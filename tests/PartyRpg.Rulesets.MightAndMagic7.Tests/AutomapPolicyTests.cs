@@ -35,6 +35,19 @@ public sealed class AutomapPolicyTests
     private static readonly CastIntentNames CastControls = new(
         Declared.UiActionContract);
 
+    [Theory]
+    [InlineData(0, 90)]
+    [InlineData(512, 180)]
+    [InlineData(1024, 270)]
+    [InlineData(1536, 0)]
+    public void This_games_map_marker_uses_the_published_south_up_raster(double yaw, double degrees)
+    {
+        MightAndMagic7Automap rule = new();
+
+        Assert.Equal(new MapOrientation("South", "North", "West", "East"), rule.Orientation);
+        Assert.Equal(degrees, rule.FacingDegrees(yaw));
+    }
+
     [Fact]
     public void This_game_draws_what_its_party_walks_and_marks_the_points_of_interest_it_passes()
     {
@@ -54,6 +67,10 @@ public sealed class AutomapPolicyTests
         Assert.Equal("1", map.Field("place").AsString());
         Assert.Equal("Erathia", map.Field("name").AsString());
         Assert.Equal("region", map.Field("kind").AsString());
+        Assert.Equal("South", map.Field("orientation").Field("top").AsString());
+        Assert.Equal("North", map.Field("orientation").Field("bottom").AsString());
+        Assert.Equal("West", map.Field("orientation").Field("left").AsString());
+        Assert.Equal("East", map.Field("orientation").Field("right").AsString());
         double walked = map.Field("seen").AsNumber();
         Assert.Equal(64d, map.Field("total").AsNumber());
         Assert.InRange(walked, 1, 63);
