@@ -782,7 +782,11 @@ with refused): a thief's hand finds what they carry first, the starting item bef
 ours: what was given or taken is the person's rather than each standing's, and the donor's three slots are not counted. A person a map's own record holds hidden
 (`"hidden": true`, the one shipped one Castle Harmondale's NPC row 56, which the donor keeps `Disabled` in an
 interior, `Indoor.cpp:979-998`) is read by the same `Stands`: they are not created and the conversation answers
-nobody at their placement, until an event shows their group — which, with no group, nothing does. `compare` of `invisible` holds while the party
+nobody at their placement, until an event shows their group — which, with no group, nothing does. Conversation presence
+also reads the world's defeated-placement ledger and the matching live actor's health: a fallen person cannot greet
+the party or advance a meeting objective, including after load or revisit. A distinct living placement remains talkable;
+the place's ordinary clock restoration makes its restored people available again. Body search keeps the existing corpse owner.
+`compare` of `invisible` holds while the party
 carries the invisibility spell's party-wide effect, whatever the value (`OpenEnroth/src/Engine/Objects/Character.cpp:3979-3980`:
 faithful) — the alarm plates skip their call to the guards for an invisible party — and of `alert` holds when the
 value is zero: the donor compares the map's alert status for equality (`Character.cpp:3956-3958`), reads it only from

@@ -242,8 +242,8 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
     /// on its records (<see cref="MightAndMagic7PersonState"/>), which the people a house's placement holds are read from.
     /// </param>
     /// <param name="stands">
-    /// Whether a placement stands on the field this visit (<see cref="MightAndMagic7Spawns.Stands"/>): a person a map's
-    /// own record holds hidden is not there to be spoken with. Absent, everybody placed is there.
+    /// Whether a person stands able to speak: composition reads map visibility, the world's defeated placements,
+    /// and the matching live actor's health. Absent, everybody placed is there.
     /// </param>
     /// <returns>This game's dialogue policy over that content, or null when no content was loaded.</returns>
     /// <exception cref="ContentValidationException">Content declares people that cannot be spoken with; every problem is named.</exception>
@@ -486,8 +486,8 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
             || string.Equals(kind, ResidencePlacementKind, StringComparison.Ordinal);
         if (!placed && !house) return null;
 
-        // A person a map's own record holds hidden is not there (OpenEnroth src/Engine/Graphics/Indoor.cpp:979-998 keeps
-        // a Disabled record unshown and unrun), so there is nobody at the placement to speak with.
+        // Hidden or defeated people cannot greet the party. The composed presence reading uses the same
+        // world and health owners as population and combat, so a body cannot advance a talk objective.
         if (placed && !Stands(request.Place, request.Placement)) return null;
 
         List<ConversationPerson> people = [];

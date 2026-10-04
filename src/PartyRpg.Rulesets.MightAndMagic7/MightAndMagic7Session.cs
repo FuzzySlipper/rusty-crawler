@@ -193,8 +193,21 @@ internal sealed class MightAndMagic7Session : IGameSession
             () => owners.Quests,
             () => events,
             () => owners.Party,
-            spawns.Stands,
+            PersonStands,
             () => owners.Accounts);
+
+        bool PersonStands(PlaceId place, PlacementDefinition placement)
+        {
+            if (!spawns.Stands(place, placement)) return false;
+            SessionWorld? current = owners.World;
+            if (current is null) return true;
+            if (current.Interactions.IsDefeated(place, placement.Content)) return false;
+            // The ledger survives leaving and loading; the live health also covers a fallen actor before
+            // its death is reported. An absent entity or unstated health is not evidence of death.
+            if (current.Population.Place != place) return true;
+            PlacePopulationEntity? person = current.Population.Entities.FirstOrDefault(entity => entity.Content == placement.Content);
+            return person is null || CreatureHealth.Find(person.Actor)?.IsDown != true;
+        }
         if (conversation is not null)
         {
             // What reading the people tables noticed is reported where the other composition notes are: a
