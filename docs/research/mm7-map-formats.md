@@ -301,7 +301,9 @@ errand condition and refuses the rows without answers, 118 in all across the 572
   **[verified: OE:src/Engine/Tables/DecorationTable.cpp:13-22]**) — shipped maps use `"east start"`/`"north start"`
   lowercase as often as `"Party Start"` **[verified: data, all 13 ODMs]**. Position = decoration `vPosition` (+0x04),
   but z is **replaced** by the floor level (`ODM_GetFloorLevel`/`BLV_GetFloorLevel`) and yaw comes from `_yawAngle`
-  (+0x10, 2048 units/turn: 0 west, 512 south, 1024 east, 1536 north) **[verified: OE:src/Engine/PartyPlacement.cpp:17-45]**.
+  (+0x10, 2048 units/turn: 0 east, 512 north, 1024 west, 1536 south)
+  **[verified: OE:src/Engine/PartyPlacement.cpp:17-45; yaw axes in OE:src/Engine/Party.h:293,
+  world/grid directions in OE:src/Engine/Graphics/OutdoorTerrain.h:14-27]**.
   No matching decoration ⇒ the party does not move.
 * **Which start point**: a `MoveToMap` with an all-zero x/y/z means "arrive at Party Start" **[verified:
   OE:src/Engine/Evt/EvtInterpreter.cpp:117-135]**; walking off an outdoor edge uses a hardcoded per-map direction

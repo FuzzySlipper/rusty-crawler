@@ -16,7 +16,7 @@ namespace MightAndMagic7.Import.Maps;
 /// <param name="DescriptionId">The decoration table id the runtime resolves the name to.</param>
 /// <param name="Flags">The decoration's flag word, kept raw; the delta carries the runtime flags.</param>
 /// <param name="Position">The stored position.</param>
-/// <param name="YawAngle">Facing, in 2048 units per turn: 0 west, 512 south, 1024 east, 1536 north.</param>
+/// <param name="YawAngle">Facing, in 2048 units per turn: 0 east, 512 north, 1024 west, 1536 south.</param>
 /// <param name="Cog">The clickable-object number, or 0 when the decoration is not clickable.</param>
 /// <param name="EventId">The event the decoration raises, or 0 when it raises none.</param>
 /// <param name="TriggerRange">The range at which the decoration's event triggers.</param>
