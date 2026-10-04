@@ -134,13 +134,14 @@ internal static class InventoryCheck
             Check(failures, "containers", 357, written.Containers.ContainerCount);
             Check(failures, "places with a container", 57, written.Containers.PlaceCount);
             Check(failures, "enterable services", 136, written.Services.CounterCount);
-            Check(failures, "service placements", 358, written.Services.PlacementCount);
+            // Only same-map event/face joins locate houses; the unused table Map column is not authoritative.
+            Check(failures, "service placements", 342, written.Services.PlacementCount);
             Check(failures, "stables and docks", 14, written.Services.FareCounterCount);
             Check(failures, "people inside buildings", 247, written.People.ResidentCount);
             Check(failures, "people the maps hold hidden", 1, written.People.HiddenPlacementCount);
             Check(failures, "people the maps start carrying an item", 8, written.People.CarryingPlacementCount);
             Check(failures, "buildings with people", 195, written.People.HouseholdCount);
-            Check(failures, "unreachable residents", 2, written.People.UnreachableResidentCount);
+            Check(failures, "unreachable residents", 3, written.People.UnreachableResidentCount);
             // The importer emits encounters, not creatures: which grade and how many are the ruleset's draw when
             // a place is populated. The creature figures are therefore the range the slots' own counts allow —
             // the floor, which is every random slot at its fewest, and the ceiling, every one at its most.

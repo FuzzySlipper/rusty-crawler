@@ -8,9 +8,9 @@ namespace MightAndMagic7.Import.Packs;
 /// <summary>One building row the importer turns into a service definition.</summary>
 /// <remarks>
 /// <para>
-/// Everything here is the building table's own column, carried unchanged and named after the column it came
-/// from, with the map the row stands on resolved from the table's map id to the place the map table gives
-/// that id. A row that names a service but leaves its multiplier, its hours, or its stock interval empty
+/// The service properties are the building table's own columns, carried unchanged and named after their
+/// source. Its map is resolved from the face and local event that open the building; the table's unused
+/// Map column is not a placement authority. A row that names a service but leaves its multiplier, its hours, or its stock interval empty
 /// carries that absence as a null: a weapon shop and a training hall do not have the same columns filled,
 /// and inventing a number for the empty one would be inventing content.
 /// </para>
@@ -27,7 +27,7 @@ namespace MightAndMagic7.Import.Packs;
 /// <param name="Name">The building's name, as a person reads it on the sign.</param>
 /// <param name="Proprietor">The proprietor's name, empty when the row names nobody.</param>
 /// <param name="Title">The proprietor's title, empty when the row states none.</param>
-/// <param name="MapId">The map the building stands on, which is the region its door is walked into.</param>
+/// <param name="MapId">The actual map whose face and local event open the building.</param>
 /// <param name="PlaceId">The place the map id resolves to, as the pack's places document names it.</param>
 /// <param name="PriceMultiplier">The shop's price multiplier, absent on rows that carry none.</param>
 /// <param name="SkillPriceMultiplier">The shop's skill and spell price multiplier, absent on rows that are not shops.</param>
@@ -58,7 +58,7 @@ public sealed record PlaceServiceDefinition(
 /// <summary>One counter standing in a place: where it is reached, and which building it serves.</summary>
 /// <remarks>
 /// <para>
-/// The building table states which map a building is on and nothing about where in that map its door is.
+/// The building table's Map column is unused by the donor and does not reliably locate a building.
 /// The door is a fact of the map: the donor hangs a house's event on the faces of the building's own model
 /// and opens the house when the party clicks one (OpenEnroth <c>src/Engine/Evt/EvtEnums.h:9</c>,
 /// <c>EVENT_SpeakInHouse</c>, and <c>src/Engine/Evt/EvtInstruction.cpp:905-907</c>, which reads the house
@@ -193,8 +193,8 @@ public sealed record PlaceServiceSummary(
 /// <remarks>
 /// <para>
 /// <b>What the table gives and what the map gives.</b> The table gives a building's kind, name,
-/// proprietor, map, multipliers, stock interval, training cap, and hours; the map gives where in that map
-/// its door is, as the event faces the donor opens a house from. This emitter joins the two and emits one
+/// proprietor, multipliers, stock interval, training cap, and hours; the matching map-local event and face
+/// give the actual map and location of its door. This emitter joins the two and emits one
 /// service definition per row that has both, a placement per row whose faces exist, and a refusal naming
 /// every row that gets neither — so the count of enterable counters is a number this import states rather
 /// than one a reader has to derive.
@@ -269,10 +269,8 @@ public static class PlaceServiceEmitter
         ArgumentNullException.ThrowIfNull(maps);
 
         Dictionary<string, EvtProgram> byStem = Programs(programs);
-        Dictionary<int, string> placeNames = tables.Maps.Maps.ToDictionary(map => map.Id, map => map.Name);
-        Dictionary<int, string> placeFiles = tables.Maps.Maps.ToDictionary(map => map.Id, map => map.FileName);
-        Dictionary<int, HashSet<int>> houseEvents = HouseEvents(maps, byStem);
-        Dictionary<int, List<Candidate>> candidates = Candidates(maps, houseEvents);
+        Dictionary<(int Place, int House), HashSet<int>> houseEvents = HouseEvents(maps, byStem);
+        Dictionary<(int Place, int House), List<Candidate>> candidates = Candidates(maps, houseEvents);
 
         List<PlaceServiceDefinition> definitions = [];
         List<PlaceServicePlacement> placements = [];
@@ -305,23 +303,29 @@ public static class PlaceServiceEmitter
                 continue;
             }
 
-            if (building.MapId is not int mapId || mapId == 0 || !maps.ContainsKey(mapId))
-            {
-                refusals.Add(Refuse(
-                    building,
-                    "no-map",
-                    "The row names no map this import decoded, so there is no place its door could stand in."));
-                continue;
-            }
-
-            if (!candidates.TryGetValue(building.Id, out List<Candidate>? faces) || faces.Count == 0)
+            // The table's Map column is unused by the donor and is wrong for several indoor
+            // households (HouseTable.cpp:24). The face and its own map program locate the entrance.
+            var entrances = candidates.Where(entry => entry.Key.House == building.Id).ToArray();
+            if (entrances.Length == 0)
             {
                 refusals.Add(Refuse(
                     building,
                     IsTravelMarker(building.Type) ? "travel-marker" : "no-signing-face",
-                    NoFaceReason(building, mapId, placeNames, placeFiles)));
+                    NoFaceReason(building)));
                 continue;
             }
+
+            // The emitted house and its resident list have one location. Do not merge coordinates
+            // from different maps or silently pick a door when the source gives conflicting locations.
+            if (entrances.Length > 1)
+            {
+                refusals.Add(Refuse(building, "ambiguous-entrance-map",
+                    $"House {building.Id} has entrance faces in multiple maps ({string.Join(", ", entrances.Select(entry => entry.Key.Place).Order())}); one household location cannot represent them without losing an entrance."));
+                continue;
+            }
+
+            int mapId = entrances[0].Key.Place;
+            List<Candidate> faces = entrances[0].Value;
 
             (Candidate chosen, IReadOnlyList<Candidate> used, string positionSource) = Choose(faces);
             double x = used.Average(face => face.X);
@@ -427,20 +431,14 @@ public static class PlaceServiceEmitter
         name.Contains("Placeholder", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The reason a row with a map has no face to stand on, in terms a person can act on.</summary>
-    private static string NoFaceReason(
-        ServiceRecord building,
-        int mapId,
-        IReadOnlyDictionary<int, string> placeNames,
-        IReadOnlyDictionary<int, string> placeFiles)
+    private static string NoFaceReason(ServiceRecord building)
     {
         if (IsTravelMarker(building.Type))
         {
             return $"The row is a travel marker ('{building.Type}'), which this import carries as a door the place graph already moves the party through rather than as a counter; the graph's own links name the house id {building.Id}.";
         }
 
-        string place = placeNames.TryGetValue(mapId, out string? name) ? name : mapId.ToString(CultureInfo.InvariantCulture);
-        string file = placeFiles.TryGetValue(mapId, out string? mapFile) ? mapFile : "an unknown file";
-        return $"No face of place {mapId} ('{place}', '{file}') raises an event that opens house {building.Id}, so nothing in the map tells the party the building is there.";
+        return $"No decoded map has a face whose local event opens house {building.Id}, so the import has no entrance location for it.";
     }
 
     /// <summary>Whether a row's type is a door the travel graph carries rather than a building.</summary>
@@ -458,11 +456,11 @@ public static class PlaceServiceEmitter
     /// building's counter twice, on two rows, which is exactly the kind of wrong counter this derivation
     /// exists to avoid.
     /// </remarks>
-    private static Dictionary<int, HashSet<int>> HouseEvents(
+    private static Dictionary<(int Place, int House), HashSet<int>> HouseEvents(
         IReadOnlyDictionary<int, DecodedMap> maps,
         IReadOnlyDictionary<string, EvtProgram> byStem)
     {
-        Dictionary<int, HashSet<int>> events = [];
+        Dictionary<(int Place, int House), HashSet<int>> events = [];
         foreach ((int placeId, DecodedMap map) in maps.OrderBy(entry => entry.Key))
         {
             string stem = Stem(map.FileName);
@@ -480,7 +478,7 @@ public static class PlaceServiceEmitter
 
             foreach ((ushort eventId, (byte _, int house)) in opening)
             {
-                if (!events.TryGetValue(house, out HashSet<int>? ids)) events[house] = ids = [];
+                if (!events.TryGetValue((placeId, house), out HashSet<int>? ids)) events[(placeId, house)] = ids = [];
                 ids.Add(eventId);
             }
         }
@@ -489,18 +487,18 @@ public static class PlaceServiceEmitter
     }
 
     /// <summary>
-    /// Every face that raises a building's event, keyed by the building, in place and face order.
+    /// Every face that raises a building's event, keyed by place and building, in place and face order.
     /// </summary>
     /// <remarks>
     /// A house id is an index into one table for the whole game, so a face only belongs to the house when
     /// the event it raises in its own map's program names that house: the same event id means different
     /// things in different maps.
     /// </remarks>
-    private static Dictionary<int, List<Candidate>> Candidates(
+    private static Dictionary<(int Place, int House), List<Candidate>> Candidates(
         IReadOnlyDictionary<int, DecodedMap> maps,
-        Dictionary<int, HashSet<int>> houseEvents)
+        Dictionary<(int Place, int House), HashSet<int>> houseEvents)
     {
-        Dictionary<int, List<Candidate>> candidates = [];
+        Dictionary<(int Place, int House), List<Candidate>> candidates = [];
         foreach ((int placeId, DecodedMap map) in maps.OrderBy(entry => entry.Key))
         {
             foreach ((int faceIndex, MapFace face, int modelIndex, string modelName) in MapFaceList.Flatten(map))
@@ -512,10 +510,10 @@ public static class PlaceServiceEmitter
                 // has no middle and no bottom, and averaging nothing would be a position this importer
                 // invented.
                 if (face.Vertices.Count == 0) continue;
-                foreach ((int house, HashSet<int> events) in houseEvents)
+                foreach (((int eventPlace, int house), HashSet<int> events) in houseEvents)
                 {
-                    if (!events.Contains(face.EventId)) continue;
-                    if (!candidates.TryGetValue(house, out List<Candidate>? list)) candidates[house] = list = [];
+                    if (eventPlace != placeId || !events.Contains(face.EventId)) continue;
+                    if (!candidates.TryGetValue((placeId, house), out List<Candidate>? list)) candidates[(placeId, house)] = list = [];
                     list.Add(new Candidate(placeId, faceIndex, modelIndex, modelName, face));
                 }
             }

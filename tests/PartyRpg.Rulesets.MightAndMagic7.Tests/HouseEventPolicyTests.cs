@@ -22,7 +22,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7.Tests;
 /// <remarks>
 /// The staged figures are the operator's install: the hostels of Celeste and The Pit (houses 428 and 433) are opened
 /// by event 376 of each map, which first compares quest bit 127 (Celeste) or 109 (The Pit) and, holding it, moves the
-/// party to the Small House instead (links 38 and 47); Harmondale's weapon shop (house 2, event 3) is shut while quest
+/// party to the Small House instead (links 38 and 47); Harmondale's bank (house 128, event 31) is shut while quest
 /// bit 183 is held; Castle Harmondale's door (event 301 of <c>out02.evt</c>) calls the butler over and moves him to house
 /// 108.
 /// </remarks>
@@ -82,7 +82,7 @@ public sealed partial class FixturePolicyTests
     }
 
     [ImportedFact("place-events.json")]
-    public void A_shop_its_own_event_shuts_keeps_the_party_outside_with_what_the_event_says()
+    public void A_counter_its_own_event_shuts_keeps_the_party_outside_with_what_the_event_says()
     {
         ContentCatalog catalog = ImportedContent.Load();
         PlaceGraph graph = MightAndMagic7World.Graph(catalog);
@@ -90,11 +90,15 @@ public sealed partial class FixturePolicyTests
         GameClock clock = TestClock.Create(scale: 1);
         using PartyEntity party = Party();
         (_, IInteractionRule rule) = Housing(catalog, () => party, population, clock);
-        PlacementDefinition shop = Placed(population, Harmondale, "service-2");
+        // The bank's actual selected entrance carries the siege gate. The weapon shop's sign
+        // carries unconditional event 4; its former event 3 came from an unrelated map's face.
+        PlacementDefinition shop = Placed(population, Harmondale, "service-128");
+        Assert.Equal(31, shop.Source.GetInt32("sourceEvent"));
 
         InteractionOutcome open = House(rule, shop, Harmondale, party, clock, population, graph);
+        Assert.True(open.IsApplied, $"{open.Refusal?.Message} | {open.Message} | {open.Residue}");
         Assert.False(open.KeptOut);
-        Assert.Equal("service-2", open.Speaks?.Id);
+        Assert.Equal("service-128", open.Speaks?.Id);
 
         party.Records.Mark(MightAndMagic7Quests.ErrandRecord("183"));
         InteractionOutcome shut = House(rule, shop, Harmondale, party, clock, population, graph);

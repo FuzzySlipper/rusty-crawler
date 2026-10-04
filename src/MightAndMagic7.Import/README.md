@@ -82,6 +82,10 @@ Owns:
   holds one — and a row with neither, or a slot naming no row, is refused with its reason.
 - Household entrances retain their building's opening hours on the existing residence placement,
   beside the event and signing face provenance. A counter's hours stay in its canonical service definition.
+  House-event numbers are scoped to their map throughout the face join: a counter or residence uses only
+  faces whose local event opens that house. The actual face's map locates the entrance; the table's unused
+  Map column cannot relocate it. A reused event number on another map cannot donate unrelated geometry.
+  Conflicting entrances on multiple maps are reported rather than averaged into one false location.
   Equal opening and closing hours normalize there, or on a household's placement, to an all-day window;
   source rows remain unchanged in the building table. Their use runs the existing house event path.
   Emitted counts and a grounded imported-town check are recorded in

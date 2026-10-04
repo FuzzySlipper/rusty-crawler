@@ -1,6 +1,9 @@
 using System.Text.Json;
+using MightAndMagic7.Import.Events;
 using MightAndMagic7.Import.Lod;
+using MightAndMagic7.Import.Maps;
 using MightAndMagic7.Import.Packs;
+using MightAndMagic7.Import.Tables;
 using MightAndMagic7.Import.Tool;
 using Xunit;
 
@@ -24,6 +27,56 @@ namespace MightAndMagic7.Import.Tests;
 /// </remarks>
 public sealed class ServiceEmissionTests
 {
+    [Theory]
+    [InlineData(98, true)]
+    [InlineData(99, true)]
+    [InlineData(98, false)]
+    [InlineData(99, false)]
+    public void A_house_uses_only_faces_and_event_meaning_from_its_own_map(int otherHouse, bool localFace)
+    {
+        string installRoot = SyntheticInstallation.Create(withServices: true);
+        try
+        {
+            Mm7Tables tables = Mm7Tables.Read(LodInstall.Open(installRoot));
+            int ownPlace = SyntheticInstallation.ServiceMap(98);
+            int otherPlace = SyntheticInstallation.ServiceMap(99);
+            DecodedMap own = MapDecoder.DecodeIndoor(LodFixture.Stored("own.blv",
+                ContainerDecoderTests.ContainerIndoorPayload([localFace ? 11 : 12])));
+            DecodedMap other = MapDecoder.DecodeIndoor(LodFixture.Stored("other.blv",
+                ContainerDecoderTests.ContainerIndoorPayload([11, 11], spacing: 2000)));
+            PlaceServiceSummary result = PlaceServiceEmitter.Emit(tables.Services, tables,
+                [EvtProgram.Read("own.evt", SyntheticInstallation.SpeakInHouse(11, 98)),
+                 EvtProgram.Read("other.evt", SyntheticInstallation.SpeakInHouse(11, otherHouse))],
+                new Dictionary<int, DecodedMap> { [ownPlace] = own, [otherPlace] = other });
+
+            // The face and its event program must agree on their actual map. The table's unused
+            // Map column cannot move a valid entrance into another map or supply a missing face.
+            if (localFace && otherHouse == 98)
+            {
+                Assert.DoesNotContain(result.Placements, item => item.BuildingId == 98);
+                Assert.Equal("ambiguous-entrance-map", Assert.Single(result.Refusals, item => item.BuildingId == 98).Code);
+            }
+            else if (localFace || otherHouse == 98)
+            {
+                PlaceServicePlacement placed = Assert.Single(result.Placements, item => item.BuildingId == 98);
+                DecodedMap expected = localFace ? own : other;
+                int expectedPlace = localFace ? ownPlace : otherPlace;
+                Assert.Equal(expectedPlace, placed.PlaceId);
+                Assert.Equal(localFace ? 1 : 2, placed.FaceCount);
+                Assert.Equal(11, placed.EventId);
+                Assert.Equal(expected.Faces[0].Vertices.Average(point => (double)point.X), placed.X);
+                Assert.Equal(expected.Faces[0].Vertices.Average(point => (double)point.Y), placed.Y);
+                Assert.Equal(expectedPlace, Assert.Single(result.Services, item => item.BuildingId == 98).MapId);
+            }
+            else
+            {
+                Assert.DoesNotContain(result.Placements, item => item.BuildingId == 98);
+                Assert.Equal("no-signing-face", Assert.Single(result.Refusals, item => item.BuildingId == 98).Code);
+            }
+        }
+        finally { Directory.Delete(installRoot, recursive: true); }
+    }
+
     [Theory]
     [InlineData(false, 9, 21)]
     [InlineData(true, 0, 24)]

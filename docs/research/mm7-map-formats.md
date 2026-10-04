@@ -284,9 +284,13 @@ and `npctopic.txt`, whose columns the data inventory records (`docs/research/mm7
 
 The same tables place **247 further people inside buildings**: `Npcdata.txt`'s `2D Location` column is the
 `2DEvents.txt` row the person lives in (195 distinct buildings), which is how a shopkeeper or a household's
-residents are reached without standing in the open. Of those 195 buildings, the import places a door for 193; the
-other two (rows 453 and 521) raise no event on any face of their map, so their two people are unreachable and are
-reported as such rather than dropped.
+residents are reached without standing in the open. Of those 195 buildings, the import places a door for 192; the
+other three (rows 291, 453 and 521) have no map-local event/face join opening them, so their three people are
+reported as unreachable rather than dropped. House entrances join a face only to its own map program.
+The actual face locates the household: `2DEvents.txt`'s Map column is unused by the donor
+(`src/Engine/Tables/HouseTable.cpp:24`) and incorrectly puts six indoor households on the first region.
+The local event opens its named house (`src/Engine/Evt/EvtInterpreter.cpp:189-197`);
+using that actual map preserves those entrances without borrowing unrelated faces with reused event numbers.
 
 **The `Npctopic.txt` requirement column gates rows that carry no answer.** Six rows state a requirement (1, 2, or 3 —
 the `Trading Triangle` topics) and every one of them names no text row, so in this release the only machine-readable

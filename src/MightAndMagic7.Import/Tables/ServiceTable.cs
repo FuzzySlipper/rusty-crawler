@@ -6,7 +6,7 @@ namespace MightAndMagic7.Import.Tables;
 /// <param name="Id">The building id.</param>
 /// <param name="TypeSequence">The building's position among buildings of its own type.</param>
 /// <param name="Type">The free-text type string.</param>
-/// <param name="MapId">The map the building stands on, absent on the table's unused rows.</param>
+/// <param name="MapId">The raw Map column, absent on unused rows; source metadata that the donor does not use to locate entrances.</param>
 /// <param name="Name">The building's name.</param>
 /// <param name="Proprietor">The proprietor's name.</param>
 /// <param name="Title">The proprietor's title.</param>
