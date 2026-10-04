@@ -1,3 +1,4 @@
+using PartyRpg.Kit;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
@@ -148,7 +149,8 @@ internal static class MightAndMagic7World
         Func<PartyJournal?>? journal = null,
         MightAndMagic7Combat? vitals = null,
         MightAndMagic7Spawns? spawns = null,
-        MightAndMagic7Fixtures? fixtures = null)
+        MightAndMagic7Fixtures? fixtures = null,
+        IGameNames? names = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(clock);
@@ -236,7 +238,8 @@ internal static class MightAndMagic7World
                 // last ran — is rebuilt from the save, judged with the rest of it before anything was composed.
                 null,
                 MightAndMagic7Movement.Hazards(entity, mover),
-                interactions);
+                interactions,
+                names);
 
             // What the population could not resolve — an encounter that needs a draw in a product with no
             // random service, a drawn grade the content carries no variant for — is reported where the other

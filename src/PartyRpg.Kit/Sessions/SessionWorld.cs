@@ -114,6 +114,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// What standing on a kind of ground does to the party while time passes. Without one no ground harms anybody.
     /// </param>
     /// <param name="interactionState">An explicitly composed canonical ledger, instead of a restore snapshot.</param>
+    /// <param name="names">The game's shared names for items transferred by world interaction.</param>
     /// <exception cref="ArgumentNullException">A required collaborator is missing.</exception>
     public SessionWorld(
         PlaceGraph graph,
@@ -135,7 +136,8 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         IPlacementExpansion? expansion = null,
         InteractionLedgerSnapshot? interactions = null,
         IGroundHazardRule? hazards = null,
-        InteractionLedger? interactionState = null)
+        InteractionLedger? interactionState = null,
+        IGameNames? names = null)
     {
         ArgumentNullException.ThrowIfNull(graph);
         if (interactionState is not null && interactions is not null)
@@ -166,7 +168,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         Mover = mover;
         Creatures = creatures;
         Schedule = schedule ?? PlaceSchedule.Empty;
-        Interaction = interaction is null ? null : new PartyInteraction(this, interaction.Rule, interaction.Space, interaction.Tuning, interaction.Corpses, interaction.Selection);
+        Interaction = interaction is null ? null : new PartyInteraction(this, interaction.Rule, interaction.Space, interaction.Tuning, interaction.Corpses, interaction.Selection, names);
         _corpses = interaction?.Corpses;
         // The place the party starts in is entered exactly as any other is, so the scene it walks in is
         // filled from that place's content before the first step rather than one arrival late.

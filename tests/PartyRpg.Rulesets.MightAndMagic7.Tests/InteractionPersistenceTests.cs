@@ -74,6 +74,11 @@ public sealed class InteractionPersistenceTests
         live.World.Party.Move(0, 1000, 0);
         session.Update(RulesetTestContext.Update(2, 1, RulesetTestContext.Digital(Declared.UseIntent)));
         Assert.Equal("searched", live.World.Interactions.StateOf(new("1"), new(kind, "chest")).State);
+        if (kind == "sprite")
+        {
+            Assert.Contains("The party takes 1 × A token.", live.World.Interaction!.LastResult!.Message);
+            Assert.Equal(1, live.Party!.Inventory.TotalOf(new("7")));
+        }
         SessionSave saved = MightAndMagic7Ruleset.Instance.Save(session);
         Assert.Equal(2, Assert.Single(saved.World.Interaction.Places).Targets.Count);
 

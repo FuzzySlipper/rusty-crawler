@@ -52,6 +52,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
 
     private readonly IInteractionWorld _world;
     private readonly IInteractionRule _rule;
+    private readonly IGameNames? _names;
     private readonly ICorpseSource? _corpses;
     private readonly PlaceSpace _space;
     private readonly InteractionTuning _tuning;
@@ -75,11 +76,13 @@ public sealed class PartyInteraction : IWorldInteractionScene
     /// The product's one selection, which outlives this mechanism and is what an inspection from outside the
     /// session reads. Without one the mechanism aims through a selection of its own that nothing else reads.
     /// </param>
+    /// <param name="names">The game's item names for transfer feedback, or null to report definition identities.</param>
     /// <exception cref="ArgumentNullException">The world or the rule is missing.</exception>
-    public PartyInteraction(IInteractionWorld world, IInteractionRule rule, PlaceSpace space, InteractionTuning tuning, ICorpseSource? corpses = null, InteractionSelection? selection = null)
+    public PartyInteraction(IInteractionWorld world, IInteractionRule rule, PlaceSpace space, InteractionTuning tuning, ICorpseSource? corpses = null, InteractionSelection? selection = null, IGameNames? names = null)
     {
         _world = world ?? throw new ArgumentNullException(nameof(world));
         _rule = rule ?? throw new ArgumentNullException(nameof(rule));
+        _names = names;
         _corpses = corpses;
         _space = space;
         _tuning = tuning;
@@ -528,9 +531,10 @@ public sealed class PartyInteraction : IWorldInteractionScene
         {
             foreach (InteractionItemYield yield in outcome.Items)
             {
+                string name = GameNames.Item(_names, yield.Definition);
                 ItemAcquisition acquisition = keeper.AcquireItem(yield.Definition, yield.Count);
-                if (acquisition.Admitted) taken.Add($"{yield.Count} × {yield.Definition}");
-                else left.Add($"{yield.Count} × {yield.Definition} ({acquisition.Refusal?.Message ?? "refused"})");
+                if (acquisition.Admitted) taken.Add($"{yield.Count} × {name}");
+                else left.Add($"{yield.Count} × {name} ({acquisition.Refusal?.Message ?? "refused"})");
             }
         }
 

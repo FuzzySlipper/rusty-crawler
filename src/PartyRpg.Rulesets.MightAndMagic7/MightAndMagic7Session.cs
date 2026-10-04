@@ -436,7 +436,8 @@ internal sealed class MightAndMagic7Session : IGameSession
                 () => owners.Journal,
                 combat,
                 spawns,
-                fixtures);
+                fixtures,
+                rules.Names);
             return new SessionParty.Playing(
                 walked,
                 walker,

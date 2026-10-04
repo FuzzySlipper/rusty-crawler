@@ -444,7 +444,9 @@ place values its outcome kept — named whole numbers every target of the place 
 `InteractionContext.PlaceValues`, which `InteractionLedger.Capture` carries in the save's world section and a
 restore of the place forgets — and the other targets of the place it changed (`InteractionTargetChange`: a lever
 reads a door through `InteractionContext.PlaceTargets` and `TargetState` and the mechanism records the door's
-new word under the door's own identity), hands the party to a conversation when the outcome names somebody
+new word under the door's own identity). Item transfer feedback reads the session's existing `IGameNames`
+through `GameNames.Item`, with the definition identity as fallback when a game supplies no name. The workflow
+hands the party to a conversation when the outcome names somebody
 (`InteractionOutcome.Speaks`, opened by the session as using a person is), takes the party on the journey the outcome
 names after recording the use where it was made (`InteractionOutcome.Travels`: an `InteractionTravel` over a transition
 the place issues, read by the rule from `InteractionContext.PlaceTransitions` and taken by `SessionWorld.Travel` — a
