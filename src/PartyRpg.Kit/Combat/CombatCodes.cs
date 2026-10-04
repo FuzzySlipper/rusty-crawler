@@ -24,6 +24,9 @@ public static class CombatCodes
     /// <summary>The refusal code <c>unknown-target</c>.</summary>
     public const string UnknownTarget = "unknown-target";
 
+    /// <summary>The named world actor is already defeated; its body cannot be attacked again.</summary>
+    public const string TargetDown = "target-down";
+
     /// <summary>The refusal code <c>weapon-no-target</c>.</summary>
     public const string WeaponNoTarget = "weapon-no-target";
 

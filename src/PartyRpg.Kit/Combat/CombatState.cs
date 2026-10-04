@@ -551,6 +551,16 @@ public sealed partial class CombatState : IGameTimeObserver
 
             RefreshLive(target);
 
+            // A world body's health is final. Members instead retain the ruleset's below-empty
+            // wound ladder, so incapability alone must not make them immune to further harm.
+            if (target.Subject.Entity is not null && IsDown(target))
+            {
+                return Report(CombatResult.Refused(
+                    actor.Id,
+                    actor.Name,
+                    new Refusal(CombatCodes.TargetDown, $"{target.Name} is already down, so {actor.Name} did not attack its body and nothing was spent.")));
+            }
+
             if (OnPartysSide(target) && OnPartysSide(actor))
             {
                 return Report(CombatResult.Refused(

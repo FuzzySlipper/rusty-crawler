@@ -228,6 +228,42 @@ public sealed class MagicPolicyTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void A_foe_spell_whose_selected_creature_has_fallen_refuses_before_payment(bool turnBased)
+    {
+        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(MonsterContent(farMonsterAt: 3000));
+        using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
+            RulesetTestContext.RulesetContext(context, ui, combat: true) with { Cast = CastControls });
+        session.Start();
+        session.Update(RulesetTestContext.Update(1, 1));
+        MightAndMagic7Session live = Assert.IsType<MightAndMagic7Session>(session);
+        CombatState fight = live.Combat!;
+        Combatant caster = fight.Combatants.Single(actor => actor.Subject.IsMember);
+        Combatant target = fight.Combatants.Single(actor => actor.Distance > 2000);
+        Assert.Equal(CombatSide.Neutral, target.Side);
+        int points = live.Party!.Members[0].Resources.SpellPoints.Current;
+        ulong step = 2;
+        if (turnBased)
+            session.Update(RulesetTestContext.Update(step++, 1, RulesetTestContext.Digital(Declared.TurnBasedToggleIntent)));
+
+        // The target was aimable when selected, but falls before the queued cast is admitted.
+        CreatureHealth health = CreatureHealth.Find(target.Subject.Entity!.Actor)!;
+        Assert.True(health.Wound(health.Maximum));
+        session.Update(RulesetTestContext.Update(step, 0, 0,
+            RulesetTestContext.Payload($$"""{"action":"party.cast","member":0,"spell":"2","target":"{{target.Id}}"}""")));
+        SpellCastResult refused = live.Owners.Casting!.Last!;
+        Assert.False(refused.IsCast);
+        Assert.Equal(SpellCodes.SpellTargetInvalid, refused.Code);
+        Assert.Contains("already down", refused.Message);
+        Assert.Equal(points, live.Party.Members[0].Resources.SpellPoints.Current);
+        Assert.True(caster.IsReady);
+        Assert.Equal(CombatSide.Neutral, target.Side);
+        Assert.Contains(target, fight.Combatants);
+        if (turnBased) Assert.True(fight.Turns.WaitsForPlayer);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void A_foe_spell_beyond_attack_reach_is_refused_before_points_recovery_or_provocation(bool turnBased)
     {
         (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(MonsterContent(farMonsterAt: 6000));

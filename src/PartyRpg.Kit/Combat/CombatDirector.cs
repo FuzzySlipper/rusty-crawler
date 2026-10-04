@@ -429,8 +429,8 @@ public sealed class CombatDirector
 
     /// <summary>Builds what one creature is told about its own moment.</summary>
     /// <remarks>
-    /// Every other actor in the fight is a candidate, and the only thing the kit decides about one is
-    /// whether the policy calls it an enemy — which it asks, once per candidate, so the answer a policy
+    /// Every other actor except a defeated world body is a candidate. The kit asks the policy
+    /// whether it calls each candidate an enemy once, so the answer a policy
     /// reads is the answer it gave. The party's own members are candidates whether or not the creature is
     /// hostile to them, because a creature that has not noticed the party is not in the fight at all.
     /// </remarks>
@@ -440,7 +440,7 @@ public sealed class CombatDirector
         List<CreatureCandidate> candidates = [];
         foreach (Combatant other in _combat.Combatants)
         {
-            if (ReferenceEquals(other, creature)) continue;
+            if (ReferenceEquals(other, creature) || (other.Subject.Entity is not null && _combat.IsDown(other))) continue;
             // The party is the enemy of what fights it and of nothing standing with it; between two creatures,
             // the game's own answer decides.
             bool party = other.Side == CombatSide.Party;

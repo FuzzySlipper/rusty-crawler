@@ -158,10 +158,14 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         // the casting is paid for. This deliberately leaves area readings such as Turn Undead and Mass Fear to
         // their authored in-view depth, and does not ask who noticed the party or whether an interaction ray can
         // see the target: a neutral creature is still a legal target, and an in-range cast is what provokes it.
-        if (application.Fight is { } targetFight && application.Target is { } target && RequiresNamedCombatReach(application.Spell, reading) &&
-            !targetFight.IsInReach(application.CasterId, target, AttackKind.Spell))
+        if (application.Fight is { } targetFight && application.Target is { } target && RequiresNamedCombatReach(application.Spell, reading))
         {
-            return SpellRefusals.TargetOutOfReach(application.Spell.Name, application.TargetName);
+            // A previously selected foe may have fallen before this cast was admitted. Judge its live
+            // state before payment; body-capable spells have their own reading and do not enter here.
+            if (targetFight.Find(target) is { Subject.Entity: not null } creature && targetFight.IsDown(creature))
+                return new Refusal(SpellCodes.SpellTargetInvalid, $"{creature.Name} is already down, so {application.Spell.Name} was not cast and no spell point was spent.");
+            if (!targetFight.IsInReach(application.CasterId, target, AttackKind.Spell))
+                return SpellRefusals.TargetOutOfReach(application.Spell.Name, application.TargetName);
         }
 
         // A spell the game limits by the day is refused before anything is spent once the caster has cast it as

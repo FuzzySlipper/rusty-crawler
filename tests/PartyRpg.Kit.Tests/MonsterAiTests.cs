@@ -52,6 +52,34 @@ public sealed class MonsterAiTests
     private const int BlowDamage = 10;
 
     [Fact]
+    public void A_creature_retargets_after_its_neutral_victim_falls_and_the_body_stays_in_the_world()
+    {
+        using PartyEntity party = Party();
+        using SessionWorld world = World(party, new Days(), beastAt: 40, twoKinds: true, single: true);
+        CombatState fight = Fight(world, party, resolving: true, noticeRange: 45);
+        world.ArriveAt(Hall, Pose());
+        world.Populate();
+        fight.Step();
+        Combatant attacker = Assert.Single(fight.Opposition);
+        Combatant victim = fight.Combatants.Single(actor => actor.Name == "A rival beast");
+        Assert.Equal(CombatSide.Neutral, victim.Side);
+        Assert.True(fight.Order(new AttackOrder(attacker.Id, AttackKind.Melee, victim.Id)).IsApplied);
+        Assert.True(fight.IsDown(victim));
+        fight.Observe(Advance(Swing.Milliseconds));
+
+        // The body is closer than the party. Retaining it must not make it an AI target again.
+        Mind mind = new() { Enemies = (_, other) => other.Placement?.Content.Id == "rival" };
+        CombatDirector director = new(fight, mind, new Walking(), world.Places);
+        director.Step(Hall, 0.5);
+        Assert.Equal("Member 1", fight.LastResolution!.TargetName);
+        Assert.Equal(30, party.Members[0].Resources.HitPoints.Current);
+        Assert.Contains(victim, fight.Combatants);
+        Assert.Equal((0, CreatureHitPoints), fight.Vitals(victim));
+        Assert.Contains(world.Population.Entities, entity => entity.Id == victim.Subject.Entity!.Id);
+        Assert.True(fight.IsDown(victim));
+    }
+
+    [Fact]
     public void A_creature_spawns_from_a_placement_and_a_cleared_place_stays_cleared_until_the_clock_restores_it()
     {
         using PartyEntity party = Party();

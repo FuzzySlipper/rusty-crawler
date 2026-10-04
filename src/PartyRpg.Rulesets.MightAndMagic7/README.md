@@ -19,6 +19,8 @@ Owns:
 - Skills with their class- and rank-specific mastery ceilings, and skill points.
 - Spellbook pages: every school but the potion's own word (`MightAndMagic7Potions.School`, carried by an item and
   learned by nobody) is a page of a character's spellbook (`InSpellbook`).
+  A named foe spell rechecks its target's live defeat state before spending points, including when the
+  selected creature fell after the spellbook showed it. Body-capable magic keeps its separate judgment.
 - Alchemy (`MightAndMagic7Alchemy`, `MightAndMagic7Potions`): the mixtures the shipped `POTION.TXT` states,
   read from the pack the importer writes — which reagent makes which potion, which pairs make something,
   which go off and how hard, and the discovery each one records — with the rung each result asks for. The

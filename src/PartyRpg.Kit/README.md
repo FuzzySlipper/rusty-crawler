@@ -380,7 +380,11 @@ leaves on a creature — a paralysis, a slowing, a fear, a charm — counted dow
 and read by the game's answers), so a fight keeps no tally of its own beside
 it; where a placed entity stands is its own too (`PlacePopulationEntity.Pose`, moved only by `MoveTo`); a death
 is reported once, from the wound that caused it, to the `ICreatureDeathObserver`s `CombatRules` names; and `CombatState.Vitals`, `IsDown`, `LastResolution` and `AimOf` (what an actor's order would strike now) are
-what the panel reads, the fight block naming the selected member's aim and listing its foes nearest first. An explicitly named target is admitted through `CombatState.IsInReach` after the actual attack kind is resolved, with the open reach boundary checked before a charged item, recovery, or provocation is changed; an attack with no target remains a real spent action. There is no scene, no second population, no per-kind cooldown, no per-kind damage class, and
+what the panel reads, the fight block naming the selected member's aim and listing its foes nearest first.
+Defeated world actors remain bodies for presentation, loot, saves and body-capable magic, but leave the
+director's attack candidates; an explicit attack against one refuses before charges, recovery or provocation.
+This does not make an unconscious party member immune to the ruleset's further wound/death ladder.
+An explicitly named target is admitted through `CombatState.IsInReach` after the actual attack kind is resolved, with the open reach boundary checked before a charged item, recovery, or provocation is changed; an attack with no target remains a real spent action. There is no scene, no second population, no per-kind cooldown, no per-kind damage class, and
 no timer); the second pacing of that same state is a reading of it rather than a second fight
 (`Combat/` — `CombatPacing` on the state, and a `TurnBasedPacing` that orders the fight's actors by ascending
 remaining recovery with the fight's own order breaking ties, lengths a round by the longest recovery any

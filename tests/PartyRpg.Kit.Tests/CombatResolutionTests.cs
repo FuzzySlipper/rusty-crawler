@@ -37,6 +37,39 @@ public sealed class CombatResolutionTests
     /// <summary>What this suite's swings cost, so an order is never refused while it is being proved.</summary>
     private static readonly GameDuration Swing = GameDuration.FromSeconds(1);
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void An_explicit_attack_on_a_defeated_world_actor_spends_nothing_and_does_not_provoke(bool partyAttacks)
+    {
+        Rules rules = new(peaceful: true, damage: DamageRoll.Flat(40));
+        using SessionWorld world = World(rules, out PartyEntity party, creatureAt: 100,
+            others: """
+                , { "id": "attacker", "kind": "creature", "x": 200, "y": 0, "z": 0, "monster": "7", "hitPoints": 40 }
+                """);
+        using (party)
+        {
+            Arrive(world);
+            CombatState fight = Fight(world, party, rules);
+            fight.Step();
+            Combatant victim = fight.Combatants.Single(actor => actor.Subject.Placement?.Content.Id == "beast");
+            Combatant creature = fight.Combatants.Single(actor => actor.Subject.Placement?.Content.Id == "attacker");
+            Assert.True(fight.Order(new AttackOrder(creature.Id, AttackKind.Melee, victim.Id)).IsApplied);
+            Assert.True(fight.IsDown(victim));
+            fight.Observe(Advance(Swing.Milliseconds));
+            Combatant attacker = partyAttacks ? fight.Combatants.Single(actor => actor.Subject.IsMember) : creature;
+            AttackInitiation? previous = fight.LastAttack;
+            CombatResult refused = fight.Order(new AttackOrder(attacker.Id, AttackKind.Melee, victim.Id));
+            Assert.False(refused.IsApplied);
+            Assert.Equal("target-down", refused.Code);
+            Assert.True(attacker.IsReady);
+            Assert.Same(previous, fight.LastAttack);
+            Assert.Equal(CombatSide.Neutral, victim.Side);
+            Assert.Contains(victim, fight.Combatants);
+            Assert.Equal((0, 40), fight.Vitals(victim));
+        }
+    }
+
     [Fact]
     public void Additional_damage_uses_each_kind_s_resistance_and_a_hit_observer_sees_the_settled_health_once()
     {
