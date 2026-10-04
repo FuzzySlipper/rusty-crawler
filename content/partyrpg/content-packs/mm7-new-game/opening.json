@@ -6,7 +6,7 @@
     {
       "id": "opening-island-guide",
       "name": "Ailyssa's island errand",
-      "text": "Ailyssa asks the new party to check the shore and bring a Potion Bottle back to her. Follow the island signs, speak with Sally by the water, then secure a bottle through the island's supply route and return it to Ailyssa.",
+      "text": "Ailyssa asks the new party to find Sally beyond the village, on the open-ocean shore north of town, then bring a Potion Bottle back to her. Follow the road out of town past the Shops, Guilds, and Lord Markham signs; those signs mark the village, while Sally waits farther out by the sea. Face the person until the reticle names Sally, then return to town, buy a Potion Bottle from Tor at The Knight's Blade, and bring it back to Ailyssa.",
       "reading": {
         "giver": "npc-4",
         "objectives": [

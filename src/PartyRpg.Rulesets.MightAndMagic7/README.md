@@ -606,8 +606,9 @@ its carried item until turn-in; the turn-in's own delivery can hand it over. The
 sale provenance policy, with no second quest-item list. The authored `mm7-new-game` pack also carries the
 opening `opening-island-guide` reading: Ailyssa (`npc-4`) offers the new party a two-step island errand to
 speak with Sally (`npc-5`) and deliver a Potion Bottle back to her, for 4,000 total experience, 25 coin, and an
-`opening:shore-guide` record on return. The imported Emerald Island placements and signs provide the route
-and visible service surface. A healthy four-member party receives 1,000 experience each, enough for first training.
+`opening:shore-guide` record on return. The authored directions distinguish Sally's ocean shore north of town
+from the village pond and name Tor's bottle supply. Imported placements provide the visible people and services.
+A healthy four-member party receives 1,000 experience each, enough for first training.
 The authored `mm7-new-game` pack's `service-stock` entry supplies explicit
 affordable gear, introductory school books, Potion Bottles, and Widowsweep Berries to the existing imported Tor
 service (`service` 1); the imported placement remains the only counter placement and generated operator packs
