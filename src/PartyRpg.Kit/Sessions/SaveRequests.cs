@@ -112,17 +112,22 @@ internal sealed class SaveRequests
     public bool Asked(ActionInbox inbox)
     {
         if (_intent is null || _actionContract is null) return false;
+        // An explicit Save/Load screen owns save controls, and ordinary adventure play keeps its deliberate
+        // quick-save policy. A title, return confirmation, or a screen-closing update owns the input without
+        // offering a save boundary, so a stale F key cannot write behind the visible transition.
+        bool saveBoundaryOpen = !_menu.ControlsOwnedForUpdate ||
+            _menu.Snapshot.Screen is SessionMenuScreen.SaveLoad or SessionMenuScreen.ConfirmOverwrite;
         bool confirmationPending = _menu.Snapshot.Screen is
             SessionMenuScreen.ConfirmOverwrite or
             SessionMenuScreen.ConfirmReturn or
             SessionMenuScreen.ConfirmLoad;
-        bool asked = !confirmationPending && inbox.Activated(_intent);
+        bool asked = saveBoundaryOpen && !confirmationPending && inbox.Activated(_intent);
         IReadOnlyList<UiAction> actions = inbox.Take(_actionContract, name => name is SaveActions.Save or SaveActions.MenuSave);
         // The Host turns the first menu-save press into the overwrite screen before this session reads the
         // update. The confirmation button uses the same canonical action after the Host returns to SaveLoad,
         // so only that second press reaches this boundary.
-        bool menuSave = !confirmationPending && actions.Any(action => action.Name == SaveActions.MenuSave);
-        bool ordinarySave = !confirmationPending && actions.Any(action => action.Name == SaveActions.Save);
+        bool menuSave = saveBoundaryOpen && !confirmationPending && actions.Any(action => action.Name == SaveActions.MenuSave);
+        bool ordinarySave = saveBoundaryOpen && !confirmationPending && actions.Any(action => action.Name == SaveActions.Save);
         return menuSave || ordinarySave || asked;
     }
 

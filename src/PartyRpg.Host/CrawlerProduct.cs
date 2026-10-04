@@ -333,9 +333,20 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
     public ProductUpdateResult Update(ProductUpdate update)
     {
         if (!_started || _shutdown) return ProductUpdateResult.None;
-        HandleMenu(update);
-        _input.Apply(_session, update.Input);
-        return _session.Update(update);
+        bool menuOwnedAtStart = _menu.Snapshot.Screen != SessionMenuScreen.Adventure;
+        _menu.SetControlsOwnedForUpdate(menuOwnedAtStart);
+        try
+        {
+            // A lifecycle action owns the update even when it closes the screen it arrived on. This keeps the
+            // activating Enter/click from also reaching the creation flow or the world underneath it.
+            if (HandleMenu(update)) _menu.SetControlsOwnedForUpdate(true);
+            if (!_menu.ControlsOwnedForUpdate) _input.Apply(_session, update.Input);
+            return _session.Update(update);
+        }
+        finally
+        {
+            _menu.SetControlsOwnedForUpdate(false);
+        }
     }
 
     private IGameSession CreateSession() => CreateSession(StartMode);
@@ -379,7 +390,7 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
     }
 
     /// <summary>Handles the visible title/menu lifecycle actions at the Host seam.</summary>
-    private void HandleMenu(ProductUpdate update)
+    private bool HandleMenu(ProductUpdate update)
     {
         ActionInbox input = new(update.Input);
         IReadOnlyList<UiAction> actions = input.Take(ProductIdentity.UiActionContract, SessionMenuActions.IsMenuAction);
@@ -442,14 +453,9 @@ public sealed class CrawlerProduct : IEngineProduct, IDebugCommandModuleSource
             }
         }
 
-        // Existing keyboard creation controls remain a supported shortcut for automated/operator sessions. If
-        // one arrives while the launch title is still up, treat it as selecting New Game so it cannot leave the
-        // session in a hidden creation flow while the ordinary title control remains available to players.
-        if (_menu.Snapshot.Screen == SessionMenuScreen.Title && _session.Mode == SessionMode.Creating &&
-            input.Activated(System.Text.Encoding.UTF8.GetBytes(ProductIdentity.CreationAcceptIntent)))
-        {
-            BeginNewGame();
-        }
+        // A menu action was claimed even when its current screen did not accept it. The update still belongs to
+        // the visible menu, so callers cannot pair a stale lifecycle action with a gameplay or creation shortcut.
+        return actions.Count > 0 || _menu.Snapshot.Screen != SessionMenuScreen.Adventure;
     }
 
     private void BeginNewGame()

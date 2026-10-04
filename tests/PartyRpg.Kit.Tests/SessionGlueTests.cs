@@ -122,6 +122,32 @@ public sealed class SessionGlueTests
         Assert.Equal(DiagnosticsSeverity.Warning, diagnostics.Published.Single(report => report.Code == "no-turn").Severity);
     }
 
+    [Fact]
+    public void Menu_owned_update_cannot_switch_hidden_combat_pacing_or_advance_time()
+    {
+        RecordingDiagnosticsService diagnostics = new();
+        using RecordingUiProjectionChannel channel = new();
+        SessionMenuState menu = new();
+        TurnIntentNames turns = new("test.turn-based", "test.skip", "test.wait", Contract);
+        using PartyRpgSession session = new(
+            Composition,
+            channel,
+            new SessionOwners(TestClock.Create(), diagnostics),
+            new SessionParty.Playing(Party: AlchemyTests.Party(alchemyLevel: 0, alchemyTier: 0)),
+            new SessionRules { Combat = Capabilities.Combat(new CombatStateTests.TestCombatRule(null)) },
+            new SessionControls { Combat = new CombatIntentNames("test.attack", Contract, turns) },
+            menu: menu);
+        session.Start();
+
+        menu.SetControlsOwnedForUpdate(true);
+        session.Update(Admitted.Update(1, 60, Admitted.Digital("test.turn-based")));
+        menu.SetControlsOwnedForUpdate(false);
+
+        Assert.Equal(CombatPacing.RealTime, session.Combat!.Pacing);
+        Assert.Equal(0, session.SimulationSeconds);
+        Assert.Empty(diagnostics.Published);
+    }
+
     /// <summary>One payload action on this suite's contract, as the companion sends it.</summary>
     private static ProductInputEvent Payload(string json) => Admitted.Payload(Contract, json);
 }

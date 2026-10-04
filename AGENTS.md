@@ -89,7 +89,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   Visible light-bearing decorations supply a bounded nearest set of Engine point lights beside the carried light.
   Creation, character and shared inventory, spellbook and mixing, dialogue and counters, journal and
   automap, combat and rest use deliberate screens over those same owners.
-  The Host's title and save/load menus use the existing session lifecycle and one explicit save slot.
+  The Host's title and save/load menus use the existing session lifecycle and one explicit save slot;
+  visible menus own input, including the admitted update that closes them.
 - **Content.** The importer reads the operator's own install and `write` emits deterministic packs; no game
   data is committed, and every count the documents quote is checked by `mm7import verify`. The kit validates
   the whole content root at start and loads exactly what the bundle selects. The default bundle,

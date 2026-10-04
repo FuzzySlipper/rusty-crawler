@@ -117,7 +117,10 @@ Owns:
   Host-owned lifecycle projection shared with the composed session: its title,
   continuation, return confirmation, explicit one-slot Save/Load screen, and
   semantic action names are presented beside the session blocks without owning
-  a second session, clock, store, or update path. `IGameSession.DisposeForReplacement`
+  a second session, clock, store, or update path. During the one admitted update
+  the Host can mark that menu as the controls owner; the session then suppresses
+  creation, gameplay, clock, and lifecycle input until the menu action has
+  finished, including a same-update close. `IGameSession.DisposeForReplacement`
   releases a session's gameplay resources without publishing a stale stopped
   projection; the Host owns the shared projection channel and closes it after
   the final session.

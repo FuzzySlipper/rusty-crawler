@@ -40,6 +40,8 @@ visible together. Creation, the character book and shared inventory, spellbook a
 town counters, journal and automap, combat and rest each have deliberate screens over the same canonical
 owners. The [adventure frame reading](docs/evidence/adventure-frame.md) and the screen readings in
 [`docs/evidence/`](docs/evidence/README.md) describe their ordinary controls and bounded coverage.
+Title, Save/Load and confirmation menus block underlying creation and expedition input, including the
+admitted update that closes the menu; their visible controls use the existing lifecycle and save owners.
 The [ordinary-play assessment](docs/evidence/product-assessment-2026-10-02.md) records the earlier gaps
 that prompted this work. A game feature lands through a recognizable game screen or visible world
 control; agent console access remains useful. The

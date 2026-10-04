@@ -391,12 +391,15 @@ public sealed class PartyRpgSession : IGameSession
         // projection they were reading, so the document describes that moment rather than one tick later.
         if (_saves.Asked(input)) _saves.Attempt(this, Clock);
 
+        bool menuOwnsControls = _menu.ControlsOwnedForUpdate;
+        if (menuOwnsControls) ClaimMenuBlockedActions(input);
+
         // Creation owns no world stepping: while a party is being made this update drives the flow and nothing
         // else, and measures no interval. The update that accepts the party measures nothing either, because it
         // stepped no world: the first interval credited is the one the update after it steps.
         if (_creation is { } creation)
         {
-            if (creation.Drive(input) is { } accepted)
+            if (!menuOwnsControls && creation.Drive(input) is { } accepted)
             {
                 _creation = null;
                 _accepted = true;
@@ -413,9 +416,10 @@ public sealed class PartyRpgSession : IGameSession
         }
 
         // The pacing control is settled first of all: a press that switches the mode changes what this very
-        // update does with the world, so it cannot wait for the update after the one it arrived in.
-        TurnControls turn = _fight.ReadTurns(input);
-        if (turn.Toggle) _fight.TogglePacing();
+        // update does with the world, so it cannot wait for the update after the one it arrived in. A visible
+        // menu owns its update, so its Enter key cannot switch the hidden fight's pacing either.
+        TurnControls turn = menuOwnsControls ? default : _fight.ReadTurns(input);
+        if (!menuOwnsControls && turn.Toggle) _fight.TogglePacing();
 
         // Input settles before the step it governs: the step covers exactly the admitted interval this update
         // measures, and the clock is advanced by that same interval, so motion and game time are one interval.
@@ -423,10 +427,10 @@ public sealed class PartyRpgSession : IGameSession
 
         // A held session is quiescent: no game time passes and no act is applied. It still reads the keys the
         // player holds, so a key released while it was held does not keep walking when it resumes.
-        bool quiescent = _mode == SessionMode.Paused;
+        bool quiescent = _mode == SessionMode.Paused || menuOwnsControls;
 
         ControlHolder controls = HeldBy();
-        bool screenOwnsControls = controls == ControlHolder.Screen;
+        bool screenOwnsControls = menuOwnsControls || controls == ControlHolder.Screen;
 
         // What the player holds is read on every update, whatever owns the controls, so a release is never
         // missed; it is applied only when the party may act.
@@ -566,6 +570,17 @@ public sealed class PartyRpgSession : IGameSession
         }
     }
 
+    /// <summary>Claims valid session actions that arrived while the visible menu owned the update.</summary>
+    /// <remarks>
+    /// The menu is the deliberate owner for this one update, so creation and gameplay actions are suppressed
+    /// rather than reported as if an active screen had silently dropped them. SaveRequests has already read its
+    /// canonical save controls before this method runs.
+    /// </remarks>
+    private void ClaimMenuBlockedActions(ActionInbox input)
+    {
+        foreach (string contract in _contracts) input.Take(contract, _ => true);
+    }
+
     /// <summary>The contracts the host declared this session's semantic actions on.</summary>
     private static HashSet<string> Contracts(SessionControls controls) =>
         new(
@@ -609,7 +624,7 @@ public sealed class PartyRpgSession : IGameSession
     /// </remarks>
     private double AdmittedSeconds(SessionTick tick)
     {
-        if (_mode != SessionMode.Running) return 0;
+        if (_menu.ControlsOwnedForUpdate || _mode != SessionMode.Running) return 0;
         double seconds = tick.AdmittedStepCount * tick.FixedDeltaSeconds;
         return double.IsFinite(seconds) && seconds > 0 ? seconds : 0;
     }
@@ -622,7 +637,7 @@ public sealed class PartyRpgSession : IGameSession
     private void Advance(SessionTick tick)
     {
         _updates++;
-        if (_mode == SessionMode.Running)
+        if (!_menu.ControlsOwnedForUpdate && _mode == SessionMode.Running)
         {
             // A batch covers [SimulationStep, SimulationStep + AdmittedStepCount), so accounting by batch end is
             // what makes the published seconds and the published step count describe the same simulation.

@@ -36,7 +36,9 @@ Implemented today:
   Host and its one session: New Game reveals the existing creation or scenario path, Continue composes a resumed
   session and swaps it only after a successful load, and a visible return control pauses for an unsaved confirmation
   before disposing and rebuilding the session. A refused Continue keeps a usable title menu with its persistence or
-  content sentence; no menu action creates a second update loop or a parallel session owner.
+  content sentence; no menu action creates a second update loop or a parallel session owner. The Host marks the
+  visible menu as the owner of the whole admitted update, including the update that opens or closes it, so the
+  activating key cannot also advance hidden creation or gameplay input.
 - `CrawlerProduct` owns one `EngineUiProjectionChannel` for its whole lifetime. Every replacement session receives
   that same channel and sets `OwnProjection` false, so session disposal releases its world, party, images and save
   store without closing the stream or publishing a stale stopped projection; product shutdown closes the channel once.

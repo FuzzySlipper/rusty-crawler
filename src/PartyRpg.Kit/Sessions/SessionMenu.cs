@@ -189,6 +189,20 @@ public sealed class SessionMenuState
     /// <summary>Changes whenever the Host asks the session to publish a different menu state.</summary>
     internal long Revision { get; private set; }
 
+    /// <summary>
+    /// Whether the visible menu owns the current admitted update's controls.
+    /// </summary>
+    /// <remarks>
+    /// The Host sets this before it handles a menu action and clears it after the one session update. It is
+    /// deliberately transient rather than part of the projection: a menu action may close a screen in the same
+    /// update, but the input that activated it still belongs to that screen and must not reach the session below.
+    /// </remarks>
+    public bool ControlsOwnedForUpdate { get; private set; }
+
+    /// <summary>Marks the current admitted update as owned by the visible menu.</summary>
+    /// <param name="owned">Whether the menu owns the update's controls.</param>
+    public void SetControlsOwnedForUpdate(bool owned) => ControlsOwnedForUpdate = owned;
+
     /// <summary>Shows the title menu and its latest lifecycle message.</summary>
     public void ShowTitle(bool canNewGame, bool canContinue, string state = "none", string code = "", string message = "")
     {
