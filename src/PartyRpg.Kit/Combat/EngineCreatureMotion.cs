@@ -19,13 +19,14 @@ namespace PartyRpg.Kit.Combat;
 /// anywhere: a second opinion about that would disagree with the first the moment a slope fell between them.
 /// </para>
 /// <para>
-/// <b>A creature content stood inside the ground stands on it, or is held by name.</b> The engine refuses a step
-/// whose body starts deeper inside collision than its controller recovers, and leaves what happens to that actor
-/// to the product. A creature content placed below a hillside — a record whose height is nominal — is stood on
-/// the first surface the engine's own ray meets straight above its feet, within the settling reach the ruleset
-/// states, and steps from there; one with no such surface, or one the engine still cannot step once stood on it,
-/// is held where it stands with a <see cref="CreatureMoveCodes.Embedded"/> refusal and is not asked again until it
-/// leaves the field. Either way the session goes on: a creature that cannot be placed is never a fault.
+/// <b>A grounded creature content stood inside the ground stands on it, or is held by name.</b> The engine refuses a
+/// ground step whose body starts deeper inside collision than its controller recovers, and leaves what happens to
+/// that actor to the product. A grounded creature content placed below a hillside — a record whose height is nominal
+/// — is stood on the first surface the engine's own ray meets straight above its feet, within the settling reach the
+/// ruleset states, and steps from there; one with no such surface, or one the engine still cannot step once stood on
+/// it, is held where it stands with a <see cref="CreatureMoveCodes.Embedded"/> refusal and is not asked again until
+/// it leaves the field. A flying creature uses no ground-settle fallback: the Engine's flying collision step either
+/// admits its body or returns the same named refusal, so flight is never silently floor-snapped.
 /// </para>
 /// <para>
 /// <b>Each creature owns its own continuation.</b> The engine's continuation — velocity, timers, support —
@@ -34,11 +35,12 @@ namespace PartyRpg.Kit.Combat;
 /// pose is what the fight and the panel read.
 /// </para>
 /// <para>
-/// <b>Each creature walks at its own pace, and the engine is what holds it to it.</b> The pace a request states is
+/// <b>Each creature moves at its own pace, and the engine is what holds it to it.</b> The pace a request states is
 /// put into the controller profile that request hands the engine — the profile's ground speeds become the
 /// creature's, and its ground acceleration is scaled with them so a slow creature and a fast one each reach their
-/// own pace in the time the profile states — so how far a step carries a creature is the engine's answer to its
-/// own pace, not a correction made to the engine's displacement afterwards.
+/// own pace in the time the profile states. A flying request uses the same pace to scale the composed flight
+/// acceleration and asks the Engine for three-axis intent, so how far a step carries a creature is still the
+/// engine's answer rather than a correction made to the engine's displacement afterwards.
 /// </para>
 /// <para>
 /// <b>What is approximated is stated.</b> Every creature is swept with the party's own body — its shape, slopes,
@@ -64,6 +66,7 @@ public sealed class EngineCreatureMotion : ICreatureMover
     private readonly PlaceSpace _space;
     private readonly CharacterControllerConfig _controller;
     private readonly double _settleReach;
+    private readonly FlightTuning? _flight;
     private readonly Dictionary<CombatantId, Walker> _walkers = [];
     private readonly Dictionary<CombatantId, Refusal> _held = [];
     private ulong _sequence;
@@ -86,6 +89,10 @@ public sealed class EngineCreatureMotion : ICreatureMover
     /// creature still be stood on it: the ruleset's statement of how deep its content can bury a record. Zero
     /// stands nobody up, and a creature the engine cannot step is then held where it stands.
     /// </param>
+    /// <param name="flight">
+    /// The composed flight profile used to scale a creature's flying acceleration and drag. Its ceiling belongs
+    /// to the party's flight rule and is not applied to a creature's pursuit.
+    /// </param>
     /// <exception cref="ArgumentNullException">A required collaborator is missing.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The settling reach is negative or not a number.</exception>
     public EngineCreatureMotion(
@@ -93,7 +100,8 @@ public sealed class EngineCreatureMotion : ICreatureMover
         EnginePartyMover scene,
         PlaceSpace space,
         CharacterControllerConfig controller,
-        double settleReach)
+        double settleReach,
+        FlightTuning? flight = null)
     {
         _spatial = spatial ?? throw new ArgumentNullException(nameof(spatial));
         _scene = scene ?? throw new ArgumentNullException(nameof(scene));
@@ -108,6 +116,7 @@ public sealed class EngineCreatureMotion : ICreatureMover
         _space = space;
         _controller = controller;
         _settleReach = settleReach;
+        _flight = flight;
     }
 
     /// <summary>How many creatures this mover has moved at least once.</summary>
@@ -139,16 +148,20 @@ public sealed class EngineCreatureMotion : ICreatureMover
             ? found
             : Walker.At(request.From, _space);
 
+        bool flying = request.Mode == CreatureMoveMode.Flying;
         Vector3 position = _space.Position(request.From);
-        Vector3 target = _space.GroundPosition(request.TargetPose);
+        // Ground navigation steers from feet to feet. Flight has no floor to steer against: aim at the target's
+        // body centre so a grounded party does not make a flying creature seek or snap to the floor.
+        Vector3 target = flying ? _space.Position(request.TargetPose) : _space.GroundPosition(request.TargetPose);
         CharacterControllerConfig controller = Paced(request.Speed);
 
-        // Navigation takes feet; the character solver takes the body centre. A refused pursuit holds by
-        // name and is tried again on the next admitted update, so moving a target can make it reachable.
+        // Ground navigation takes feet; the character solver takes the body centre. Flying keeps the same
+        // collision scene but steers directly in three dimensions because the installed planar route is a
+        // ground route. A refused ground pursuit holds by name and is tried again on the next admitted update.
         bool placing = false;
         Refusal? navigationHold = null;
         Vector3 steer = target;
-        if (request.Purpose == CreatureMovePurpose.Toward)
+        if (!flying && request.Purpose == CreatureMovePurpose.Toward)
         {
             if (_scene.Current is not { NavigationCells: > 0 })
             {
@@ -177,8 +190,11 @@ public sealed class EngineCreatureMotion : ICreatureMover
         // keeps facing the target rather than the way it is going; a creature already on top of its target
         // keeps the heading it had, because a direction between two identical points is no direction at all.
         float heading = distance > double.Epsilon ? (float)Math.Atan2(x, -z) : walker.Heading;
+        float verticalIntent = flying ? VerticalIntent(position, target, controller, request) : 0;
+        bool planarIntent = !placing && (!flying || distance > double.Epsilon);
         CharacterControllerCommand command = new(
-            PlanarIntent: placing ? Vector2.Zero : new Vector2(0, request.Purpose == CreatureMovePurpose.Toward ? 1 : -1),
+            Movement: flying ? FlyingMovement(controller, request, verticalIntent) : default,
+            PlanarIntent: planarIntent ? new Vector2(0, request.Purpose == CreatureMovePurpose.Toward ? 1 : -1) : Vector2.Zero,
             HeadingYawRadians: heading,
             JumpPressed: false,
             JumpHeld: false,
@@ -196,10 +212,18 @@ public sealed class EngineCreatureMotion : ICreatureMover
             // ground over its feet, as the engine's own ray finds it, and takes its step from there with a fresh
             // continuation. One that has no such ground, or that the engine still cannot step once stood on it,
             // is held where it stands, by name, and not asked again until it leaves the field.
+            if (flying)
+            {
+                Refusal refusal = Embedded(from, embedded!, request.Mode);
+                _held[request.Creature] = refusal;
+                _walkers.Remove(request.Creature);
+                return CreatureMoveOutcome.Held(from, refusal);
+            }
+
             if (Settle(from) is not { } settled ||
                 Propose(_space.Position(settled), default, controller, command, out embedded) is not { } resettled)
             {
-                Refusal refusal = Embedded(from, embedded!);
+                Refusal refusal = Embedded(from, embedded!, request.Mode);
                 _held[request.Creature] = refusal;
                 _walkers.Remove(request.Creature);
                 return CreatureMoveOutcome.Held(from, refusal);
@@ -302,11 +326,17 @@ public sealed class EngineCreatureMotion : ICreatureMover
     }
 
     /// <summary>The refusal a creature the engine cannot place is held with.</summary>
-    private Refusal Embedded(PlacePose from, string engine) => new(
-        CreatureMoveCodes.Embedded,
-        string.Create(
-            CultureInfo.InvariantCulture,
-            $"The creature at ({from.X:0.#}, {from.Y:0.#}, {from.Z:0.#}) stands inside collision the engine cannot step it out of ({engine}), and no ground over its feet within {_settleReach:0.#} units stands it clear; it is held where it stands."));
+    private Refusal Embedded(PlacePose from, string engine, CreatureMoveMode mode)
+    {
+        string message = mode == CreatureMoveMode.Flying
+            ? string.Create(
+                CultureInfo.InvariantCulture,
+                $"The creature at ({from.X:0.#}, {from.Y:0.#}, {from.Z:0.#}) stands inside collision the Engine cannot step it out of ({engine}); flying motion is held without a ground snap.")
+            : string.Create(
+                CultureInfo.InvariantCulture,
+                $"The creature at ({from.X:0.#}, {from.Y:0.#}, {from.Z:0.#}) stands inside collision the engine cannot step it out of ({engine}), and no ground over its feet within {_settleReach:0.#} units stands it clear; it is held where it stands.");
+        return new Refusal(CreatureMoveCodes.Embedded, message);
+    }
 
     /// <inheritdoc />
     /// <exception cref="ObjectDisposedException">The mover has been disposed.</exception>
@@ -364,6 +394,60 @@ public sealed class EngineCreatureMotion : ICreatureMover
                 Acceleration = ground.Acceleration * scale,
             },
         };
+    }
+
+    /// <summary>How strongly a flying step asks for vertical travel toward or away from its target.</summary>
+    private float VerticalIntent(
+        Vector3 position,
+        Vector3 target,
+        CharacterControllerConfig controller,
+        CreatureMoveRequest request)
+    {
+        double speed = FlyingSpeed(controller, request);
+        if (!double.IsFinite(speed) || speed <= 0) return 0;
+        double desired = (target.Y - position.Y) / (speed * request.ElapsedSeconds);
+        if (request.Purpose == CreatureMovePurpose.Away) desired = -desired;
+        return (float)Math.Clamp(desired, -1, 1);
+    }
+
+    /// <summary>Builds one Engine flying request from the composed profile and this creature's paced speed.</summary>
+    private CharacterMovementRequest FlyingMovement(
+        CharacterControllerConfig controller,
+        CreatureMoveRequest request,
+        float verticalIntent)
+    {
+        double speed = FlyingSpeed(controller, request);
+
+        double acceleration = controller.Ground.Acceleration;
+        if (_flight is { } flight && flight.Speed > 0)
+        {
+            double scale = Math.Clamp(speed / flight.Speed, MinimumPaceScale, MaximumPaceScale);
+            acceleration = flight.Acceleration * scale;
+        }
+
+        return new CharacterMovementRequest(
+            CharacterMovementMode.Flying,
+            verticalIntent,
+            (float)Math.Max(0, speed),
+            (float)Math.Max(0, acceleration),
+            (float)Math.Max(0, _flight?.Drag ?? 0),
+            Vector3.Zero,
+            Vector3.Zero,
+            GravityScale: 0,
+            Buoyancy: 0,
+            ClimbReach: 0);
+    }
+
+    /// <summary>The effective flying pace shared by vertical intent and the Engine movement request.</summary>
+    private double FlyingSpeed(CharacterControllerConfig controller, CreatureMoveRequest request)
+    {
+        double speed = controller.Ground.ForwardSpeed;
+        if (!double.IsFinite(speed) || speed <= 0)
+        {
+            speed = double.IsFinite(request.Speed) && request.Speed > 0 ? request.Speed : _flight?.Speed ?? 0;
+        }
+
+        return speed;
     }
 
     /// <summary>One creature's place in the stream of steps: what the engine gave back for its next one.</summary>

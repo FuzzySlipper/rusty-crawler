@@ -2,6 +2,7 @@ using System.Globalization;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
+using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Presentation;
@@ -130,6 +131,52 @@ public sealed class CombatProjectionTests
         Assert.Equal(40d, party.Field("spellPoints").AsNumber());
         Assert.Equal(40d, party.Field("spellPointsMax").AsNumber());
         Assert.Equal(string.Empty, party.Field("conditions").AsString());
+    }
+
+    [Fact]
+    public void The_magic_projection_drops_a_wounded_creature_when_the_fight_stamp_changes()
+    {
+        using Fixture fixture = new(creatureAt: 100, creatureHitPoints: BlowDamage);
+        fixture.Start();
+        fixture.Update();
+
+        MagicSnapshot before = fixture.Magic;
+        Assert.Contains(before.Targets, target => target.Side == "opposition");
+
+        // The attack is the ordinary panel action and the creature's health is its own; the projection must
+        // reread the fight even though Spellcasting itself has not recorded a cast.
+        fixture.Act();
+
+        MagicSnapshot after = fixture.Magic;
+        Assert.NotSame(before, after);
+        Assert.DoesNotContain(after.Targets, target => target.Side == "opposition" && target.Kind == SpellTargetKind.Actor);
+        Assert.Contains(after.Targets, target => target.Side == "opposition" && target.Kind == SpellTargetKind.Body);
+    }
+
+    [Fact]
+    public void The_magic_projection_refreshes_a_creature_moved_since_the_last_fight_step()
+    {
+        using Fixture fixture = new(creatureAt: 100, creatureHitPoints: 40);
+        fixture.Start();
+        fixture.Update();
+
+        MagicSnapshot before = fixture.Magic;
+        SpellTargetSnapshot initial = Assert.Single(before.Targets, target => target.Side == "opposition" && target.Kind == SpellTargetKind.Actor);
+        Assert.Equal(250, initial.Distance);
+
+        // The entity moves directly in the world after the fight's last admitted step. The projection key and
+        // named-target reader must use its live pose, rather than the combatant's old convenience distance.
+        fixture.MoveCreatureTo(400);
+        MagicSnapshot nearer = fixture.Magic;
+        SpellTargetSnapshot moved = Assert.Single(nearer.Targets, target => target.Side == "opposition" && target.Kind == SpellTargetKind.Actor);
+        Assert.NotSame(before, nearer);
+        Assert.Equal(500, moved.Distance);
+
+        // Crossing the open spell reach removes the live foe row even though no CombatState.Step ran.
+        fixture.MoveCreatureTo(600);
+        MagicSnapshot farther = fixture.Magic;
+        Assert.NotSame(nearer, farther);
+        Assert.DoesNotContain(farther.Targets, target => target.Side == "opposition" && target.Kind == SpellTargetKind.Actor);
     }
 
     [Fact]
@@ -379,6 +426,7 @@ public sealed class CombatProjectionTests
                 rules: new SessionRules
                 {
                     Combat = Capabilities.Combat(rules),
+                    Magic = Capabilities.Magic(new AlchemyTests.Spells(AlchemyTests.Draught)),
                 },
                 controls: new SessionControls
                 {
@@ -403,6 +451,9 @@ public sealed class CombatProjectionTests
 
         /// <summary>The interaction block, which is where the bodies lying here are published.</summary>
         internal ProjectedNode Interaction => _channel.Latest().Field("interaction");
+
+        /// <summary>The spellbook block the session's retained reading publishes.</summary>
+        internal MagicSnapshot Magic => _session.Inspect().Magic;
 
         /// <summary>Starts the session, which is what publishes its first projection.</summary>
         internal void Start() => _session.Start();
@@ -429,6 +480,10 @@ public sealed class CombatProjectionTests
         /// <summary>Walks the party to a position in the hall, which is world state the fight re-reads.</summary>
         /// <param name="x">Where along the hall's first ground axis the party now stands.</param>
         internal void WalkTo(double x) => _world.ArriveAt(Hall, new PlacePose(x, 0, 0, 0, 0));
+
+        /// <summary>Moves the live creature entity without stepping the fight, for projection freshness checks.</summary>
+        internal void MoveCreatureTo(double x) => _world.Population.Entities.Single(entity => entity.Content.Id == "beast")
+            .MoveTo(new PlacePose(x, 0, 0, 0, 0));
 
         /// <summary>Switches the fight to the other pacing, from the panel's own control.</summary>
         internal void TurnBased() => Action("combat.turn-based");

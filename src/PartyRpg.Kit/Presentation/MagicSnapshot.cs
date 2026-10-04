@@ -275,19 +275,22 @@ public sealed record SpellMemberSnapshot(
             ("pages", builder.Array([.. Pages.Select(page => page.Write(builder))])));
 }
 
-/// <summary>One actor a casting may be aimed at, as the fight and the party stand now.</summary>
+/// <summary>One actor or body a casting may be aimed at, as the fight and the party stand now.</summary>
 /// <remarks>
 /// The identity published here is the one a cast command echoes back, and the side is what a screen matches
 /// a spell's aim against: a spell aimed at an opponent offers the opposition's rows and nothing else, so the
-/// panel chooses nothing and the workflow still judges the aim it is handed.
+/// panel chooses nothing and the workflow still judges the aim it is handed. A downed non-party creature remains a typed
+/// <see cref="SpellTargetKind.Body"/> candidate for an <c>either</c> spell whose effect can use a body; the ordinary
+/// foe picker filters that category while preserving the body's durable target identity for that special aim.
 /// </remarks>
 /// <param name="Target">The identity a cast command names.</param>
 /// <param name="Name">What the actor is called.</param>
 /// <param name="Side">Which side the actor is on, as the wire spells it: <c>party</c> or <c>opposition</c>.</param>
 /// <param name="Distance">The step of <see cref="MagicSnapshot.DistanceStep"/> place units the fight's distance falls within; zero for a member.</param>
-public sealed record SpellTargetSnapshot(string Target, string Name, string Side, double Distance = 0)
+/// <param name="Kind">Whether the row is an actor (including a party member recovering from a downed state) or a downed non-party creature body.</param>
+public sealed record SpellTargetSnapshot(string Target, string Name, string Side, double Distance = 0, SpellTargetKind Kind = SpellTargetKind.Actor)
 {
-    /// <summary>Writes one actor a casting could name, with the side it is on.</summary>
+    /// <summary>Writes one actor or body a casting could name, with the side it is on.</summary>
     /// <param name="builder">The projection being built.</param>
     /// <returns>The row's node.</returns>
     internal uint Write(UiValueBuilder builder) =>
@@ -295,7 +298,30 @@ public sealed record SpellTargetSnapshot(string Target, string Name, string Side
             ("target", builder.String(Target)),
             ("name", builder.String(Name)),
             ("side", builder.String(Side)),
-            ("distance", builder.Number(Distance)));
+            ("distance", builder.Number(Distance)),
+            ("kind", builder.String(SpellTargetKinds.WireName(Kind))));
+}
+
+/// <summary>The small generic category a spell picker needs to distinguish a live actor from a downed body.</summary>
+public enum SpellTargetKind
+{
+    /// <summary>A party member or a living creature.</summary>
+    Actor,
+
+    /// <summary>A downed non-party creature whose body may be a valid target for a body-capable spell.</summary>
+    Body,
+}
+
+/// <summary>The wire words for <see cref="SpellTargetKind"/>.</summary>
+public static class SpellTargetKinds
+{
+    /// <summary>Writes one target category for the companion.</summary>
+    public static string WireName(SpellTargetKind kind) => kind switch
+    {
+        SpellTargetKind.Actor => "actor",
+        SpellTargetKind.Body => "body",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown spell target kind."),
+    };
 }
 
 /// <summary>What the party can cast, what it may aim at, and what the last casting did.</summary>
@@ -314,7 +340,12 @@ public sealed record SpellTargetSnapshot(string Target, string Name, string Side
 /// </remarks>
 /// <param name="Available">Whether the session holds a spell policy and a party to cast from.</param>
 /// <param name="Members">The party's members and their spellbooks, in the party's own order.</param>
-/// <param name="Targets">Every actor a casting could name, the party's own members included.</param>
+/// <param name="Targets">
+/// Every actor the spellbook may name now: party members for an ally aim, live neutral or opposing creatures within
+/// the selected caster's spell reach for a foe aim, and downed non-party creature bodies as typed candidates for a body-capable
+/// <c>either</c> aim. Friendly creatures are omitted; an ordinary foe picker hides body rows while an effect that
+/// accepts one can retain its durable target identity.
+/// </param>
 /// <param name="Outcome">What the last casting was: <c>none</c>, or the outcome's own code.</param>
 /// <param name="Member">The caster's place in the party, zero before any casting.</param>
 /// <param name="Caster">What the caster is called, empty before any casting.</param>
@@ -359,7 +390,8 @@ public sealed record MagicSnapshot(
 {
     /// <summary>
     /// How coarsely a target's distance is published: the step it falls within. A finer reading would change with every
-    /// stride a pursuing creature takes and rebuild the spellbook each update; this one still tells two of a kind apart.
+    /// stride a pursuing creature takes and rebuild the spellbook each update; same-named rows are additionally
+    /// qualified by their near-to-far order in the companion.
     /// </summary>
     public const double DistanceStep = 250;
 
@@ -440,18 +472,28 @@ public sealed record MagicSnapshot(
         List<SpellTargetSnapshot> targets = [];
         if (owner.Fight is { } fight)
         {
-            // Nearest step first, so the actor the party faces heads a list that may name every creature in the place, and
-            // the fight's own order within a step: the order is read from what the block's key reads, so it cannot go stale.
-            foreach (Combatant combatant in fight.Combatants.OrderBy(combatant => combatant.Side == CombatSide.Party ? 0 : 1).ThenBy(combatant => combatant.Side == CombatSide.Party ? 0 : DistanceBand(combatant.Distance)))
+            // The spellbook is the ordinary named-target control. Its live foe rows therefore use the same current
+            // spell reach the effect judge uses, measured by the fight from the selected member's live pose. A
+            // neutral creature remains a legal foe row: naming it is how a cast provokes it. A downed non-party creature is
+            // retained as a body row without a new reach policy, because an Either spell may hand it to an effect
+            // such as reanimation; the companion filters that category for ordinary foe rows.
+            Combatant? caster = CasterForTargets(owner, fight);
+            foreach (Combatant combatant in fight.Combatants
+                .Where(combatant => Targetable(combatant, fight, caster))
+                .OrderBy(combatant => combatant.Subject.Member is null ? 1 : 0)
+                .ThenBy(combatant => combatant.Subject.Member is null ? fight.DistanceOf(combatant) : 0))
             {
-                // A combatant the fight has read as down is still offered: a body is a thing a spell can be
-                // aimed at, and the workflow refuses an aim it cannot carry out rather than the panel
-                // hiding a target the state still holds.
+                double distance = combatant.Subject.Member is null ? fight.DistanceOf(combatant) : 0;
                 targets.Add(new SpellTargetSnapshot(
                     combatant.Id.ToString(),
                     combatant.Name,
-                    Presentation.SessionProjection.WireName(combatant.Side == CombatSide.Party ? CombatSide.Party : CombatSide.Opposition),
-                    combatant.Side == CombatSide.Party ? 0 : DistanceBand(combatant.Distance)));
+                    combatant.Subject.Member is not null
+                        ? Presentation.SessionProjection.WireName(CombatSide.Party)
+                        : Presentation.SessionProjection.WireName(CombatSide.Opposition),
+                    combatant.Subject.Member is null ? DistanceBand(distance) : 0,
+                    combatant.Subject.Member is null && fight.IsDown(combatant)
+                        ? SpellTargetKind.Body
+                        : SpellTargetKind.Actor));
             }
         }
         else
@@ -585,6 +627,26 @@ public sealed record MagicSnapshot(
     /// <summary>The wire's word for a spell that may name an actor of either side, which every listed target matches.</summary>
     internal const string AnySide = "any";
 
+    /// <summary>
+    /// Chooses the caster whose live pose the ordinary spellbook is showing. The roster's selected member is the
+    /// same durable choice ordinary combat and the character book use; the first member is only a construction-time
+    /// fallback for a party whose selection has not been admitted yet.
+    /// </summary>
+    private static Combatant? CasterForTargets(Spellcasting owner, CombatState fight)
+    {
+        if (owner.Party.Roster.SelectedMember is { } selected && fight.Find(CombatantId.Of(selected)) is { } chosen) return chosen;
+        return fight.Combatants.FirstOrDefault(combatant => combatant.Subject.Member is not null);
+    }
+
+    /// <summary>Whether a combatant belongs in the spellbook's named-target list.</summary>
+    private static bool Targetable(Combatant combatant, CombatState fight, Combatant? caster)
+    {
+        if (combatant.Subject.Member is not null) return combatant.Side == CombatSide.Party;
+        if (combatant.Side is CombatSide.Party or CombatSide.Ally) return false;
+        if (fight.IsDown(combatant)) return true;
+        return caster is null || fight.IsInReach(caster.Id, combatant.Id, AttackKind.Spell);
+    }
+
     /// <summary>Writes a moment on the calendar for a person, empty when nothing states one.</summary>
     private static string Moment(GameDate? at) => at is { } moment
         ? moment.MinuteText
@@ -629,12 +691,14 @@ public sealed record MagicSnapshot(
 
     /// <summary>
     /// Whether a casting aimed as the side says has somebody to name: always, when it names nobody; when any target is
-    /// listed, when it may name either side; and otherwise when an actor on that side is among the targets this block
-    /// lists.
+    /// listed, when it may name either side; and otherwise when a live actor on that side is among the targets this
+    /// block lists. Body rows count for <see cref="AnySide"/> but never make an ordinary foe or item appear usable.
     /// </summary>
     internal bool Aimable(string side) =>
         side.Length == 0 ||
-        (string.Equals(side, AnySide, StringComparison.Ordinal) ? Targets.Count > 0 : Targets.Any(target => string.Equals(target.Side, side, StringComparison.Ordinal)));
+        (string.Equals(side, AnySide, StringComparison.Ordinal)
+            ? Targets.Count > 0
+            : Targets.Any(target => target.Kind == SpellTargetKind.Actor && string.Equals(target.Side, side, StringComparison.Ordinal)));
 
     /// <summary>
     /// A member's spellbook by school, in the catalog's order of schools: a school is a page when the member holds a

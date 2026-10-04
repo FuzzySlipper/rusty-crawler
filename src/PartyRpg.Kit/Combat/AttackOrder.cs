@@ -22,7 +22,8 @@ namespace PartyRpg.Kit.Combat;
 /// <param name="Kind">How it attacks.</param>
 /// <param name="Target">
 /// What it attacks, or null when there is nothing to attack: an actor with nothing in reach still acts, and
-/// an attack at nothing is a real outcome rather than a refused order.
+/// an attack at nothing is a real outcome rather than a refused order. When an actor is named, the fight
+/// admits the order only while that actor is within the attack kind's reach.
 /// </param>
 /// <param name="Ability">
 /// Which of the actor's own ways of attacking this is, when whoever ordered it wants a particular one — a

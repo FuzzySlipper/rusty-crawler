@@ -131,7 +131,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
   path, conditions up to death, corpses and loot through the container mechanism, and cleared places
   restored by the clock. Creatures come from `encounter` placements the ruleset resolves and from the maps'
   own `actor` records, both when a place is populated, and this game's AI orders them through the gate the
-  player's control uses. What a spell leaves on a creature is the creature's own state, and a charm or a
+  player's control uses. Flying creatures use Engine flight. Named attacks and spells judge reach before spending or provocation.
+  What a spell leaves on a creature is the creature's own state, and a charm or a
   binding puts it on the party's `Ally` side.
 - **Growth and magic.** `PartyProgression` is the one writer of experience, levels, skill points, ranks and
   promotions; the first training step of a service visit includes rest on the one clock (the light/dark choice lives in the character's class and is irreversible). Skills have four

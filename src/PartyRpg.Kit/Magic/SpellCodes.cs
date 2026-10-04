@@ -67,6 +67,12 @@ public static class SpellCodes
     /// <summary>The refusal code <c>spell-target-unavailable</c>.</summary>
     public const string SpellTargetUnavailable = "spell-target-unavailable";
 
+    /// <summary>The refusal code <c>spell-target-out-of-reach</c>.</summary>
+    public const string SpellTargetOutOfReach = "spell-target-out-of-reach";
+
+    /// <summary>The refusal code <c>spell-target-friendly</c>.</summary>
+    public const string SpellTargetFriendly = "spell-target-friendly";
+
     /// <summary>The refusal code <c>spell-unknown</c>.</summary>
     public const string SpellUnknown = "spell-unknown";
 }

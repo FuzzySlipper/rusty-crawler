@@ -26,4 +26,7 @@ public static class CombatCodes
 
     /// <summary>The refusal code <c>weapon-no-target</c>.</summary>
     public const string WeaponNoTarget = "weapon-no-target";
+
+    /// <summary>The refusal code <c>target-out-of-reach</c>.</summary>
+    public const string TargetOutOfReach = "target-out-of-reach";
 }

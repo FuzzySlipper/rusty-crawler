@@ -1,5 +1,6 @@
 using System.Globalization;
 using PartyRpg.Kit.Combat;
+using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
@@ -207,33 +208,63 @@ public sealed class CreatureSpellPolicyTests
         Assert.True(ai.AreEnemies(bound.Subject, Creature(live, "ghost").Subject));
         Assert.True(ai.AreEnemies(Creature(live, "ghost").Subject, bound.Subject));
 
+        // A named foe condition is refused once the target stands with the party. The refusal happens before
+        // the casting is paid, while a neutral named target remains admitted by the same reach gate.
+        int points = live.Party!.Members[0].Resources.SpellPoints.Current;
+        CastAt(session, 4, "34", bound);
+        Assert.Equal("refused", Magic(ui).Field("outcome").AsString());
+        Assert.Equal(SpellCodes.SpellTargetFriendly, Magic(ui).Field("code").AsString());
+        Assert.Equal(points, live.Party.Members[0].Resources.SpellPoints.Current);
+
+        int harmPoints = live.Party.Members[0].Resources.SpellPoints.Current;
+        CastAt(session, 5, "2", bound);
+        Assert.Equal("refused", Magic(ui).Field("outcome").AsString());
+        Assert.Equal(SpellCodes.SpellTargetFriendly, Magic(ui).Field("code").AsString());
+        Assert.Equal(harmPoints, live.Party.Members[0].Resources.SpellPoints.Current);
+
         // An undead creature is not bound by it, and the casting is spent all the same.
-        CastAt(session, 4, "66", Creature(live, "ghost"));
+        CastAt(session, 6, "66", Creature(live, "ghost"));
         Assert.Contains("no creature in reach is one it takes hold of", Magic(ui).Field("message").AsString(), StringComparison.Ordinal);
 
         // A binding of the dead takes the ghost instead (CastSpellInfo.cpp:2719-2762), and two creatures bound to the
         // party are not each other's enemies.
-        CastAt(session, 5, "94", Creature(live, "ghost"));
+        CastAt(session, 7, "94", Creature(live, "ghost"));
         Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
-        session.Update(RulesetTestContext.Update(6, 1));
+        session.Update(RulesetTestContext.Update(8, 1));
         Assert.Equal(CombatSide.Ally, Creature(live, "ghost").Side);
         Assert.False(ai.AreEnemies(Creature(live, "ghost").Subject, Creature(live, "beast").Subject));
 
         // A berserk creature is everybody's enemy (Actor.cpp:2134, 2142), and it ends the binding the ghost was under.
-        CastAt(session, 7, "62", Creature(live, "ghost"));
+        CastAt(session, 9, "62", Creature(live, "ghost"));
         Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
-        session.Update(RulesetTestContext.Update(8, 1));
+        session.Update(RulesetTestContext.Update(10, 1));
         Combatant raging = Creature(live, "ghost");
         Assert.Equal(CombatSide.Opposition, raging.Side);
         Assert.True(ai.AreEnemies(raging.Subject, Creature(live, "beast").Subject));
         Assert.True(ai.AreEnemies(Creature(live, "far").Subject, raging.Subject));
 
-        // A charm stands a creature with the party and keeps its own quarrels with other kinds (Actor.cpp:2152-2154).
-        CastAt(session, 9, "60", Creature(live, "far"));
+        // A charm aimed beyond the ordinary attack reach is refused before points, recovery, or allegiance change.
+        Combatant charmed = Creature(live, "charmed");
+        Combatant caster = live.Combat!.Combatants.First(combatant => combatant.Subject.IsMember);
+        int charmPoints = live.Party!.Members[0].Resources.SpellPoints.Current;
+        long casterRecovery = caster.Recovery.Milliseconds;
+        long charmRecovery = charmed.Recovery.Milliseconds;
+        CastAt(session, 11, "60", charmed);
+        Assert.Equal("refused", Magic(ui).Field("outcome").AsString());
+        Assert.Equal(SpellCodes.SpellTargetOutOfReach, Magic(ui).Field("code").AsString());
+        Assert.Equal(charmPoints, live.Party.Members[0].Resources.SpellPoints.Current);
+        Assert.Equal(casterRecovery, caster.Recovery.Milliseconds);
+        Assert.Equal(charmRecovery, Creature(live, "charmed").Recovery.Milliseconds);
+        Assert.Equal(CombatSide.Opposition, Creature(live, "charmed").Side);
+
+        // Moving the same creature into reach admits the affiliation-changing condition and puts it with the party
+        // (Actor.cpp:2152-2154); the separate far creature remains outside the area spell's view below.
+        charmed.Subject.Entity!.MoveTo(new PlacePose(500, 0, 0, 0, 0));
+        CastAt(session, 12, "60", charmed);
         Assert.Equal("cast", Magic(ui).Field("outcome").AsString());
-        session.Update(RulesetTestContext.Update(10, 1));
-        Assert.Equal(CombatSide.Ally, Creature(live, "far").Side);
-        Assert.False(ai.AreEnemies(Creature(live, "far").Subject, Creature(live, "beast").Subject));
+        session.Update(RulesetTestContext.Update(13, 1));
+        Assert.Equal(CombatSide.Ally, Creature(live, "charmed").Side);
+        Assert.False(ai.AreEnemies(Creature(live, "charmed").Subject, Creature(live, "beast").Subject));
 
         // The party's own act aims at what fights it, never at a creature standing with it.
         IReadOnlyList<CombatResult> struck = live.Combat!.Engage();
@@ -244,7 +275,7 @@ public sealed class CreatureSpellPolicyTests
     [Fact]
     public void A_charmed_creature_beside_the_party_does_not_keep_it_from_making_camp()
     {
-        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(Creatures());
+        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(Creatures(includeCharmable: false));
         using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
             RulesetTestContext.RulesetContext(context, ui) with
             {
@@ -309,13 +340,14 @@ public sealed class CreatureSpellPolicyTests
                 string.Create(CultureInfo.InvariantCulture, $$"""{"action":"party.cast","member":0,"spell":"{{spell}}","target":"{{creature.Id}}"}"""))));
 
     /// <summary>This suite's world: a beast and a ghost beside the party, and a beast far off.</summary>
-    private static (string Path, string Text)[] Creatures() => Content(
+    private static (string Path, string Text)[] Creatures(bool includeCharmable = true) => Content(
         spells: ($"{RulesetTestContext.ContentDirectory}/content-packs/world/spells.json",
             """
             {
               "documentId": "spells",
               "definitionKind": "spell",
               "entries": [
+                { "id": "2", "school": "Fire", "level": 2, "name": "Fire Bolt", "resist": "Fire" },
                 { "id": "34", "school": "Earth", "level": 1, "name": "Stun", "resist": "Earth" },
                 { "id": "35", "school": "Earth", "level": 2, "name": "Slow", "resist": "Earth" },
                 { "id": "48", "school": "Spirit", "level": 4, "name": "Turn Undead", "resist": "Spirit" },
@@ -346,9 +378,10 @@ public sealed class CreatureSpellPolicyTests
                       "skills": [ { "id": "Earth", "level": 3, "tier": 1, "pointsSpent": 1 },
                                   { "id": "Spirit", "level": 3, "tier": 1, "pointsSpent": 1 },
                                   { "id": "Mind", "level": 4, "tier": 4, "pointsSpent": 1 },
+                                  { "id": "Fire", "level": 3, "tier": 1, "pointsSpent": 1 },
                                   { "id": "Light", "level": 2, "tier": 1, "pointsSpent": 1 },
                                   { "id": "Dark", "level": 4, "tier": 2, "pointsSpent": 1 } ],
-                      "spells": [ "34", "35", "48", "60", "62", "63", "66", "81", "92", "94" ], "conditions": [] },
+                      "spells": [ "2", "34", "35", "48", "60", "62", "63", "66", "81", "92", "94" ], "conditions": [] },
                     { "name": "Borin", "race": "Human", "class": "Knight", "level": 1, "hitPoints": 40, "spellPoints": 0,
                       "attributes": [ { "id": "Might", "value": 13 }, { "id": "Intellect", "value": 9 },
                                       { "id": "Personality", "value": 9 }, { "id": "Endurance", "value": 13 },
@@ -375,7 +408,7 @@ public sealed class CreatureSpellPolicyTests
             }
             """),
         places: ($"{RulesetTestContext.ContentDirectory}/content-packs/world/places.json",
-            """
+            $$"""
             {
               "documentId": "places",
               "definitionKind": "place",
@@ -385,6 +418,7 @@ public sealed class CreatureSpellPolicyTests
                   "placements": [
                     { "id": "beast", "kind": "monster", "monster": "7", "name": "A beast", "x": 300, "y": 0, "z": 0 },
                     { "id": "ghost", "kind": "monster", "monster": "10", "name": "A ghost", "x": 400, "y": 0, "z": 0 },
+                    {{(includeCharmable ? "{ \"id\": \"charmed\", \"kind\": \"monster\", \"monster\": \"7\", \"name\": \"A charmable beast\", \"x\": 6000, \"y\": 0, \"z\": 0 }," : string.Empty)}}
                     { "id": "far", "kind": "monster", "monster": "7", "name": "A distant beast", "x": 9000, "y": 0, "z": 0 }
                   ] },
                 { "id": "2", "kind": "interior", "name": "Cave", "respawnDays": 1,

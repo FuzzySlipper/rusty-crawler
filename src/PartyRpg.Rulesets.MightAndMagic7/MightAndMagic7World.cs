@@ -331,7 +331,13 @@ internal static class MightAndMagic7World
             : null;
 
         EnginePartyMover mover = new(spatial, movement, engine.Content, MightAndMagic7Movement.Navigation, geometry);
-        return (mover, new EngineCreatureMotion(spatial, mover, MightAndMagic7Movement.Space, tuning.Controller, MightAndMagic7Movement.CreatureSettleReach));
+        return (mover, new EngineCreatureMotion(
+            spatial,
+            mover,
+            MightAndMagic7Movement.Space,
+            tuning.Controller,
+            MightAndMagic7Movement.CreatureSettleReach,
+            tuning.Flight));
     }
 
     /// <summary>

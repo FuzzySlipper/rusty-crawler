@@ -121,13 +121,30 @@ test('the target a player chose stays chosen when the fight redraws the book', (
   try {
     const ui = mountProductUi(h.root, h.context);
     const two = running();
-    two.magic.targets = [...two.magic.targets, { target: 'actor:2', name: 'A second beast', side: 'opposition', distance: 750 }];
+    // Two same-named foes in one coarse distance band still need distinct player words; the target values remain
+    // their durable identities underneath the picker.
+    two.magic.targets = [
+      ...two.magic.targets,
+      { target: 'actor:2', name: 'A beast', side: 'opposition', distance: 500, kind: 'actor' },
+      { target: 'actor:dead', name: 'A beast', side: 'opposition', distance: 250, kind: 'body' },
+      { target: 'member:down', name: 'Borin', side: 'party', distance: 0, kind: 'actor' },
+    ];
+    // A body-capable Either row opts into the typed body candidate, while the ordinary foe row below keeps it out.
+    const member = two.magic.members[0];
+    member.spells = [
+      ...member.spells,
+      { spell: '89', name: 'Reanimate', school: 'Body', tier: 'expert', tierRung: 2, cost: 8, targeting: 'either', effect: 'utility', aims: [], targetSide: 'any', canCast: true },
+    ];
+    member.pages[0].spells = [
+      ...member.pages[0].spells,
+      { spell: '89', name: 'Reanimate', tier: 'expert', known: true, cost: 8, refusalCode: '', refusal: '' },
+    ];
     h.emit(two);
     const book = open(h);
     book.querySelector('.crawler-magic-book-spell[data-spell="2"]').click();
     const target = book.querySelector('.crawler-magic-book-target');
-    // Two foes are told apart by how far the product says each stands, nearest first as it lists them.
-    assert.deepEqual([...target.options].map((option) => option.textContent), ['A beast · within 500', 'A second beast · within 750']);
+    // Two foes are told apart by near-to-far words even though the product publishes the same coarse distance band.
+    assert.deepEqual([...target.options].map((option) => option.textContent), ['A beast · nearer · within 500', 'A beast · farther · within 500']);
     target.value = 'actor:2';
     target.dispatchEvent(new h.dom.window.Event('change', { bubbles: true }));
 
@@ -138,6 +155,14 @@ test('the target a player chose stays chosen when the fight redraws the book', (
     assert.equal(book.querySelector('.crawler-magic-book-target').value, 'actor:2');
     book.querySelector('.crawler-magic-book-cast').click();
     assert.deepEqual(h.claims.at(-1).value.data, { action: ACTIONS.cast, member: 1, spell: '2', target: 'actor:2' });
+
+    book.querySelector('.crawler-magic-book-spell[data-spell="89"]').click();
+    assert.ok([...book.querySelector('.crawler-magic-book-target').options].some((option) => option.value === 'actor:dead'));
+
+    // A downed party member remains an Actor target, so the ally spell's picker still offers them for recovery.
+    book.querySelector('.crawler-character-tab[data-page="Body"]').click();
+    book.querySelector('.crawler-magic-book-spell[data-spell="68"]').click();
+    assert.ok([...book.querySelector('.crawler-magic-book-target').options].some((option) => option.value === 'member:down'));
     ui.dispose();
   } finally {
     h.restore();

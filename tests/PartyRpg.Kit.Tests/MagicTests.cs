@@ -1,8 +1,15 @@
+using PartyRpg.Kit;
 using PartyRpg.Kit.Combat;
+using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Magic;
+using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Presentation;
+using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Services;
+using PartyRpg.Kit.Time;
+using PartyRpg.Kit.World;
+using Rusty.Engine;
 using Xunit;
 
 namespace PartyRpg.Kit.Tests;
@@ -27,6 +34,7 @@ namespace PartyRpg.Kit.Tests;
 /// </remarks>
 public sealed class MagicTests
 {
+    private static readonly ContentLayout Layout = new("packs", "imports", "bundles");
     private static readonly SkillId FireSkill = new("Fire");
     private static readonly SkillId MindSkill = new("Mind");
     private static readonly SpellId FireBolt = new("1");
@@ -43,6 +51,46 @@ public sealed class MagicTests
         Assert.Equal(250, MagicSnapshot.DistanceBand(250));
         Assert.Equal(750, MagicSnapshot.DistanceBand(545));
         Assert.Equal(MagicSnapshot.DistanceBand(501), MagicSnapshot.DistanceBand(749));
+    }
+
+    [Fact]
+    public void Named_spell_targets_show_reachable_live_creatures_and_typed_bodies_but_hide_allies()
+    {
+        using PartyEntity party = Party(withFire: true);
+        party.Members[0].Spells.Learn(FireBolt);
+        Assert.Null(party.Roster.Select(party.Members[0].Id, Verdict.Met));
+        PartyMember downedMember = party.Members[1];
+        downedMember.TakeDamage(downedMember.Resources.HitPoints.Current);
+
+        using SessionWorld world = TargetWorld(party);
+        world.ArriveAt(new PlaceId("1"), PlacePose.Origin);
+        world.Populate();
+        GameClock clock = TestClock.Create();
+        CombatState fight = new(Capabilities.Combat(new PresentationCombat()), party, world, clock);
+        fight.Step();
+
+        // The body is still held by the fight so a body-capable Either spell can identify it without inventing a
+        // new reach policy. The neutral near creature remains a legal provocation target; the far creature stays
+        // out of the ordinary spell reach and the ally remains off the foe side.
+        PlacePopulationEntity body = world.Population.Entities.Single(entity => entity.Content.Id == "down");
+        Assert.NotNull(CreatureHealth.Find(body.Actor));
+        Assert.True(CreatureHealth.Find(body.Actor)!.Wound(4));
+
+        Spellcasting casting = new(party, Capabilities.Magic(new TestSpells(), new RecordingEffects()), fight);
+        MagicSnapshot magic = MagicSnapshot.From(casting);
+
+        PlacePopulationEntity near = world.Population.Entities.Single(entity => entity.Content.Id == "near");
+        Assert.Equal([CombatantId.Of(near.Id).ToString()], magic.Targets
+            .Where(target => target.Side == "opposition" && target.Kind == SpellTargetKind.Actor)
+            .Select(target => target.Target));
+        SpellTargetSnapshot bodyTarget = Assert.Single(magic.Targets, target => target.Kind == SpellTargetKind.Body);
+        Assert.Equal(CombatantId.Of(body.Id).ToString(), bodyTarget.Target);
+        Assert.Equal("body", SpellTargetKinds.WireName(bodyTarget.Kind));
+        SpellTargetSnapshot downedMemberTarget = Assert.Single(magic.Targets, target => target.Target == CombatantId.Of(downedMember.Id).ToString());
+        Assert.Equal(SpellTargetKind.Actor, downedMemberTarget.Kind);
+        Assert.Equal("party", downedMemberTarget.Side);
+        Assert.DoesNotContain(magic.Targets, target => target.Target.Contains("far", StringComparison.Ordinal));
+        Assert.DoesNotContain(magic.Targets, target => target.Target.Contains("ally", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -407,6 +455,65 @@ public sealed class MagicTests
         Assert.Equal([FireBolt], restored.Members[0].Spells.Known);
     }
 
+    /// <summary>One place with a near neutral creature, a far neutral creature, a body, and an allied creature.</summary>
+    private static SessionWorld TargetWorld(PartyEntity party)
+    {
+        ContentCatalog catalog = ContentCatalogLoader.Load(
+            new InMemoryContentSource()
+                .Add(
+                    "packs/world/pack.json",
+                    """
+                    {
+                      "schemaVersion": 1,
+                      "packId": "world",
+                      "kind": "definitions",
+                      "provenance": { "description": "magic presentation test" },
+                      "documents": [ { "path": "places.json", "documentId": "places", "definitionKind": "place" } ]
+                    }
+                    """)
+                .Add(
+                    "packs/world/places.json",
+                    """
+                    {
+                      "documentId": "places",
+                      "definitionKind": "place",
+                      "entries": [
+                        {
+                          "id": "1",
+                          "kind": "region",
+                          "name": "Hall",
+                          "respawnDays": 7,
+                          "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ],
+                          "placements": [
+                            { "id": "near", "kind": "creature", "x": 50, "y": 0, "z": 0, "monster": "1", "hitPoints": 4 },
+                            { "id": "far", "kind": "creature", "x": 1000, "y": 0, "z": 0, "monster": "1", "hitPoints": 4 },
+                            { "id": "down", "kind": "creature", "x": 75, "y": 0, "z": 0, "monster": "1", "hitPoints": 4 },
+                            { "id": "ally", "kind": "creature", "x": 50, "y": 0, "z": 0, "monster": "1", "hitPoints": 4 }
+                          ]
+                        }
+                      ]
+                    }
+                    """),
+            Layout).RequireValid();
+
+        PlaceGraph graph = PlaceGraphLoader.Load(catalog);
+        GameClock clock = TestClock.Create();
+        PartyPoseOwner pose = new(new PartyPose(new PlaceId("1"), PlacePose.Origin), new FacingRule(2048, -512, 512));
+        return new SessionWorld(
+            graph,
+            pose,
+            new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()),
+            new FreeTravel(),
+            clock,
+            mover: null,
+            diagnostics: null,
+            entrances: null,
+            clock: clock,
+            resources: null,
+            partyEntity: party,
+            vitals: Capabilities.PlacementHitPoints);
+    }
+
     /// <summary>A party of two: a caster who may hold the fire skill, and a companion who may not.</summary>
     private static PartyEntity Party(bool withFire) =>
         new PartyEntityFactory().Create(new PartyCreation(
@@ -621,6 +728,24 @@ public sealed class MagicTests
 
         /// <summary>No theft is drawn here, for the same reason.</summary>
         public ServiceTheft Steal(ServiceTheftRequest request) => ServiceTheft.Refused(JudgeTheft(request)!);
+    }
+
+    /// <summary>The target-presentation fight: neutral creatures may be provoked, while one creature stands allied.</summary>
+    private sealed class PresentationCombat : ICombatRule
+    {
+        public string NameOf(CombatSubject subject) => subject.Member?.Profile.Name ?? "A beast";
+
+        public Hostility NatureOf(CombatSubject subject) => subject.Placement?.Content.Id == "ally"
+            ? Hostility.Allied
+            : Hostility.Peaceful;
+
+        public AttackKind AttackKindFor(CombatSubject subject) => AttackKind.Melee;
+
+        public GameDuration RecoveryAfter(CombatSubject subject, AttackKind kind) => GameDuration.None;
+
+        public GameDuration InitialRecovery(CombatSubject subject, AttackKind kind) => GameDuration.None;
+
+        public double ReachOf(CombatSubject subject, AttackKind kind) => kind == AttackKind.Spell ? 300 : 100;
     }
 
     /// <summary>A fight's answers, stated by this suite: everybody swings, everybody recovers a second.</summary>

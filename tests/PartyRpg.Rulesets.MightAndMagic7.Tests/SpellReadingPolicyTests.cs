@@ -52,7 +52,7 @@ public sealed class SpellReadingPolicyTests
     [Fact]
     public void Pain_reflection_turns_a_creatures_blow_back_onto_it_through_the_fight()
     {
-        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(Readings());
+        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(MeleeReachReadings());
         using IGameSession session = Casting(context, ui);
         MightAndMagic7Session live = (MightAndMagic7Session)session;
         Cast(session, ui, 1, "95", string.Empty);
@@ -729,4 +729,12 @@ public sealed class SpellReadingPolicyTests
                 """,
                 """{ "path": "potions.json", "documentId": "potions", "definitionKind": "potion" }"""),
         ]);
+
+    /// <summary>The same reading fixture with the reflection test's creature close enough for an actual melee blow.</summary>
+    private static (string Path, string Text)[] MeleeReachReadings() =>
+    [
+        .. Readings().Select(document => document.Path.EndsWith("places.json", StringComparison.Ordinal)
+            ? (document.Path, document.Text.Replace("\"x\": 5000", "\"x\": 200", StringComparison.Ordinal))
+            : document),
+    ];
 }

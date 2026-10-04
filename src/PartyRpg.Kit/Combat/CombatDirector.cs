@@ -405,7 +405,8 @@ public sealed class CombatDirector
             to,
             purpose,
             _policy.SpeedOf(creature.Subject),
-            elapsedSeconds));
+            elapsedSeconds,
+            _policy.MoveModeOf(creature.Subject)));
 
         // What the mover resolved is where the creature now stands, written on the creature itself, so every
         // reader of it — the fight's distances, a body laid where it falls — reads one position.

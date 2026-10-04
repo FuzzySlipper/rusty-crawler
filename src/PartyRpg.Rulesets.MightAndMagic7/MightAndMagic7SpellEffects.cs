@@ -145,6 +145,25 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
             return SpellRefusals.NotApplied(application.Spell.Name, reading.Missing, reading.Receiver);
         }
 
+        // A foe-directed named effect must not spend points on a creature that is already standing with the
+        // party. Neutral creatures remain legal here: the same in-range cast may deliberately provoke one.
+        if (application.Fight is { } friendlyFight && application.Target is { } friendlyTarget &&
+            RefusesFriendlyNamedCombatTarget(application.Spell, reading) &&
+            friendlyFight.Find(friendlyTarget) is { Side: CombatSide.Ally } ally)
+        {
+            return SpellRefusals.FriendlyTarget(application.Spell.Name, ally.Name);
+        }
+
+        // A foe-directed effect that acts on one named combatant must use the fight's own attack reach before
+        // the casting is paid for. This deliberately leaves area readings such as Turn Undead and Mass Fear to
+        // their authored in-view depth, and does not ask who noticed the party or whether an interaction ray can
+        // see the target: a neutral creature is still a legal target, and an in-range cast is what provokes it.
+        if (application.Fight is { } targetFight && application.Target is { } target && RequiresNamedCombatReach(application.Spell, reading) &&
+            !targetFight.IsInReach(application.CasterId, target, AttackKind.Spell))
+        {
+            return SpellRefusals.TargetOutOfReach(application.Spell.Name, application.TargetName);
+        }
+
         // A spell the game limits by the day is refused before anything is spent once the caster has cast it as
         // often as the day allows, which is the donor's own refusal of a fourth divine intervention
         // (OpenEnroth src/Engine/Spells/CastSpellInfo.cpp:2592-2596).
@@ -188,6 +207,20 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
             _ => null,
         };
     }
+
+    /// <summary>Whether this row's named foe is admitted by the fight's ordinary spell reach.</summary>
+    private bool RequiresNamedCombatReach(SpellDefinition spell, SpellReading reading) =>
+        spell.Targeting == SpellTargeting.Foe &&
+        ((spell.Effect == SpellEffects.Damage && _spells.Harm(spell) is not null) ||
+         reading.OnCreature is { Reach: CreatureReach.Named });
+
+    /// <summary>Whether an already allied named target must be refused as a hostile spell target.</summary>
+    private bool RefusesFriendlyNamedCombatTarget(SpellDefinition spell, SpellReading reading) =>
+        spell.Targeting == SpellTargeting.Foe &&
+        ((spell.Effect == SpellEffects.Damage && _spells.Harm(spell) is not null) ||
+         // Affiliation-changing conditions deliberately replace an allied creature's current allegiance;
+         // hostile named conditions such as stun, slow, paralyze, and shrink refuse the ordinary foe target.
+         reading.OnCreature is { Reach: CreatureReach.Named, Ends: null });
 
     /// <inheritdoc />
     public SpellApplicationOutcome Apply(SpellApplication application)
@@ -909,7 +942,7 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         else
         {
             taken.AddRange(fight.Combatants.Where(combatant =>
-                combatant.Subject.Entity is not null && !fight.IsDown(combatant) && combatant.Distance <= MassSpellDepth));
+                combatant.Subject.Entity is not null && !fight.IsDown(combatant) && fight.DistanceOf(combatant) <= MassSpellDepth));
         }
 
         (int power, GameDuration lasts) = reading.Lasts is { } length

@@ -123,7 +123,7 @@ export interface MagicMemberView {
   readonly pages: readonly SpellPageView[];
 }
 
-/** One actor a casting may be aimed at, with the side it is on. */
+/** One actor or body a casting may be aimed at, with the side it is on. */
 export interface SpellTargetView {
   readonly target: string;
   readonly name: string;
@@ -131,6 +131,8 @@ export interface SpellTargetView {
   readonly side: string;
   /** The step of place units the fight's distance falls within, zero for a member; the product lists the nearest first. */
   readonly distance: number;
+  /** `actor` for a live member or creature; `body` for a downed creature a body-capable spell may name. */
+  readonly kind: string;
 }
 
 /** What the party can cast, what it may aim at, and what the last casting did. */
@@ -162,9 +164,14 @@ export interface MagicView {
   readonly sight: string;
 }
 
-/** The actors on the side the product says a casting names, every one for `any`, or none when it names nobody. */
-export function targetsOn(view: MagicView, side: string): readonly SpellTargetView[] {
-  return side === '' ? [] : side === 'any' ? view.targets : view.targets.filter((target) => target.side === side);
+/**
+ * The actors on the side the product says a casting names, every one for `any`, or none when it names nobody.
+ * Body rows are hidden by default because ordinary foe and item uses cannot name a body; an `either` spell opts in
+ * through its row so a ruleset effect such as reanimation can retain the product's durable target identity.
+ */
+export function targetsOn(view: MagicView, side: string, includeBodies = false): readonly SpellTargetView[] {
+  const targets = side === '' ? [] : side === 'any' ? view.targets : view.targets.filter((target) => target.side === side);
+  return includeBodies ? targets : targets.filter((target) => target.kind !== 'body');
 }
 
 /**
@@ -172,10 +179,36 @@ export function targetsOn(view: MagicView, side: string): readonly SpellTargetVi
  * the places or things the product says it may be pointed at, else nothing — a spell neither names is cast with no target.
  */
 export function aimRows(view: MagicView, row: SpellRowView): readonly { readonly value: string; readonly text: string }[] {
-  const targets = targetsOn(view, row.targetSide);
-  return targets.length > 0
-    ? targets.map((target) => ({ value: target.target, text: target.distance > 0 ? `${target.name} · within ${target.distance}` : target.name }))
-    : row.aims.map((aim) => ({ value: aim.aim, text: `${aim.name} (${aim.kind})` }));
+  const targets = targetsOn(view, row.targetSide, row.targeting === 'either');
+  if (targets.length === 0) return row.aims.map((aim) => ({ value: aim.aim, text: `${aim.name} (${aim.kind})` }));
+
+  // The wire keeps durable identities in option values, while the words a player sees must distinguish two
+  // creatures with one name. Targets arrive nearest first from the fight's current poses; use that order for
+  // a natural near-to-far qualifier, even when both fall in the same published distance band.
+  const sameName = new Map<string, number>();
+  for (const target of targets) {
+    const key = target.name;
+    sameName.set(key, (sameName.get(key) ?? 0) + 1);
+  }
+  const seen = new Map<string, number>();
+  return targets.map((target) => {
+    const key = target.name;
+    const total = sameName.get(key) ?? 1;
+    const index = seen.get(key) ?? 0;
+    seen.set(key, index + 1);
+    const qualifier = total > 1 ? ` · ${targetPosition(index, total)}` : '';
+    const distance = target.distance > 0 ? ` · within ${target.distance}` : '';
+    return { value: target.target, text: `${target.name}${qualifier}${distance}` };
+  });
+}
+
+/** A short near-to-far word for one of several same-named target rows. */
+function targetPosition(index: number, total: number): string {
+  if (total === 2) return index === 0 ? 'nearer' : 'farther';
+  if (index === 0) return 'nearest';
+  if (index === total - 1) return 'farthest';
+  const suffix = index + 1 === 2 ? 'nd' : index + 1 === 3 ? 'rd' : 'th';
+  return `${index + 1}${suffix} nearest`;
 }
 
 export function readMagic(f: Fields): MagicView {
@@ -217,7 +250,13 @@ export function readMagic(f: Fields): MagicView {
         })),
       })),
     })),
-    targets: f.list('targets', (entry) => ({ target: entry.text('target'), name: entry.text('name'), side: entry.text('side'), distance: entry.number('distance') })),
+    targets: f.list('targets', (entry) => ({
+      target: entry.text('target'),
+      name: entry.text('name'),
+      side: entry.text('side'),
+      distance: entry.number('distance'),
+      kind: entry.text('kind', 'actor'),
+    })),
     outcome: f.text('outcome', 'none'),
     member: f.number('member'),
     caster: f.text('caster'),

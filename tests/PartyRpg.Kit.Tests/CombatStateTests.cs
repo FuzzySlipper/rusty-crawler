@@ -204,6 +204,100 @@ public sealed class CombatStateTests
     }
 
     [Fact]
+    public void An_explicit_target_beyond_attack_reach_is_refused_before_recovery_or_provocation()
+    {
+        using PartyEntity party = Party();
+        using SessionWorld world = World(party, monsterAt: 100, farMonsterAt: 4000);
+        CombatState combat = Fight(world, party);
+        Arrive(world);
+        combat.Step();
+
+        Combatant actor = combat.Combatants.First(combatant => combatant.Subject.IsMember);
+        Combatant distant = combat.Combatants.Single(combatant => combatant.Name == "A beast far off");
+        Assert.Equal(CombatSide.Neutral, distant.Side);
+        Assert.True(actor.IsReady);
+
+        CombatResult refused = combat.Order(new AttackOrder(actor.Id, AttackKind.Melee, distant.Id));
+
+        Assert.False(refused.IsApplied);
+        Assert.Equal(CombatCodes.TargetOutOfReach, refused.Code);
+        Assert.Contains("cannot reach", refused.Message, StringComparison.Ordinal);
+        Assert.True(actor.IsReady);
+        Assert.Equal(CombatSide.Neutral, distant.Side);
+        Assert.Empty(combat.RecentBlows);
+    }
+
+    [Fact]
+    public void An_existing_combatant_refreshes_its_subject_pose_when_it_crosses_attack_reach()
+    {
+        using PartyEntity party = Party();
+        using SessionWorld world = World(party, monsterAt: 100);
+        CombatState combat = Fight(world, party);
+        Arrive(world);
+        combat.Step();
+
+        Combatant actor = combat.Combatants.First(combatant => combatant.Subject.IsMember);
+        Combatant initial = combat.Combatants.Single(combatant => combatant.Name == "A beast");
+        PlacePopulationEntity creature = initial.Subject.Entity!;
+        Assert.True(combat.IsInReach(actor.Id, initial.Id, AttackKind.Melee));
+
+        PlacePose beyond = new(400, 0, 0, 0, 0);
+        creature.MoveTo(beyond);
+        combat.Step();
+
+        Combatant moved = Assert.IsType<Combatant>(combat.Find(initial.Id));
+        Assert.Same(initial, moved);
+        Assert.Same(creature, moved.Subject.Entity);
+        Assert.Equal(beyond, moved.Subject.Pose);
+        Assert.False(combat.IsInReach(actor.Id, moved.Id, AttackKind.Melee));
+
+        PlacePose returned = new(200, 0, 0, 0, 0);
+        creature.MoveTo(returned);
+        combat.Step();
+
+        Combatant back = Assert.IsType<Combatant>(combat.Find(initial.Id));
+        Assert.Same(initial, back);
+        Assert.Equal(returned, back.Subject.Pose);
+        Assert.True(combat.IsInReach(actor.Id, back.Id, AttackKind.Melee));
+    }
+
+    [Fact]
+    public void Reach_and_order_read_live_party_and_entity_poses_without_recreating_the_combatant()
+    {
+        using PartyEntity party = Party();
+        using SessionWorld world = World(party, monsterAt: 100);
+        CombatState combat = Fight(world, party);
+        Arrive(world);
+        combat.Step();
+
+        Combatant actor = combat.Combatants.First(combatant => combatant.Subject.IsMember);
+        Combatant beast = combat.Combatants.Single(combatant => combatant.Name == "A beast");
+        PlacePopulationEntity entity = beast.Subject.Entity!;
+        PlacePose originalPartyPose = world.Party.PlacePose;
+
+        // The world moved the creature after the fight read it. The reach gate must use its actual pose now,
+        // before another population read, while preserving the combatant, runtime entity, and combat id.
+        entity.MoveTo(new PlacePose(400, 0, 0, 0, 0));
+        Assert.False(combat.IsInReach(actor.Id, beast.Id, AttackKind.Melee));
+        Assert.Same(beast, combat.Find(beast.Id));
+        Assert.Same(entity, combat.Find(beast.Id)!.Subject.Entity);
+        Assert.Equal(new PlacePose(400, 0, 0, 0, 0), combat.Find(beast.Id)!.Subject.Pose);
+        Assert.Equal(400, combat.DistanceOf(beast));
+
+        CombatResult refused = combat.Order(new AttackOrder(actor.Id, AttackKind.Melee, beast.Id));
+        Assert.Equal(CombatCodes.TargetOutOfReach, refused.Code);
+        Assert.True(actor.IsReady);
+
+        // The party then moved in the same admitted update shape. The target is reachable from the party's
+        // current pose, and the existing actor is admitted without a second fight or scheduler.
+        world.Party.Move(200, 0, 0);
+        Assert.Equal(originalPartyPose with { X = 200 }, world.Party.PlacePose);
+        Assert.True(combat.IsInReach(actor.Id, beast.Id, AttackKind.Melee));
+        Assert.Equal(200, combat.DistanceOf(beast));
+        Assert.True(combat.Order(new AttackOrder(actor.Id, AttackKind.Melee, beast.Id)).IsApplied);
+    }
+
+    [Fact]
     public void The_same_state_produces_the_same_fight_under_a_seeded_random_service()
     {
         using PartyEntity party = Party();

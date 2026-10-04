@@ -29,7 +29,8 @@ Owns:
   effect: a definition carries the school's skill, the rung it asks for, the price this caster pays, what it
   is aimed at, and an opaque effect identity, and `ISpellEffectRule` is where every effect is expressed. An aim
   (`SpellTargeting`) is the caster, one member, one opponent, one actor of either side (`Either`, a member first and a
-  creature the fight holds otherwise, which the projection publishes as the side `any`), or the band.
+  creature the fight holds otherwise, which the projection publishes as the side `any`; a downed non-party creature stays a
+  typed `body` candidate for a body-capable `Either` effect while ordinary foe rows filter it), or the band.
   `Spellcasting.Readiness` answers, without casting, the questions a cast asks of the caster first (learned, rung,
   points, and `ISpellRule.CasterMay`, the game's own word on the caster), and the cast asks them through it; the magic block publishes each member's spellbook by school — a page
   for every school the member holds or knows a spell of and `ISpellRule.InSpellbook` admits, every spell of it with
@@ -320,8 +321,9 @@ read again only when its own key moves: the `ChangeStamp` of each owner it reads
 over every party component, member component and held item, each of which takes a stamp in every mutator; the
 quest, journal, knowledge, map, progression, casting, mixing and outfitting owners' own), and the few live facts it
 shows besides — the clock's hour for an errand's condition, its minute for the calendar book, the party's pose for
-the drawing, the running effects and the fight's sides for the spellbook, and no keeping at all while a detection
-marks the map; the spellbook's targets carry the 250-unit step each stands within, which its key reads; the
+the drawing, the running effects and the fight's exact target poses and down state for the spellbook, and no keeping
+at all while a detection marks the map; the spellbook's targets carry the 250-unit step each stands within and a
+typed body category when a downed non-party creature remains a candidate, which its key reads; the
 `feedback` block (`FeedbackSnapshot`, kept by `ActionFeedback`) is the answer to the party's latest act — it watches
 each owner's own last result and takes the new one, numbered and naming the act, its actor and its subject, so a
 screen's one answer line is never an older owner's result; a creature's blow stays the fight's news; with its controls block,
@@ -376,7 +378,7 @@ leaves on a creature — a paralysis, a slowing, a fear, a charm — counted dow
 and read by the game's answers), so a fight keeps no tally of its own beside
 it; where a placed entity stands is its own too (`PlacePopulationEntity.Pose`, moved only by `MoveTo`); a death
 is reported once, from the wound that caused it, to the `ICreatureDeathObserver`s `CombatRules` names; and `CombatState.Vitals`, `IsDown`, `LastResolution` and `AimOf` (what an actor's order would strike now) are
-what the panel reads, the fight block naming the selected member's aim and listing its foes nearest first; no scene, no second population, no per-kind cooldown, no per-kind damage class, and
+what the panel reads, the fight block naming the selected member's aim and listing its foes nearest first. An explicitly named target is admitted through `CombatState.IsInReach` after the actual attack kind is resolved, with the open reach boundary checked before a charged item, recovery, or provocation is changed; an attack with no target remains a real spent action. There is no scene, no second population, no per-kind cooldown, no per-kind damage class, and
 no timer); the second pacing of that same state is a reading of it rather than a second fight
 (`Combat/` — `CombatPacing` on the state, and a `TurnBasedPacing` that orders the fight's actors by ascending
 remaining recovery with the fight's own order breaking ties, lengths a round by the longest recovery any
@@ -406,7 +408,10 @@ creature goes is the engine's answer to its own pace; a
 creature whose body starts deeper in collision than the engine's controller recovers, which the engine refuses
 with `unresolved-character-controller-penetration`, is stood on the first surface the engine's own ray meets
 straight above its feet within the ruleset's settling reach, and one with no such ground, or still refused there,
-is held where it stands with a `creature-embedded` refusal the driver reports as `stuck`, never a fault), one damage entry for a character's
+is held where it stands with a `creature-embedded` refusal the driver reports as `stuck`, never a fault. A policy
+that marks a creature as flying targets its body centre and asks the Engine's flying controller for three-axis
+intent through the same collision scene, without planar navigation or a ground-settle fallback, so a refused flying
+step is held rather than floor-snapped), one damage entry for a character's
 own health
 (`Party/` — `PartyMember.TakeDamage` is where every wound arrives, a creature's bite and a sprung trap
 alike, taking harm into the party's own pool, keeping `CharacterResources.Deficit` for how far past empty

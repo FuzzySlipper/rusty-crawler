@@ -311,6 +311,23 @@ public sealed class MonsterAiTests
     }
 
     [Fact]
+    public void The_driver_carries_a_policy_s_locomotion_mode_to_the_creature_mover()
+    {
+        using PartyEntity party = Party();
+        Walking walker = new();
+        using SessionWorld world = World(party, new Days(), beastAt: 900, farBeastAt: 100000, creatures: walker);
+        CombatState fight = Fight(world, party, noticeRange: 2000);
+        CombatDirector director = new(fight, new Mind { EngageRange = 100, MoveMode = CreatureMoveMode.Flying }, walker, world.Places);
+        world.ArriveAt(Hall, Pose());
+        world.Populate();
+        fight.Step();
+
+        director.Step(Hall, 1.0);
+
+        Assert.True(walker.LastRequest is { Mode: CreatureMoveMode.Flying });
+    }
+
+    [Fact]
     public void A_creature_the_mover_cannot_step_is_stuck_by_name_where_it_stands_and_the_fight_goes_on()
     {
         using PartyEntity party = Party();
@@ -561,8 +578,12 @@ public sealed class MonsterAiTests
         /// <summary>Why every creature is held rather than stepped, as an engine that cannot place them answers; null to walk.</summary>
         internal Refusal? Holds { get; init; }
 
+        /// <summary>The last request, so a driver test can see the policy's locomotion answer arrive here.</summary>
+        internal CreatureMoveRequest? LastRequest { get; private set; }
+
         public CreatureMoveOutcome Move(CreatureMoveRequest request)
         {
+            LastRequest = request;
             Moves++;
             PlacePose from = request.From;
             if (Holds is { } refusal) return CreatureMoveOutcome.Held(from, refusal);
@@ -607,10 +628,15 @@ public sealed class MonsterAiTests
         /// <summary>The engine's randomness, which a decision here draws a chance from.</summary>
         internal IRandomService? Random { get; set; }
 
+        /// <summary>The locomotion mode this test policy asks its mover to use.</summary>
+        internal CreatureMoveMode MoveMode { get; set; }
+
 
         public bool AreEnemies(CombatSubject self, CombatSubject other) => Enemies(self, other);
 
         public double SpeedOf(CombatSubject subject) => 400;
+
+        public CreatureMoveMode MoveModeOf(CombatSubject subject) => MoveMode;
 
         public CreatureDecision Decide(CreatureSituation situation)
         {

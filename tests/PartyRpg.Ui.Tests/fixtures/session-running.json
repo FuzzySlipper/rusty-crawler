@@ -915,13 +915,15 @@
         "target": "member:1",
         "name": "Roderick",
         "side": "party",
-        "distance": 0
+        "distance": 0,
+        "kind": "actor"
       },
       {
         "target": "actor:1",
         "name": "A beast",
         "side": "opposition",
-        "distance": 500
+        "distance": 500,
+        "kind": "actor"
       }
     ],
     "outcome": "cast",

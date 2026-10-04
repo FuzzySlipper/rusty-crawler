@@ -1,4 +1,5 @@
 using PartyRpg.Kit.Content;
+using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Party;
@@ -224,6 +225,86 @@ public sealed class MagicPolicyTests
         Assert.Equal(before - FireBoltCost, (int)magic.Field("members").Item(0).Field("spellPoints").AsNumber());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_foe_spell_beyond_attack_reach_is_refused_before_points_recovery_or_provocation(bool turnBased)
+    {
+        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(MonsterContent(farMonsterAt: 6000));
+        using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
+            RulesetTestContext.RulesetContext(context, ui, combat: true) with { Cast = CastControls });
+        session.Start();
+        session.Update(RulesetTestContext.Update(1, 1));
+
+        MightAndMagic7Session live = Assert.IsType<MightAndMagic7Session>(session);
+        CombatState fight = live.Combat!;
+        Combatant caster = fight.Combatants.Single(combatant => combatant.Subject.IsMember);
+        Combatant distant = fight.Combatants.Single(combatant => combatant.Distance > 5000);
+        Assert.Equal(CombatSide.Neutral, distant.Side);
+        int before = live.Party!.Members[0].Resources.SpellPoints.Current;
+
+        ulong step = 2;
+        if (turnBased)
+        {
+            session.Update(RulesetTestContext.Update(step++, 1, RulesetTestContext.Digital(Declared.TurnBasedToggleIntent)));
+            Assert.Equal(CombatPacing.TurnBased, fight.Pacing);
+        }
+
+        session.Update(RulesetTestContext.Update(
+            step,
+            0,
+            0,
+            RulesetTestContext.Payload($$"""{"action":"party.cast","member":0,"spell":"2","target":"{{distant.Id}}"}""")));
+
+        SpellCastResult refused = live.Owners.Casting!.Last!;
+        Assert.False(refused.IsCast);
+        Assert.Equal(SpellCodes.SpellTargetOutOfReach, refused.Code);
+        Assert.Equal(before, live.Party.Members[0].Resources.SpellPoints.Current);
+        Assert.True(caster.IsReady);
+        Assert.Equal(CombatSide.Neutral, distant.Side);
+        if (turnBased) Assert.True(fight.Turns.WaitsForPlayer);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void An_in_range_foe_spell_can_provoke_a_neutral_creature_and_spend_the_shared_attack_turn(bool turnBased)
+    {
+        (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(MonsterContent(farMonsterAt: 3000));
+        using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
+            RulesetTestContext.RulesetContext(context, ui, combat: true) with { Cast = CastControls });
+        session.Start();
+        session.Update(RulesetTestContext.Update(1, 1));
+
+        MightAndMagic7Session live = Assert.IsType<MightAndMagic7Session>(session);
+        CombatState fight = live.Combat!;
+        Combatant caster = fight.Combatants.Single(combatant => combatant.Subject.IsMember);
+        Combatant neutral = fight.Combatants.Single(combatant => combatant.Distance > 2000);
+        Assert.Equal(CombatSide.Neutral, neutral.Side);
+        int before = live.Party!.Members[0].Resources.SpellPoints.Current;
+
+        ulong step = 2;
+        if (turnBased)
+        {
+            session.Update(RulesetTestContext.Update(step++, 1, RulesetTestContext.Digital(Declared.TurnBasedToggleIntent)));
+            Assert.Equal(CombatPacing.TurnBased, fight.Pacing);
+        }
+
+        session.Update(RulesetTestContext.Update(
+            step,
+            0,
+            0,
+            RulesetTestContext.Payload($$"""{"action":"party.cast","member":0,"spell":"2","target":"{{neutral.Id}}"}""")));
+
+        SpellCastResult cast = live.Owners.Casting!.Last!;
+        Assert.True(cast.IsCast, cast.Message);
+        Assert.Equal(before - FireBoltCost, live.Party.Members[0].Resources.SpellPoints.Current);
+        Assert.False(cast.Outcome?.Attack?.Initiated?.Recovery.IsNone ?? true, cast.Message);
+        if (!turnBased) Assert.False(caster.IsReady);
+        Assert.Equal(CombatSide.Opposition, neutral.Side);
+        if (turnBased) Assert.Equal(TurnAction.Act, fight.Turns.Last);
+    }
+
     [Fact]
     public void A_creatures_spell_lands_with_the_spells_own_dice_rather_than_its_rows()
     {
@@ -301,9 +382,9 @@ public sealed class MagicPolicyTests
     ];
 
     /// <summary>A world with one hostile creature in it, and a party that already knows Fire Bolt.</summary>
-    private static (string Path, string Text)[] MonsterContent(bool casters = false)
+    private static (string Path, string Text)[] MonsterContent(bool casters = false, double? farMonsterAt = null)
     {
-        List<(string Path, string Text)> files = [.. World(monsterAt: 100, casters: casters)];
+        List<(string Path, string Text)> files = [.. World(monsterAt: 100, casters: casters, farMonsterAt: farMonsterAt)];
         files.Add(Services());
         files.Add(Spells());
         files.Add(Books());
@@ -314,10 +395,13 @@ public sealed class MagicPolicyTests
     }
 
     /// <summary>The places, the start, and the pack manifest every case here shares.</summary>
-    private static (string Path, string Text)[] World(double? monsterAt, bool casters = false)
+    private static (string Path, string Text)[] World(double? monsterAt, bool casters = false, double? farMonsterAt = null)
     {
         string placements = monsterAt is { } at
             ? $$"""{{(casters ? string.Empty : string.Empty)}}{ "id": "beast", "kind": "monster", "monster": "7", "x": {{at.ToString(System.Globalization.CultureInfo.InvariantCulture)}}, "y": 0, "z": 0 }"""
+            : string.Empty;
+        string farPlacement = farMonsterAt is { } far
+            ? $$""", { "id": "beast-far", "kind": "monster", "monster": "7", "x": {{far.ToString(System.Globalization.CultureInfo.InvariantCulture)}}, "y": 0, "z": 0 }"""
             : string.Empty;
         List<(string Path, string Text)> files =
         [
@@ -350,7 +434,7 @@ public sealed class MagicPolicyTests
                   "entries": [
                     { "id": "1", "kind": "interior", "name": "The Guild of Fire", "respawnDays": 1,
                       "entryPoints": [ { "id": "Party Start", "x": 0, "y": 0, "z": 0, "yaw": 0 } ],
-                      "placements": [ { "id": "guild", "kind": "service", "houseId": "139", "x": 100, "y": 0, "z": 0 }{{(monsterAt is null ? string.Empty : $", {placements}")}} ] }
+                      "placements": [ { "id": "guild", "kind": "service", "houseId": "139", "x": 100, "y": 0, "z": 0 }{{(monsterAt is null ? string.Empty : $", {placements}")}}{{farPlacement}} ] }
                   ]
                 }
                 """),

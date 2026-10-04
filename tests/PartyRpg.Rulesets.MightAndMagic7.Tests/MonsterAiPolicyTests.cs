@@ -174,6 +174,46 @@ public sealed class MonsterAiPolicyTests
     }
 
     [Fact]
+    public void A_flying_row_selects_flying_motion_without_changing_its_movement_kind()
+    {
+        Fixture fixture = Fixture.Of();
+        CombatState fight = fixture.Fight();
+
+        Assert.True(fixture.Combat.FactsOf(fixture.Subject(fight, "flyer")) is { Flying: true });
+        Assert.Equal(CreatureMoveMode.Flying, fixture.Ai.MoveModeOf(fixture.Subject(fight, "flyer")));
+
+        // The marker is independent of the ordinary movement column: an unmarked row keeps the default ground
+        // mode, so adding flight to a content row cannot silently make every Free/Long creature fly.
+        Assert.False(fixture.Combat.FactsOf(fixture.Subject(fight, "beast")) is { Flying: true });
+        Assert.Equal(CreatureMoveMode.Ground, fixture.Ai.MoveModeOf(fixture.Subject(fight, "beast")));
+    }
+
+    [Theory]
+    [InlineData(CombatPacing.RealTime)]
+    [InlineData(CombatPacing.TurnBased)]
+    public void A_creature_at_the_exact_attack_boundary_must_close_in_in_both_pacings(CombatPacing pacing)
+    {
+        Fixture fixture = Fixture.Of();
+        CombatState fight = fixture.Fight();
+        if (pacing == CombatPacing.TurnBased) Assert.Equal(pacing, fight.TogglePacing());
+
+        Combatant creature = fixture.Combatant(fight, "brawler");
+        Combatant member = fight.Combatants.First(combatant => combatant.Side == CombatSide.Party);
+        double reach = fixture.Combat.ReachOf(creature.Subject, AttackKind.Melee);
+        CreatureSituation situation = new(
+            creature,
+            HitPoints: fight.Vitals(creature).Current,
+            HitPointsMax: fight.Vitals(creature).Maximum,
+            Candidates: [new CreatureCandidate(member, IsEnemy: true, IsParty: true, Distance: reach)],
+            Round: 0,
+            PartyPose: fight.PartyPose);
+
+        // The attack boundary is open: equality is still outside the strike, regardless of whether this same
+        // fight is being paced by elapsed recovery or by its turn order.
+        Assert.Equal(CreatureAction.Advance, fixture.Ai.Decide(situation).Action);
+    }
+
+    [Fact]
     public void A_person_reads_their_own_rows_hit_points_when_their_record_names_one()
     {
         Fixture fixture = Fixture.Of(persons: true);
@@ -493,7 +533,8 @@ public sealed class MonsterAiPolicyTests
                 { "id": "statue", "kind": "monster", "monster": "34", "x": 300, "y": 0, "z": 0 },
                 { "id": "brawler", "kind": "monster", "monster": "37", "x": 300, "y": 0, "z": 0 },
                 { "id": "caster", "kind": "monster", "monster": "28", "x": 300, "y": 0, "z": 0 },
-                { "id": "double", "kind": "monster", "monster": "31", "x": 300, "y": 0, "z": 0 }{{people}} ] }
+                { "id": "double", "kind": "monster", "monster": "31", "x": 300, "y": 0, "z": 0 },
+                { "id": "flyer", "kind": "monster", "monster": "40", "x": 300, "y": 0, "z": 0 }{{people}} ] }
           ]
         }
         """;
@@ -528,6 +569,9 @@ public sealed class MonsterAiPolicyTests
                 // A creature with one attack and nothing else, so a test can read what it does with it.
                 Row(37, "Brawler", "1D4", speed: 150, hostility: 0),
 
+                // Flight is a separate marker from the movement kind, as it is in the imported monster table.
+                Row(40, "Flyer", "1D4", speed: 250, hostility: 0, fly: "Y"),
+
                 // A person with no record of their own reads this row, which is the shipped peasant's own
                 // three hit points.
                 Row(100, "Peasant", "1D2", speed: 140, ai: "Wimp", hostility: 0, hitPoints: 3),
@@ -552,7 +596,8 @@ public sealed class MonsterAiPolicyTests
         int secondChance = 0,
         string movement = "Long",
         string attackKind = "Phys",
-        int hitPoints = 10)
+        int hitPoints = 10,
+        string fly = "N")
     {
         // A row's kind is the group of three graded variants it stands in, which is how the matrix names it:
         // rows 7, 10, and 13 are the third of their trios and so the kinds the matrix's third, fourth, and
@@ -568,7 +613,7 @@ public sealed class MonsterAiPolicyTests
             spell1: spell1);
         return $$"""
         { "id": "{{id}}", "name": "{{name}}", "level": 2, "hitPoints": {{hitPoints}}, "armorClass": 5,
-          "hostility": {{hostility}}, "recovery": 100, "speed": {{speed}}, "aiType": "{{ai}}", "movement": "{{movement}}",
+          "hostility": {{hostility}}, "recovery": 100, "speed": {{speed}}, "aiType": "{{ai}}", "movement": "{{movement}}", "fly": "{{fly}}",
           {{combat}} }
         """;
     }

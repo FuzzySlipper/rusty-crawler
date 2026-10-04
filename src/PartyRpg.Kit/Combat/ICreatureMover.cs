@@ -12,6 +12,21 @@ public enum CreatureMovePurpose
     Away,
 }
 
+/// <summary>Which Engine movement mode a creature asks its mover to use.</summary>
+/// <remarks>
+/// Ground movement follows the place's planar navigation. Flying movement keeps the same collision owner but
+/// supplies three-axis intent to the Engine's flying mode, so a ruleset can describe a creature's locomotion
+/// without putting an Engine enum or a game-specific kind in the combat policy.
+/// </remarks>
+public enum CreatureMoveMode
+{
+    /// <summary>Use the place's ground controller and planar navigation.</summary>
+    Ground,
+
+    /// <summary>Use the Engine's collision-aware flying controller.</summary>
+    Flying,
+}
+
 /// <summary>One creature's step, as whoever drives it asks for it.</summary>
 /// <remarks>
 /// <para>
@@ -34,6 +49,7 @@ public enum CreatureMovePurpose
 /// <param name="Purpose">Which way the creature moves relative to it.</param>
 /// <param name="Speed">How fast the creature covers ground, in place units per second.</param>
 /// <param name="ElapsedSeconds">The admitted world time this step covers, which must be positive.</param>
+/// <param name="Mode">The Engine movement mode the ruleset selected, ground by default.</param>
 public readonly record struct CreatureMoveRequest(
     CombatantId Creature,
     PlacePose From,
@@ -41,7 +57,8 @@ public readonly record struct CreatureMoveRequest(
     PlacePose TargetPose,
     CreatureMovePurpose Purpose,
     double Speed,
-    double ElapsedSeconds);
+    double ElapsedSeconds,
+    CreatureMoveMode Mode = CreatureMoveMode.Ground);
 
 /// <summary>What one creature's step came to.</summary>
 /// <remarks>

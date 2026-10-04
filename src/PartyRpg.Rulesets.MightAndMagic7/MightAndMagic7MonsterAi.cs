@@ -179,6 +179,18 @@ internal sealed class MightAndMagic7MonsterAi : IMonsterAiPolicy
 
     /// <inheritdoc />
     /// <remarks>
+    /// The imported row keeps flying separate from its movement type, as the donor does
+    /// (<c>OpenEnroth/src/Engine/Objects/Monsters.h:34-35</c>). Ground creatures keep the canonical planar
+    /// pursuit route; flying creatures ask the same collision scene for a three-axis step.
+    /// </remarks>
+    public CreatureMoveMode MoveModeOf(CombatSubject subject)
+    {
+        ArgumentNullException.ThrowIfNull(subject);
+        return _combat.FactsOf(subject)?.Flying == true ? CreatureMoveMode.Flying : CreatureMoveMode.Ground;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
     /// The order of the donor's own AI, one step at a time: run if the creature's class and wounds say so,
     /// otherwise pick the nearest thing it hates, and either act with the ability its own chances choose or
     /// close on the target. A stationary creature never closes: it holds its post and acts when its target
@@ -229,7 +241,7 @@ internal sealed class MightAndMagic7MonsterAi : IMonsterAiPolicy
         AttackKind kind)
     {
         _ = facts;
-        return candidate.Distance <= _combat.ReachOf(situation.Self.Subject, kind);
+        return candidate.Distance < _combat.ReachOf(situation.Self.Subject, kind);
     }
 
     /// <summary>

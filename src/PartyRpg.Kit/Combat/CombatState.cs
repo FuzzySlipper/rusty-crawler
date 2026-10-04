@@ -325,7 +325,7 @@ public sealed partial class CombatState : IGameTimeObserver
             // how a party enters a turn-based fight with the recovery it already owed.
             Combatant combatant = Existing(subject.Id) ??
                 new Combatant(subject, CombatSide.Party, name, kind, distance: 0, GameDuration.None);
-            combatant.Observe(CombatSide.Party, name, kind, distance: 0);
+            combatant.Observe(subject, CombatSide.Party, name, kind, distance: 0);
             live.Add(combatant);
         }
 
@@ -354,7 +354,7 @@ public sealed partial class CombatState : IGameTimeObserver
                 AttackKind kind = _weapons?.WeaponOf(subject)?.Kind ?? _rule.AttackKindFor(subject);
                 Combatant combatant = Existing(subject.Id) ??
                     new Combatant(subject, side, name, kind, distance, _rule.InitialRecovery(subject, kind));
-                combatant.Observe(side, name, kind, distance);
+                combatant.Observe(subject, side, name, kind, distance);
                 live.Add(combatant);
             }
         }
@@ -504,6 +504,11 @@ public sealed partial class CombatState : IGameTimeObserver
                 new Refusal(CombatCodes.UnknownCombatant, $"No combatant '{order.Actor}' is in this fight, so nothing acted; a fight holds the party's members and the creatures of the place the party stands in.")));
         }
 
+        // Movement is admitted before an order in the same session update. Re-read the subject here so the
+        // condition gate, weapon answer, reach gate, and resolution all see the live member/entity pose while
+        // retaining this combatant's identity and recovery.
+        RefreshLive(actor);
+
         if (!actor.IsReady)
         {
             return Report(CombatResult.Refused(
@@ -536,6 +541,8 @@ public sealed partial class CombatState : IGameTimeObserver
                     new Refusal(CombatCodes.UnknownTarget, $"No combatant '{targetId}' is in this fight, so {actor.Name} attacked nothing.")));
             }
 
+            RefreshLive(target);
+
             if (OnPartysSide(target) && OnPartysSide(actor))
             {
                 return Report(CombatResult.Refused(
@@ -553,6 +560,16 @@ public sealed partial class CombatState : IGameTimeObserver
         CombatWeapon? weapon = order.Ability is { Length: > 0 } ? null : _weapons?.WeaponOf(actor.Subject);
         string ability = order.Ability ?? weapon?.Ability ?? string.Empty;
         AttackKind kind = weapon?.Kind ?? order.Kind;
+        if (target is not null && !IsInReach(actor, target, kind, out double distance, out double reach))
+        {
+            return Report(CombatResult.Refused(
+                actor.Id,
+                actor.Name,
+                new Refusal(CombatCodes.TargetOutOfReach, string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{actor.Name} cannot reach {target.Name} with a {AttackKinds.WireName(kind)} at {distance:0.0} units; its reach is {reach:0.0}, so nothing was spent."))));
+        }
+
         if (weapon is { SpendsACharge: true } charged)
         {
             if (target is null)
@@ -858,6 +875,7 @@ public sealed partial class CombatState : IGameTimeObserver
         foreach (Combatant other in _combatants)
         {
             if (other.Id == target.Id || OnPartysSide(other) || IsDown(other)) continue;
+            RefreshLive(other);
             if (!_provocation.ProvokedWith(target.Subject, other.Subject)) continue;
             changed |= _provoked.Add(other.Id) || other.Side != CombatSide.Opposition;
             other.Provoke();
@@ -928,6 +946,41 @@ public sealed partial class CombatState : IGameTimeObserver
     /// <returns>The target, or null when the actor is not in this fight or nothing stands within its reach.</returns>
     public Combatant? AimOf(CombatantId actor) => _byId.TryGetValue(actor, out Combatant? combatant) ? Nearest(combatant) : null;
 
+    /// <summary>
+    /// Reads an actor's current party-relative distance from the live world and refreshes its subject view.
+    /// </summary>
+    /// <remarks>
+    /// The distance a projection last saw is only a convenience value: a creature may have moved after the
+    /// fight's last population read, and the party may have moved before an order or cast in this update. This
+    /// reader goes to the party pose and the entity's own standing pose, retaining the same combatant and
+    /// underlying member/entity references.
+    /// </remarks>
+    /// <param name="combatant">The actor whose live distance is needed.</param>
+    /// <returns>The current distance in the place's units.</returns>
+    /// <exception cref="ArgumentNullException">No combatant was supplied.</exception>
+    public double DistanceOf(Combatant combatant)
+    {
+        ArgumentNullException.ThrowIfNull(combatant);
+        RefreshLive(combatant);
+        return combatant.Distance;
+    }
+
+    /// <summary>Whether a named combatant is within the stated actor's reach for one attack kind.</summary>
+    /// <remarks>
+    /// The distance is read from both actors' current poses, rather than from the party-relative distance a
+    /// projection publishes for convenience. The boundary is open: a target exactly at a ruleset's reach is
+    /// refused, matching attack resolution's own distance limit. This asks only about attack reach; it does
+    /// not add line of sight, notice, or interaction acquisition to the fight's gate.
+    /// </remarks>
+    /// <param name="actor">The actor that would make the attack.</param>
+    /// <param name="target">The combatant the attack names.</param>
+    /// <param name="kind">The attack kind whose reach is being checked.</param>
+    /// <returns>True when both combatants exist and the target is inside the open reach boundary.</returns>
+    public bool IsInReach(CombatantId actor, CombatantId target, AttackKind kind) =>
+        _byId.TryGetValue(actor, out Combatant? attacker) &&
+        _byId.TryGetValue(target, out Combatant? defender) &&
+        IsInReach(attacker, defender, kind, out _, out _);
+
     /// <summary>Whether an order was given by one of the party's own members rather than by a creature.</summary>
     /// <remarks>
     /// It is read from who gave the order rather than from who stands in the fight now, so a member who has since died
@@ -949,20 +1002,52 @@ public sealed partial class CombatState : IGameTimeObserver
     /// </remarks>
     private Combatant? Nearest(Combatant actor)
     {
+        RefreshLive(actor);
         double reach = _rule.ReachOf(actor.Subject, actor.PreferredKind);
         Combatant? nearest = null;
+        double nearestDistance = double.MaxValue;
         foreach (Combatant candidate in _combatants)
         {
-            if (OnPartysSide(candidate) || candidate.Distance > reach) continue;
+            if (OnPartysSide(candidate)) continue;
+
+            double distance = DistanceOf(candidate);
+            if (distance >= reach) continue;
 
             // A body is not a target: an actor this fight has taken down is left where it fell, so the
             // party's next order is spent on what is still standing rather than on what it has already
             // finished.
             if (IsDown(candidate)) continue;
-            if (nearest is null || candidate.Distance < nearest.Distance) nearest = candidate;
+            if (nearest is null || distance < nearestDistance)
+            {
+                nearest = candidate;
+                nearestDistance = distance;
+            }
         }
 
         return nearest;
+    }
+
+    /// <summary>Reads one named pair's attack distance and the ruleset's reach answer.</summary>
+    private bool IsInReach(Combatant actor, Combatant target, AttackKind kind, out double distance, out double reach)
+    {
+        RefreshLive(actor);
+        RefreshLive(target);
+        distance = actor.Subject.Pose.DistanceTo(target.Subject.Pose);
+        reach = _rule.ReachOf(actor.Subject, kind);
+        return distance < reach;
+    }
+
+    /// <summary>Refreshes one existing combatant from the live party or population owner.</summary>
+    private void RefreshLive(Combatant combatant)
+    {
+        CombatSubject previous = combatant.Subject;
+        PlacePose pose = previous.Member is not null
+            ? _world?.Pose ?? previous.Pose
+            : previous.Entity?.Pose ?? previous.Pose;
+        PlaceId place = _world?.Place ?? previous.Place;
+        PlacePose partyPose = _world?.Pose ?? PlacePose.Origin;
+        CombatSubject current = new(previous.Id, place, pose, previous.Member, previous.Entity);
+        combatant.RefreshSubject(current, previous.Member is not null ? 0 : partyPose.DistanceTo(pose));
     }
 
 

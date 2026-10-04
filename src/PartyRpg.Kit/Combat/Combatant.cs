@@ -12,7 +12,9 @@ namespace PartyRpg.Kit.Combat;
 /// health is a component on that entity. This holds what a fight adds — which side the actor is on, how long
 /// until it may act, and where it stood when the world was last read — and duplicates none of the rest,
 /// which is why a member's health, equipment, and skills and a creature's health are all read from their own
-/// owners through <see cref="Subject"/> rather than copied beside it.
+/// owners through <see cref="Subject"/> rather than copied beside it. Each world read replaces the subject
+/// with a fresh view over those same owners, so its pose and place remain current while the combatant's pacing
+/// state remains continuous.
 /// </para>
 /// <para>
 /// <b><see cref="Recovery"/> is the one pacing quantity, and it is game time.</b> It is advanced by the
@@ -55,7 +57,7 @@ public sealed class Combatant
     public CombatantId Id => Subject.Id;
 
     /// <summary>The actor itself: the party member or the world entity a ruleset reads.</summary>
-    public CombatSubject Subject { get; }
+    public CombatSubject Subject { get; private set; }
 
     /// <summary>What the actor is called, as the ruleset named it when the world was last read.</summary>
     public string Name { get; private set; }
@@ -90,12 +92,27 @@ public sealed class Combatant
         _recovery = GameDuration.FromMilliseconds(remaining > 0 ? remaining : 0);
     }
 
-    /// <summary>Records what the world says about the actor now, which the fight re-reads every update.</summary>
-    internal void Observe(CombatSide side, string name, AttackKind preferredKind, double distance)
+    /// <summary>
+    /// Records what the world says about the actor now, which the fight re-reads every update, without
+    /// replacing the combatant's pacing state or the canonical member/entity the subject refers to.
+    /// </summary>
+    internal void Observe(CombatSubject subject, CombatSide side, string name, AttackKind preferredKind, double distance)
     {
+        ArgumentNullException.ThrowIfNull(subject);
+        RefreshSubject(subject, distance);
         Side = side;
         Name = name;
         PreferredKind = preferredKind;
+    }
+
+    /// <summary>
+    /// Replaces the subject view and its party-relative distance without changing the actor's side, name,
+    /// attack kind, or recovery.
+    /// </summary>
+    internal void RefreshSubject(CombatSubject subject, double distance)
+    {
+        ArgumentNullException.ThrowIfNull(subject);
+        Subject = subject;
         Distance = distance;
     }
 

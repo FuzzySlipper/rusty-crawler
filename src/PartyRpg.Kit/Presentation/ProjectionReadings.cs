@@ -82,23 +82,32 @@ internal sealed class ProjectionReadings
     /// <remarks>
     /// Beyond the party and the casting owner, a spellbook shows four live facts, each read whole and compared by
     /// value because each is a handful of rows or one word: what spells have left running (whose ends are the
-    /// clock's), who stands in the fight to be aimed at and the distance step each stands within, where the party stands among the places it has visited,
-    /// which is what a travel spell offers, and what the party sees by, which follows the clock's daylight.
+    /// clock's), who stands in the fight to be aimed at and each one's current distance and living state, where the
+    /// party stands among the places it has visited, which is what a travel spell offers, and what the party sees by,
+    /// which follows the clock's daylight. The fight stamp and the exact target facts are both held: a wound can
+    /// leave a body in the fight, and a creature can cross the spell's reach while staying in one coarse distance band.
     /// </remarks>
     /// <param name="casting">The casting owner, when the session has one.</param>
     /// <param name="party">The party's change stamp: the pools, spellbooks, skills and items the rows are read from.</param>
     /// <param name="world">Where the party stands and how many places it has visited.</param>
     public MagicSnapshot Magic(Spellcasting? casting, long party, WorldSnapshot world)
     {
+        CombatState? fight = casting?.Fight;
+        Rows<(CombatantId, string, CombatSide, double, bool)> combatants = fight is { } live
+            ? new(live.Combatants.Select(combatant =>
+                (combatant.Id, combatant.Name, combatant.Side, live.DistanceOf(combatant), live.IsDown(combatant))).ToArray())
+            : new(null);
         MagicKey key = new(
             casting,
             casting?.Stamp ?? 0,
             party,
+            casting?.Party.Roster.SelectedMember,
             world.Place,
             world.Visited,
             new Rows<RunningSpellEffect>(casting?.Magic.Running?.Running),
             new Rows<RunningSpellEffect>(casting?.Magic.Members?.RunningOnMembers),
-            new Rows<(CombatantId, string, CombatSide, double)>(casting?.Fight?.Combatants.Select(combatant => (combatant.Id, combatant.Name, combatant.Side, MagicSnapshot.DistanceBand(combatant.Distance))).ToArray()),
+            fight?.Stamp ?? 0,
+            combatants,
             casting?.Magic.Sight?.Sight);
         return Read(ref _magic, key, () => MagicSnapshot.From(casting));
     }
@@ -239,11 +248,13 @@ internal sealed class ProjectionReadings
         Spellcasting? Owner,
         long Stamp,
         long Party,
+        PartyMemberId? Selected,
         string Place,
         int Visited,
         Rows<RunningSpellEffect> Running,
         Rows<RunningSpellEffect> OnMembers,
-        Rows<(CombatantId, string, CombatSide, double)> Combatants,
+        long FightStamp,
+        Rows<(CombatantId, string, CombatSide, double, bool)> Combatants,
         PartySight? Sight);
 
     private readonly record struct AlchemyKey(PotionMixing? Owner, long Stamp, long Party);

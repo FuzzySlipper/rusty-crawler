@@ -153,6 +153,42 @@ public sealed class EngineMovementTests
     }
 
     [Fact]
+    public void A_flying_creature_uses_three_axis_engine_motion_without_planar_navigation_or_floor_snap()
+    {
+        ScriptedSpatialService spatial = new()
+        {
+            // The ground route is intentionally absent: flying pursuit is direct 3D intent through the same
+            // collision scene, so it must not ask the planar navigation service for a waypoint.
+            NavigationCells = 0,
+            StepEnds = request => request.Position - new Vector3(0, 12, 0),
+        };
+        // The scripted controller leaves ground speed at zero. Flying must still resolve the request's own pace
+        // consistently for both the Engine command and its vertical intent.
+        (EnginePartyMover mover, EngineCreatureMotion creatures) = Movers(spatial);
+        mover.Enter(Place);
+
+        CreatureMoveOutcome outcome = creatures.Move(new CreatureMoveRequest(
+            Creature,
+            new PlacePose(0, 0, 192, 0, 0),
+            Party,
+            PlacePose.Origin,
+            CreatureMovePurpose.Toward,
+            Speed: 300,
+            ElapsedSeconds: 1.0 / 60,
+            Mode: CreatureMoveMode.Flying));
+
+        Assert.False(outcome.IsHeld, outcome.Refusal?.Message);
+        Assert.Empty(spatial.NavigationSteps);
+        CharacterStepRequest step = Assert.Single(spatial.Steps);
+        Assert.Equal(CharacterMovementMode.Flying, step.Command.Movement.Mode);
+        Assert.Equal(300, step.Command.Movement.Speed);
+        Assert.Equal(Vector2.Zero, step.Command.PlanarIntent);
+        Assert.True(step.Command.Movement.VerticalIntent < 0);
+        Assert.Equal(180, outcome.Pose.Z, precision: 3);
+        mover.Dispose();
+    }
+
+    [Fact]
     public void The_creature_mover_releases_nothing_and_the_party_s_mover_releases_the_scene_once()
     {
         ScriptedSpatialService spatial = new();

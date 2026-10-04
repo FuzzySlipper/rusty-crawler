@@ -39,7 +39,7 @@ export function mountSpellbook(host: Host): Section<MagicView> {
     magic.dataset.caster = view.caster;
     magic.dataset.source = view.source;
     state.textContent = view.available
-      ? `${view.members.length} character${plural(view.members.length)} · ${view.targets.length} target${plural(view.targets.length)} in reach`
+      ? `${view.members.length} character${plural(view.members.length)} · ${view.targets.length} target${plural(view.targets.length)} available`
       : '';
     report(outcome, view.outcome, view.code, view.message);
 

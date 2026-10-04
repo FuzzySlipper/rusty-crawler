@@ -100,6 +100,22 @@ public static class SpellRefusals
         SpellCodes.SpellTargetInvalid,
         $"{spell} has no valid target in '{target}', which is neither a member of the party nor a creature this fight holds.");
 
+    /// <summary>The spell named a fight target beyond the reach of its attack, so it was not paid for.</summary>
+    /// <param name="spell">What the spell is called.</param>
+    /// <param name="target">What the casting named.</param>
+    /// <returns>The refusal.</returns>
+    public static Refusal TargetOutOfReach(string spell, string target) => new(
+        SpellCodes.SpellTargetOutOfReach,
+        $"{spell} cannot reach {target}, so the spell was not cast and no spell point was spent.");
+
+    /// <summary>The named foe is actually standing on the party's side, so the spell is refused before payment.</summary>
+    /// <param name="spell">What the spell is called.</param>
+    /// <param name="target">The friendly combatant the casting named.</param>
+    /// <returns>The refusal.</returns>
+    public static Refusal FriendlyTarget(string spell, string target) => new(
+        SpellCodes.SpellTargetFriendly,
+        $"{spell} cannot harm or afflict friendly target {target}, so the spell was not cast and no spell point was spent.");
+
     /// <summary>
     /// The spell acts on something this build cannot aim at, so the casting is refused before it is paid for.
     /// </summary>

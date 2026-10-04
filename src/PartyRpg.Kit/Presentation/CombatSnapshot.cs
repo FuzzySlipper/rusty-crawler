@@ -205,6 +205,7 @@ public sealed record CombatSnapshot(
         int ready = 0;
         foreach (Combatant combatant in combat.Combatants)
         {
+            double distance = combat.DistanceOf(combatant);
             // What an actor has left to lose and what is acting on it are read from wherever they are owned:
             // a member's pool and conditions are the party's own, and a world actor's harm is what the fight
             // has done to it. Nothing is recomputed here, so the panel cannot disagree with the fight.
@@ -222,13 +223,13 @@ public sealed record CombatSnapshot(
                 combatant.Name,
                 combatant.IsReady && !down,
                 combatant.Recovery.TotalSeconds,
-                combatant.Distance,
+                distance,
                 hitPoints,
                 hitPointsMax,
                 conditions,
                 down,
                 activity.GetValueOrDefault(combatant.Id, string.Empty),
-                combatant.Subject.Entity?.Pose ?? combat.PartyPose,
+                combatant.Subject.Pose,
                 combatant.Subject.Member?.Id.ToString() ?? string.Empty,
                 combatant.Subject.Member is { } member && combat.Party.Roster.SelectedMember == member.Id);
             if (combatant.Side != CombatSide.Party)

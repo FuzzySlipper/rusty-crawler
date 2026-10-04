@@ -90,6 +90,10 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// <summary>The monster row field that states how the creature moves.</summary>
     internal const string MovementField = "movement";
 
+    /// <summary>The monster row field that states whether the creature flies.</summary>
+    /// <remarks>The imported table keeps this separate from movement type, as the donor does (<c>Monsters.h:34-35</c>).</remarks>
+    internal const string FlyField = "fly";
+
     /// <summary>The monster row field that states how fast it covers ground.</summary>
     internal const string SpeedField = "speed";
 
@@ -2240,8 +2244,9 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
                 new Dictionary<DamageKindId, Resistance>(),
                 AiType: string.Empty,
                 Movement: string.Empty,
+                Flying: false,
                 Speed: 0,
-                hostilityKind);
+                HostilityKind: hostilityKind);
         }
 
         string row = $"monster '{name}' ({id})";
@@ -2327,9 +2332,14 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
             resistances,
             entry.GetString(AiTypeField),
             entry.GetString(MovementField),
-            entry.GetInt32(SpeedField) ?? 0,
-            hostilityKind);
+            Flying: IsFlying(entry),
+            Speed: entry.GetInt32(SpeedField) ?? 0,
+            HostilityKind: hostilityKind);
     }
+
+    /// <summary>Whether a monster row carries the table's flying marker.</summary>
+    private static bool IsFlying(ContentEntry entry) =>
+        string.Equals(entry.GetString(MightAndMagic7Combat.FlyField).Trim(), "Y", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>An attack as the row states it: its dice, its kind of harm, and whether it throws something.</summary>
     /// <remarks>An attack that states no dice does no harm, and one that states no kind is a physical blow.</remarks>
@@ -2548,6 +2558,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// <param name="Resistances">What the row resists, by kind of harm.</param>
     /// <param name="AiType">The row's AI class, which is what decides whether it runs when hurt.</param>
     /// <param name="Movement">How the row moves, which is what decides whether it closes or holds.</param>
+    /// <param name="Flying">Whether the row asks the creature mover for flying locomotion.</param>
     /// <param name="Speed">How fast it covers ground, in place units per second.</param>
     internal sealed record MonsterFacts(
         int Id,
@@ -2569,6 +2580,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
         IReadOnlyDictionary<DamageKindId, Resistance> Resistances,
         string AiType,
         string Movement,
+        bool Flying,
         int Speed,
         int HostilityKind)
     {

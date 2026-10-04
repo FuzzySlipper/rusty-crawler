@@ -37,6 +37,9 @@ Owns:
   casting score add up to, the learning rule a book is judged against, the guild rung that gates which of a
   school's books a counter sells, and the effect path every category is applied through
   (`MightAndMagic7SpellEffects`): harm as an attack of the spell kind through the fight's own gated entry,
+  and named foe harm or hostile creature conditions ask that entry's `CombatState.IsInReach` before points, recovery,
+  or provocation changes (neutral creatures remain legal in range; affiliation-changing conditions retain their
+  allegiance transition; area conditions keep their authored in-view depth),
   health through the member's own pool in the donor's four shapes, conditions through the member's own
   condition state, a ward or a buff the table aims at one character landed on that character with its own
   deadline and read where it applies for them (the six elemental and body protections, blessing, fate,
@@ -336,6 +339,9 @@ chance drawn from the engine's keyed service so the same fight replays identical
 chooses the party strikes a member drawn the same way from those not paralysed, unconscious, dead,
 petrified or eradicated, and the first member only when nobody is left (`Actor.cpp:3259-3287`; the donor's
 attack-preference narrowing by class, sex or race is not read, so every such member is equally likely);
+the imported `fly` marker is independent of that movement kind, so a marked row asks the Engine's flying
+controller for a three-axis step through the place's collision scene while an unmarked row keeps the ground
+navigation path;
 which kinds of monster
 are each other's enemies is the shipped `hostile.txt` matrix read as content
 (`MightAndMagic7Hostility`), and a spell the imported spell table describes no harm for is one this build

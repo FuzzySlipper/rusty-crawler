@@ -218,6 +218,16 @@ public interface IMonsterAiPolicy
     /// <returns>Its speed, in the units the place's positions are stated in.</returns>
     double SpeedOf(CombatSubject subject);
 
+    /// <summary>Which locomotion mode the creature uses when a decision moves it.</summary>
+    /// <remarks>
+    /// The default is ground movement so existing policies remain ordinary walkers. A ruleset may answer flying
+    /// from its creature facts; the kit carries that answer to the one creature mover without interpreting a
+    /// monster kind or creating another movement owner.
+    /// </remarks>
+    /// <param name="subject">The creature whose locomotion is read.</param>
+    /// <returns>The mode the creature asks its mover to use.</returns>
+    CreatureMoveMode MoveModeOf(CombatSubject subject) => CreatureMoveMode.Ground;
+
     /// <summary>What the creature does with this update.</summary>
     /// <param name="situation">The creature, what it can see, and how far through the fight it is.</param>
     /// <returns>What it decided to do.</returns>

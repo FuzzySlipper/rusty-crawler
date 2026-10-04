@@ -1,4 +1,6 @@
+using System.Numerics;
 using PartyRpg.Kit.Combat;
+using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.World;
@@ -50,6 +52,28 @@ public sealed class MovementCompositionTests
             Speed: 1,
             ElapsedSeconds: 1.0 / 60));
         Assert.Same(scene, spatial.Steps[before].Session);
+
+        int navigationBeforeFlight = spatial.NavigationSteps.Count;
+        creatures.Move(new CreatureMoveRequest(
+            CombatantId.Of(new EntityId(9)),
+            new PlacePose(0, 0, 0, 0, 0),
+            CombatantId.Of(new EntityId(8)),
+            new PlacePose(0, 0, 192, 0, 0),
+            CreatureMovePurpose.Toward,
+            Speed: 300,
+            ElapsedSeconds: 1.0 / 60,
+            Mode: CreatureMoveMode.Flying));
+        CharacterStepRequest flight = spatial.Steps[^1];
+        MovementTuning tuning = MightAndMagic7Movement.Tuning(spatial);
+        Assert.Same(scene, flight.Session);
+        Assert.Equal(CharacterMovementMode.Flying, flight.Command.Movement.Mode);
+        Assert.Equal(Vector2.Zero, flight.Command.PlanarIntent);
+        Assert.True(flight.Command.Movement.VerticalIntent > 0);
+        Assert.Equal(
+            tuning.Flight!.Acceleration * (300 / tuning.Flight.Speed),
+            flight.Command.Movement.Acceleration,
+            precision: 3);
+        Assert.Equal(navigationBeforeFlight, spatial.NavigationSteps.Count);
 
         session.Dispose();
         Assert.Equal([scene.Handle.Value], spatial.Released);

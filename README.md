@@ -41,6 +41,9 @@ The adventure frame keeps the drawn world, four party portraits, resources, targ
 visible together. Creation, the character book and shared inventory, spellbook and mixing, dialogue and
 town counters, journal and automap, combat and rest each have deliberate screens over the same canonical
 owners. The automap names its world directions and aligns its party arrow through ruleset policy.
+Named attacks and spells use the fight's actual reach before resources, recovery or provocation change;
+the spellbook's foe choices read that reach and current down state. Imported flight flags select the
+same Engine mover's flying mode; grounded creatures retain Engine pursuit navigation.
 The [adventure frame reading](docs/evidence/adventure-frame.md) and the screen readings in
 [`docs/evidence/`](docs/evidence/README.md) describe their ordinary controls and bounded coverage.
 Title, Save/Load and confirmation menus block underlying creation and expedition input, including the
