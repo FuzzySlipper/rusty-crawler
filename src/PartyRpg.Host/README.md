@@ -82,7 +82,8 @@ Boundary rules:
 
 `party.next-member` is a declared digital N press, and the same next-member action is published for
 the panel. `party.select-member` names a real durable member on the existing UI payload channel.
-Both reach the kit's roster selection before the ordinary selected-only attack. The companion prints
+Both reach the kit's roster selection before the ordinary selected-only attack. Lifecycle menus own
+selection input until their closing update finishes, so N cannot change the party behind a menu. The companion prints
 the product's selected flag and selection/refusal message; it owns no choice, capability rule or timer.
 N adapts the donor's Tab cycling to the installed Engine keyboard vocabulary. B is this product's
 attack binding; the donor uses A for attack and B for passing a turn (`OpenEnroth/src/Application/GameConfig.h:536,542,554`).

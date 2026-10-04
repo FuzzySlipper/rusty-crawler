@@ -343,6 +343,56 @@ public sealed class ProductMenuTests
     }
 
     [Fact]
+    public void Save_load_and_return_menus_preserve_member_selection_until_the_menu_closes()
+    {
+        (ProductCreateContext context, RecordingUiService ui) = ProductTestContext.Create(ProductTestContext.DoorWorld());
+        using CrawlerProduct product = new(context, ProductTestContext.NoVariables, showLaunchTitle: true);
+        product.Start();
+        StartNewGame(product);
+        product.Update(ProductTestContext.Update(1, 1, ProductTestContext.Digital(ProductIdentity.CreationAcceptIntent)));
+        // CombatDriver populates the party actors on the first running update; N then has a real next member to select.
+        product.Update(ProductTestContext.Update(2, 1));
+        AssertSelected(ui, 0);
+
+        product.Update(ProductTestContext.Update(3, 1, ProductTestContext.Payload("{\"action\":\"session.open-save-load\"}")));
+        product.Update(ProductTestContext.Update(4, 1, ProductTestContext.Digital(ProductIdentity.NextMemberIntent)));
+        AssertSelected(ui, 0);
+
+        // The close action and N share one update, so closing the screen cannot leak N to the session underneath.
+        product.Update(ProductTestContext.Update(
+            5,
+            1,
+            ProductTestContext.Digital(ProductIdentity.NextMemberIntent),
+            ProductTestContext.Payload("{\"action\":\"session.close-save-load\"}")));
+        AssertSelected(ui, 0);
+
+        product.Update(ProductTestContext.Update(6, 1, ProductTestContext.Digital(ProductIdentity.NextMemberIntent)));
+        AssertSelected(ui, 1);
+
+        product.Update(ProductTestContext.Update(7, 1, ProductTestContext.Payload("{\"action\":\"session.return-title\"}")));
+        product.Update(ProductTestContext.Update(8, 1, ProductTestContext.Digital(ProductIdentity.NextMemberIntent)));
+        AssertSelected(ui, 1);
+
+        // Cancellation releases the Host-applied hold, but its activating update remains menu-owned.
+        product.Update(ProductTestContext.Update(
+            9,
+            1,
+            ProductTestContext.Digital(ProductIdentity.NextMemberIntent),
+            ProductTestContext.Payload("{\"action\":\"session.cancel-return-title\"}")));
+        AssertSelected(ui, 1);
+
+        product.Update(ProductTestContext.Update(10, 1, ProductTestContext.Digital(ProductIdentity.NextMemberIntent)));
+        AssertSelected(ui, 2);
+
+        static void AssertSelected(RecordingUiService ui, int index)
+        {
+            ProjectedNode roster = ProjectedNode.Of(ui.Latest().Value).Field("party").Field("roster");
+            for (int member = 0; member < roster.Count(); member++)
+                Assert.Equal(member == index, roster.Item(member).Field("selected").AsBoolean());
+        }
+    }
+
+    [Fact]
     public void Continue_restores_the_existing_save_without_restarting_the_product()
     {
         InMemoryPersistenceService persistence = new();

@@ -448,7 +448,7 @@ public sealed class PartyRpgSession : IGameSession
             }
         }
 
-        FightOrders orders = _fight.Read(input, turn, screenOwnsControls);
+        FightOrders orders = _fight.Read(input, turn, screenOwnsControls, menuOwnsControls);
         if (!quiescent)
         {
             _acts.Serve(input);

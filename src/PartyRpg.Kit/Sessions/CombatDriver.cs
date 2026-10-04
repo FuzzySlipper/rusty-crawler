@@ -97,9 +97,13 @@ internal sealed partial class CombatDriver(SessionOwners owners, MovementInput? 
     /// <param name="input">The update's admitted input.</param>
     /// <param name="turn">The turn controls read from the same input.</param>
     /// <param name="screenOwnsControls">Whether a counter or a conversation owns the player's controls.</param>
-    public FightOrders Read(ActionInbox input, TurnControls turn, bool screenOwnsControls)
+    /// <param name="menuOwnsControls">Whether the lifecycle menu owns this admitted update's controls.</param>
+    public FightOrders Read(ActionInbox input, TurnControls turn, bool screenOwnsControls, bool menuOwnsControls = false)
     {
-        SelectMembers(input);
+        // A counter or conversation may deliberately use member selection for its own patient/target choice.
+        // The lifecycle menu has no such participant, so it suppresses the durable selection command while
+        // retaining the attack reader below so held-control releases are not lost.
+        if (!menuOwnsControls) SelectMembers(input);
         bool down = _input is not null && owners.Combat is not null && _input.Read(input) && !screenOwnsControls;
         bool paced = !screenOwnsControls && owners.Combat is { Pacing: CombatPacing.TurnBased };
         (bool attacked, bool pressed) = _act.Read(down, paced);

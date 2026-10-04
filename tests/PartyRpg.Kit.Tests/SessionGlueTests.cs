@@ -148,6 +148,54 @@ public sealed class SessionGlueTests
         Assert.Empty(diagnostics.Published);
     }
 
+    [Fact]
+    public void Lifecycle_menu_ownership_preserves_member_selection_until_the_menu_closes()
+    {
+        RecordingDiagnosticsService diagnostics = new();
+        using RecordingUiProjectionChannel channel = new();
+        SessionMenuState menu = new();
+        TurnIntentNames turns = new("test.turn-based", "test.skip", "test.wait", Contract);
+        PartyEntity party = AlchemyTests.Party(alchemyLevel: 0, alchemyTier: 0);
+        using PartyRpgSession session = new(
+            Composition,
+            channel,
+            new SessionOwners(TestClock.Create(), diagnostics),
+            new SessionParty.Playing(Party: party),
+            new SessionRules { Combat = Capabilities.Combat(new CombatStateTests.TestCombatRule(null)) },
+            new SessionControls
+            {
+                Combat = new CombatIntentNames("test.attack", Contract, turns, nextMember: "test.next-member"),
+            },
+            menu: menu);
+        session.Start();
+        // The first ordinary update populates the party combatants; selection input in later updates then has a
+        // real candidate to choose, just as the product's world update does after creation is accepted.
+        session.Update(Admitted.Update(1, 1));
+        PartyMemberId initial = party.Roster.SelectedMember!.Value;
+
+        menu.ShowSaveLoad(unsaved: false);
+        menu.SetControlsOwnedForUpdate(true);
+        session.Update(Admitted.Update(2, 1, Admitted.Digital("test.next-member")));
+        menu.SetControlsOwnedForUpdate(false);
+        Assert.Equal(initial, party.Roster.SelectedMember);
+
+        menu.ShowReturnConfirmation(unsaved: false);
+        menu.SetControlsOwnedForUpdate(true);
+        session.Update(Admitted.Update(3, 1, Admitted.Digital("test.next-member")));
+        menu.SetControlsOwnedForUpdate(false);
+        Assert.Equal(initial, party.Roster.SelectedMember);
+
+        // Closing the menu and the selection key in one admitted update are still owned by the menu.
+        menu.ShowAdventure();
+        menu.SetControlsOwnedForUpdate(true);
+        session.Update(Admitted.Update(4, 1, Admitted.Digital("test.next-member")));
+        menu.SetControlsOwnedForUpdate(false);
+        Assert.Equal(initial, party.Roster.SelectedMember);
+
+        session.Update(Admitted.Update(5, 1, Admitted.Digital("test.next-member")));
+        Assert.NotEqual(initial, party.Roster.SelectedMember);
+    }
+
     /// <summary>One payload action on this suite's contract, as the companion sends it.</summary>
     private static ProductInputEvent Payload(string json) => Admitted.Payload(Contract, json);
 }
