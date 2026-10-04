@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "documentId": "opening-errand",
+  "definitionKind": "quest",
+  "entries": [
+    {
+      "id": "opening-island-guide",
+      "name": "Ailyssa's island errand",
+      "text": "Ailyssa asks the new party to check the shore and bring a Potion Bottle back to her. Follow the island signs, speak with Sally by the water, then secure a bottle through the island's supply route and return it to Ailyssa.",
+      "reading": {
+        "giver": "npc-4",
+        "objectives": [
+          {
+            "id": "shore-guide",
+            "kind": "talk",
+            "target": "npc-5",
+            "count": 1,
+            "label": "Speak with Sally by the shore"
+          },
+          {
+            "id": "supply-bottle",
+            "kind": "deliver",
+            "target": "Potion Bottle",
+            "person": "npc-4",
+            "count": 1,
+            "label": "Bring a Potion Bottle back to Ailyssa"
+          }
+        ],
+        "experience": 250,
+        "coins": 25,
+        "records": [
+          { "record": "opening:shore-guide", "amount": 1 }
+        ]
+      }
+    }
+  ]
+}

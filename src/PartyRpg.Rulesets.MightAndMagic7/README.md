@@ -598,7 +598,13 @@ onto the party's effects. Needed-item retention comes from the Kit quest owner's
 sale, consumption, release, charge use, mixing, item casting and an event's item subtraction all ask it
 before effects or payment, with the same errand and objective named. A met item objective still needs
 its carried item until turn-in; the turn-in's own delivery can hand it over. The ruleset retains only its
-sale provenance policy, with no second quest-item list. What each of the 17 errands is read as is stated
+sale provenance policy, with no second quest-item list. The authored `mm7-new-game` pack also carries the
+opening `opening-island-guide` reading: Ailyssa (`npc-4`) offers the new party a two-step island errand to
+speak with Sally (`npc-5`) and deliver a Potion Bottle back to her, for 250 experience, 25 coin, and an
+`opening:shore-guide` record on return. The imported Emerald Island placements and signs provide the route
+and visible service surface; the authored pack leaves supply placement to the opening economy's supported service
+assembly and does not claim that the imported Blue Bottle stocks the bottle or duplicate that service. The quest still travels through the ordinary
+conversation handoff and the Kit's journal, custody, ledger, and progression owners. What each of the 17 errands is read as is stated
 row by row in `MightAndMagic7Quests.Errands()`,
 with the shipped words it is written over, the place and creature names it resolves against content, and
 the residue that says what the original performs with an event program and this build does not judge; a

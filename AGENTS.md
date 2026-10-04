@@ -94,7 +94,8 @@ Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/READM
 - **Content.** The importer reads the operator's own install and `write` emits deterministic packs; no game
   data is committed, and every count the documents quote is checked by `mm7import verify`. The kit validates
   the whole content root at start and loads exactly what the bundle selects. The default bundle,
-  `mm7-new-game`, plays the imported packs from an authored opening; without them the product shows setup guidance.
+  `mm7-new-game`, plays imported packs from an authored arrival and introductory errand;
+  without them the product shows setup guidance.
   `scripts/developer-launch.sh` discovers installed tools and prepares packs from an explicit operator source.
 - **World and time.** Places, arrival points and transitions load from packs; using a clicked exit or treading
   on a plate (a map event whose branches pick the move), boarding a fare the party bought, and a travel spell all
