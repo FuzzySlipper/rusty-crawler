@@ -18,6 +18,11 @@ export const STYLES = `
 .crawler-session [hidden] { display: none !important; }
 .crawler-session h2 { margin: 0; font-size: 1rem; letter-spacing: 0.03em; color: #f0dca0; }
 ${HUD_STYLES}
+.crawler-ending { position: absolute; inset: 0; z-index: 90; display: grid; place-items: center; background: #090d18dc; }
+.crawler-ending-card { max-width: 38rem; margin: 2rem; padding: 3rem; border: 2px solid #bba064; background: #1a2030; text-align: center; box-shadow: 0 0 5rem #000; }
+.crawler-ending-banner { color: #dbc285; letter-spacing: .18em; text-transform: uppercase; }
+.crawler-ending h1 { font: 2.3rem Georgia, serif; color: #f5dfa4; }
+.crawler-ending-card > p:not(.crawler-ending-banner) { font: 1.1rem/1.7 Georgia, serif; margin: 2rem 0; }
 
 /* The lifecycle menu: the adventure keeps a small launcher, while the title and unsaved confirmation cover the
    product surface so the player cannot act on an old adventure behind the decision. */

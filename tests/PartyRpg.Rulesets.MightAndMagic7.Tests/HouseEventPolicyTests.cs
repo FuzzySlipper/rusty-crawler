@@ -31,6 +31,30 @@ public sealed partial class FixturePolicyTests
     private static readonly PlaceId Celeste = new("7");
 
     [ImportedFact("place-events.json")]
+    public void The_later_dark_throne_room_opens_Kastores_house_through_the_existing_door()
+    {
+        ContentCatalog catalog = ImportedContent.Load();
+        PlaceGraph graph = MightAndMagic7World.Graph(catalog);
+        PlacePopulationContent population = PlacePopulationContent.Read(graph, MightAndMagic7Spawns.Compose(catalog, new KeyedTestRandom()));
+        GameClock clock = TestClock.Create(scale: 1);
+        using PartyEntity party = Party();
+        var (_, rule) = Housing(catalog, () => party, population, clock);
+        foreach (int bit in new[] { 110, 111, 112, 113 }) party.Records.Mark($"errand:{bit}");
+        var moved = House(rule, Placed(population, ThePit, "residence-433"), ThePit, party, clock, population, graph);
+        Assert.Empty(moved.Residue);
+        Assert.Equal(184, MightAndMagic7PersonState.House(party.Records, "npc-84"));
+        PlaceId castle = new("51");
+        var door = Placed(population, castle, "residence-180");
+        var opened = House(rule, door, castle, party, clock, population, graph);
+        Assert.Empty(opened.Residue);
+        Assert.Contains(opened.Speaks!.People, person => person.Id == "npc-84");
+        party.Records.Remove("errand:198");
+        var earlier = House(rule, door, castle, party, clock, population, graph);
+        Assert.DoesNotContain(earlier.Speaks!.People, person => person.Id == "npc-84");
+    }
+
+
+    [ImportedFact("place-events.json")]
     public void A_house_door_runs_its_own_event_takes_the_move_its_branch_reaches_and_otherwise_opens_the_house()
     {
         ContentCatalog catalog = ImportedContent.Load();

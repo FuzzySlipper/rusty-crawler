@@ -528,11 +528,9 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
         // And somebody a map event moved into this house is here.
         if (houseId is { } home && party is not null)
         {
-            foreach ((string id, int moved) in MightAndMagic7PersonState.Moved(party.Records))
+            foreach (PersonFacts person in Occupants(home, party))
             {
-                if (moved != home || !_people.TryGetValue(id, out PersonFacts? person)) continue;
-                if (party.Followers.Find(new FollowerDefinitionId(id)) is not null) continue;
-                if (!people.Any(present => string.Equals(present.Id, id, StringComparison.Ordinal))) people.Add(Presented(person));
+                if (!people.Any(present => string.Equals(present.Id, person.Id, StringComparison.Ordinal))) people.Add(Presented(person));
             }
         }
 
@@ -561,6 +559,17 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
         if (people.Count == 0) return null;
         return new ConversationSubject(request.Placement.Content.Id, people);
     }
+
+    /// <summary>People behind an event-selected house identity, even when it shares another house's physical door.</summary>
+    internal ConversationSubject? InHouse(int house)
+    {
+        var people = Occupants(house, _party()).Select(person => person.Who).ToArray();
+        return people.Length == 0 ? null : new ConversationSubject($"house:{house}", people);
+    }
+
+    private IEnumerable<PersonFacts> Occupants(int house, PartyEntity? party) => _people.Values.Where(person =>
+        house > 0 && (party is null ? person.House : MightAndMagic7PersonState.House(party.Records, person.Id) ?? person.House) == house &&
+        party?.Followers.Find(new FollowerDefinitionId(person.Id)) is null);
 
     private string GroupNews(PlacementDefinition placement, PartyEntity? party) =>
         placement.Source.GetInt32("group") is { } group and >= 0 ? News.Text(party?.Records, (uint)group) : string.Empty;

@@ -653,3 +653,5 @@ record, reward path or save format. Authored objective quests continue through `
 A ruleset may answer source-place lifecycle events through `AnswerDeparture`; the existing
 interaction settlement writes that source place, without inventing a placement or taking
 a second journey.
+
+`ICompletionRule` reads the party’s earned completion into `CompletionSnapshot`. The session publishes it through the ordinary projection. The rule reads canonical party state; the kit keeps no second completion store. `Continues` states whether the product allows the expedition to remain playable after its ending.

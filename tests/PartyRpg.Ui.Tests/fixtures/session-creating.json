@@ -33,6 +33,13 @@
       "message": ""
     }
   },
+  "completion": {
+    "completed": false,
+    "id": "",
+    "title": "",
+    "text": "",
+    "continues": true
+  },
   "session": {
     "mode": "creating",
     "simulationSeconds": 0,

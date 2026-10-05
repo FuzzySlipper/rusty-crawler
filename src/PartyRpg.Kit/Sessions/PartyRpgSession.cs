@@ -793,6 +793,7 @@ public sealed class PartyRpgSession : IGameSession
             Menu = _menu.Snapshot,
             Character = _readings.Character(Party, party, _owners.Rules.CharacterSheet, Clock),
             Feedback = _feedback.Observe(_owners, _saves.State),
+            Completion = _owners.Rules.Completion?.Read(Party) ?? CompletionSnapshot.None,
         };
     }
 

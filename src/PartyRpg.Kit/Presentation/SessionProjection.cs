@@ -99,6 +99,9 @@ public sealed record SessionSnapshot(
 
     /// <summary>The answer to the party's latest act, whichever owner gave it.</summary>
     public FeedbackSnapshot Feedback { get; init; } = FeedbackSnapshot.None;
+
+    /// <summary>The party's earned ending, or its unfinished state.</summary>
+    public CompletionSnapshot Completion { get; init; } = CompletionSnapshot.None;
 }
 
 /// <summary>Where the party is in the world, as the panel needs it: which place, where in it, and how much of the world is known.</summary>
@@ -257,6 +260,7 @@ public static class SessionProjection
         uint root = builder.Object(
             ("composition", Composition(builder, snapshot.Composition)),
             ("menu", snapshot.Menu.Write(builder)),
+            ("completion", snapshot.Completion.Write(builder)),
             (SessionField, builder.Object(
                 ("mode", builder.String(WireName(snapshot.Mode))),
                 ("simulationSeconds", builder.Number(snapshot.SimulationSeconds)),

@@ -280,6 +280,8 @@ reputation thresholds are ours.
 
 ### 3.9 Quests, journal, and knowledge — Match (structure) / Ours (content)
 
+The final hand-in records a path-specific completion in the party’s durable records. An authored prose epilogue substitutes for the source cinematic. After dismissing it, the party continues exploring the same world; save/resume preserves completion and the Journal can recall the ending.
+
 - Quests are given in conversation, tracked in a current-quests book, and
   usually turned in to the giver; some carry quest items that cannot be
   enchanted or sold freely.

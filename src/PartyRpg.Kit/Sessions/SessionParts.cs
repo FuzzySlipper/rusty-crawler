@@ -41,6 +41,9 @@ public sealed record SessionRules
     /// <summary>A session composed over no answers at all.</summary>
     public static SessionRules None { get; } = new();
 
+    /// <summary>How the game reads a completed expedition.</summary>
+    public ICompletionRule? Completion { get; init; }
+
     /// <summary>The answers about services a counter serves.</summary>
     public IServiceRule? Service { get; init; }
 

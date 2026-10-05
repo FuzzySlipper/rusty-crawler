@@ -685,6 +685,7 @@ function progression(overrides = {}) {
 
 function snapshot(mode, seconds = 0, steps = 0, _updates = 0, facts = undefined, blocks = undefined) {
   const value = {
+    completion: { completed: false, id: '', title: '', text: '', continues: true },
     composition: {
       ruleset: 'mightandmagic7',
       title: 'Might and Magic VII: For Blood and Honor',
@@ -4926,6 +4927,22 @@ test('ordinary item controls send real instance and member and display the produ
     assert.equal(h.panel().querySelector('.crawler-item-use'), null);
     assert.match(h.panel().querySelector('.crawler-item-use-result').textContent, /lamp consumed/);
     assert.equal(h.panel().querySelector('.crawler-item-powers').textContent, 'permanent Fire resistance 2');
+    ui.dispose();
+  } finally { h.restore(); }
+});
+
+test('Continue exploring leaves the final conversation through its ordinary semantic action', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+    const value = snapshot('running', 0, 0, 0, movement(), { conversation: talking() });
+    value.completion = { completed: true, id: 'light', title: 'A Door to the Stars', text: 'The expedition is complete.', continues: true };
+    h.emit(value);
+    const ending = h.panel().querySelector('.crawler-ending');
+    assert.equal(ending.hidden, false);
+    ending.querySelector('button').click();
+    assert.equal(ending.hidden, true);
+    assert.deepEqual(h.claims.at(-1).value.data, { action: 'conversation.leave' });
     ui.dispose();
   } finally { h.restore(); }
 });

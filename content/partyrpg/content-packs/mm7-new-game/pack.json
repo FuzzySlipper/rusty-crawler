@@ -52,6 +52,11 @@
       "path": "promotions.json",
       "documentId": "promotion-ladders",
       "definitionKind": "promotion"
+    },
+    {
+      "path": "endings.json",
+      "documentId": "endings",
+      "definitionKind": "ending"
     }
   ]
 }

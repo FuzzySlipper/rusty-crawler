@@ -11,6 +11,7 @@
 import { readAlchemy, type AlchemyView } from './alchemy.js';
 import { readCharacter, type CharacterView } from './character.js';
 import { readCombat, type CombatView } from './combat.js';
+import { readCompletion, type CompletionView } from './completion.js';
 import { readConversation, type ConversationView } from './conversation.js';
 import { readCreation, type CreationView } from './creation.js';
 import { readEquipment, type EquipmentView } from './equipment.js';
@@ -49,6 +50,7 @@ import { readSkills, type SkillsView } from './skills.js';
 
 /** Every block of one projection, as the panel draws it. */
 export interface SnapshotView {
+  readonly completion: CompletionView;
   readonly composition: CompositionView;
   readonly menu: MenuView;
   readonly session: SessionView;
@@ -95,6 +97,7 @@ export function readSnapshot(value: unknown): Reading {
 
   const read = <T>(key: string, reader: (entry: Fields) => T): T => block(root, key, reader, problems);
   const snapshot: SnapshotView = {
+    completion: read('completion', readCompletion),
     composition,
     menu: read('menu', readMenu),
     session,

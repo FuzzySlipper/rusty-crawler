@@ -133,6 +133,8 @@ internal sealed class MightAndMagic7PeopleInteraction : IInteractionRule
             if (_conversation.Describe(new ConversationTargetRequest(context.Place, placement)) is { } subject) return subject;
         }
 
-        return null;
+        // A script can select a different household behind the same physical door (the later throne room).
+        // Its residents still come from the conversation owner's current house assignments.
+        return _conversation.InHouse(house);
     }
 }

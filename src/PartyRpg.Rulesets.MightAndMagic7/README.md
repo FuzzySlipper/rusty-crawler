@@ -1155,3 +1155,9 @@ are separate byte-valued banks; comparisons, writes and native saves preserve th
 (OpenEnroth `src/Engine/Objects/Character.cpp:3608-3613`, `4006-4014`). A conditional chest
 program that names a different container from the selected target is refused by name before
 its effects settle; opening one container cannot silently take another container's contents.
+
+## Endgame and continued exploration
+
+`MightAndMagic7Endgame` reads authored `ending` definitions. The imported final hand-ins consume the Oscillation Overthruster and enter house 600 or 601; these are ending triggers, not residences (OpenEnroth `src/GUI/UI/UIHouses.cpp:297-300`, `OpenEnroth/src/Engine/Data/HouseEnums.h`). The ruleset requires the matching path, completed prior arc and active final quest, then records the ending in the existing party records and closes the final errand. Save and resume use those same records.
+
+The result is an authored prose epilogue for each path rather than a recreation of the original cinematic. Play continues in the same world; no new-game reset, second session mode or additional reward is implied. The Journal can reopen the epilogue.

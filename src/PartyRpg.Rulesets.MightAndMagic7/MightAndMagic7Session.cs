@@ -297,6 +297,7 @@ internal sealed class MightAndMagic7Session : IGameSession
         // effect a ward is, so it goes into the ledger the fight reads resistances from.
         // What the place's events change about how it looks is read from the same render entries and looks the scene draws.
         MightAndMagic7Switches switches = MightAndMagic7Switches.Read(Declared(context.Content));
+        MightAndMagic7Endgame endgame = MightAndMagic7Endgame.Read(Declared(context.Content));
         MightAndMagic7Fixtures fixtures = new(
             MightAndMagic7MapEvents.Read(Declared(context.Content)),
             () => owners.Knowledge,
@@ -316,7 +317,8 @@ internal sealed class MightAndMagic7Session : IGameSession
             conversation?.Followers,
             switches,
             place => owners.World?.Interactions.ValuesOf(place),
-            conversation?.News);
+            conversation?.News,
+            endgame);
         events = fixtures;
 
         // This game's journal policy is read once, here, over the loot reading that knows which item rows the
@@ -399,6 +401,7 @@ internal sealed class MightAndMagic7Session : IGameSession
 
         SessionRules rules = new()
         {
+            Completion = endgame,
             Service = services,
             Rest = rest,
             Conversation = conversation,

@@ -120,7 +120,7 @@ internal static class MightAndMagic7Persistence
 
         // A session that composed no fixtures still judges what a place keeps, against no map events: a timer
         // it names is then one no event holds, which is the honest answer about content that carries none.
-        MightAndMagic7Fixtures judge = fixtures ?? new MightAndMagic7Fixtures(MightAndMagic7MapEvents.None);
+        MightAndMagic7Fixtures judge = fixtures ?? new MightAndMagic7Fixtures(MightAndMagic7MapEvents.None, endgame: MightAndMagic7Endgame.Read(content));
         PlacePopulationContent targets = PlacePopulationContent.Read(places, expansion ?? MightAndMagic7Spawns.Compose(content, null));
         List<SaveProblem> problems = [.. save.Problems(
             places,

@@ -36,7 +36,7 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// <para>
 /// <b>Of a house and a greeting, only the latest change stands.</b> The writer takes every earlier change of the same kind for the person off the
 /// record before it marks the new one, so a person always lives in one house and greets with one row. House zero is the
-/// donor's "in no house"; a house no placement of the world holds is a person nobody can find, as the donor's is.
+/// donor's "in no house"; a house no door or event opens is a person nobody can find, as the donor's is.
 /// </para>
 /// </remarks>
 internal static class MightAndMagic7PersonState

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "documentId": "endings",
+  "definitionKind": "ending",
+  "entries": [
+    {
+      "id": "light",
+      "house": 600,
+      "questRecord": "errand:130",
+      "requires": [
+        "errand:99",
+        "errand:120"
+      ],
+      "title": "A Door to the Stars",
+      "text": "You recovered the Oscillation Overthruster from the Lincoln and entrusted it to Resurectra. The ancient gateway can open again, and your party has secured the path of Light. Your expedition is complete. The world remains open for further adventures."
+    },
+    {
+      "id": "dark",
+      "house": 601,
+      "questRecord": "errand:131",
+      "requires": [
+        "errand:100",
+        "errand:120"
+      ],
+      "title": "Masters of a New Age",
+      "text": "You recovered the Oscillation Overthruster from the Lincoln and delivered it to Kastore. His ancient machinery is restored, and your party has secured the path of Dark. Your expedition is complete. The world remains open for further adventures."
+    }
+  ]
+}

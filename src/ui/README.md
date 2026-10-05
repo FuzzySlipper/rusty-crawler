@@ -112,3 +112,5 @@ one product projection and report semantic actions; it acquires no gameplay or s
 clock or world renderer. Console/debug commands may call the existing canonical owners for agents.
 
 The inventory inspector displays item reading text as literal, wrapping prose with preserved line breaks. It sends no gameplay action merely to read a letter.
+
+`completion.ts` presents the product’s earned ending as an epilogue over the adventure view. Continue exploring dismisses it locally; the Journal reopens it. A resumed completed session displays its saved epilogue again. The browser stores neither the earned ending nor quest completion.

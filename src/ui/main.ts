@@ -45,6 +45,7 @@ import { mountSkills } from './skills.js';
 import { readSnapshot, type SnapshotView } from './snapshot.js';
 import { mountSpellbook } from './spellbook.js';
 import { STYLES } from './styles.js';
+import { mountCompletion } from './completion.js';
 
 export type { ProductUiContext } from './context.js';
 export { readSnapshot } from './snapshot.js';
@@ -137,6 +138,12 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   const menu = mountMenu(host);
   const hud = mountHud(host, { open: (screen) => frame.open(screen), toggleDiagnostics: () => frame.toggleDiagnostics() });
   const journalBook = mountJournalBook(host, () => frame.open('map'));
+  let endingConversation = false;
+  const completion = mountCompletion(() => {
+    frame.open('world');
+    if (endingConversation) claim('conversation.leave');
+    else context.ui.focusGameplay();
+  });
   marked = hud;
   frame.body('creation').append(creation.element);
   frame.body('conversation').append(dialogue.element);
@@ -145,6 +152,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   frame.body('character').append(character.element);
   frame.body('spellbook').append(magicBook.element);
   frame.body('journal').append(journalBook.element);
+  frame.body('journal').append(completion.recall);
   frame.body('map').append(map.element);
 
   // The fight stays beside the world, where the party is fighting it; its every actor and the round's whole order are
@@ -156,12 +164,14 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
   // The rows the character book draws from are kept here whole as well, every member at once.
   frame.diagnostics.append(...details.top, ...details.bottom, combat.element, equipment.element, skills.element, progression.element, promotion.element, spellbook.element, conversation.element, service.element, journal.element, problems);
   hud.side.append(details.companions);
-  panel.append(menu.element, hud.reticle, hud.message, fight, hud.side, frame.element, hud.bar, frame.diagnostics);
+  panel.append(menu.element, hud.reticle, hud.message, fight, hud.side, frame.element, hud.bar, frame.diagnostics, completion.element);
   root.append(style, panel);
 
   const render = (snapshot: SnapshotView): void => {
     const { controls } = snapshot;
     menu.render(snapshot.menu, 'Rusty Crawler', snapshot.composition.title);
+    endingConversation = snapshot.conversation.open;
+    completion.render(snapshot.completion, snapshot.menu.visible);
     details.render(snapshot);
     hud.render(snapshot);
     // The fight's panel stands beside the world while something is fighting the party, and only then.
@@ -224,6 +234,7 @@ export function mountProductUi(root: HTMLElement, context: ProductUiContext): { 
     if (projection === null) {
       panel.dataset.projection = 'none';
       menu.clear();
+      completion.clear();
       frame.element.hidden = false;
       frame.clear();
       return;

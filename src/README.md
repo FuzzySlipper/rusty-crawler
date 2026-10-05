@@ -32,3 +32,5 @@ The normal game pack owns promotion ladder data. The ruleset interprets its rank
 quest events; Kit owns rank mutation, companion interaction settlement, and the quest-book projection.
 Optional `IQuestNotesRule` exposes event-owned quests by reading canonical party records, without
 parallel quest state. See the owning project READMEs for these contracts.
+
+Kit `ICompletionRule` projects an earned ending from canonical party state. The compiled ruleset interprets endgame triggers and authored ending definitions; the DOM companion presents the result and offers continued exploration.

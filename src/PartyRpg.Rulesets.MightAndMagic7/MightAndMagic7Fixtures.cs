@@ -229,6 +229,7 @@ internal sealed class MightAndMagic7Fixtures
     };
 
     private readonly MightAndMagic7MapEvents _events;
+    private readonly MightAndMagic7Endgame _endgame;
     private readonly MightAndMagic7Switches _switches;
     private readonly Func<PlaceId, IReadOnlyDictionary<string, long>?> _kept;
     private readonly Func<PartyKnowledge?> _knowledge;
@@ -298,8 +299,10 @@ internal sealed class MightAndMagic7Fixtures
         MightAndMagic7Followers? followers = null,
         MightAndMagic7Switches? switches = null,
         Func<PlaceId, IReadOnlyDictionary<string, long>?>? kept = null,
-        MightAndMagic7GroupNews? news = null)
+        MightAndMagic7GroupNews? news = null,
+        MightAndMagic7Endgame? endgame = null)
     {
+        _endgame = endgame ?? MightAndMagic7Endgame.Read((ContentCatalog?)null);
         _news = news ?? MightAndMagic7GroupNews.Read(null);
         _switches = switches ?? MightAndMagic7Switches.None;
         _kept = kept ?? (_ => null);
@@ -928,6 +931,7 @@ internal sealed class MightAndMagic7Fixtures
     /// <param name="name">The record's name.</param>
     /// <param name="count">How many times it is on record.</param>
     internal string? JudgeRecord(string name, int count) =>
+        _endgame.JudgeRecord(name, count) ??
         _news.JudgeRecord(name, count) ??
         MightAndMagic7TopicSlots.Judge(name, count, person => _people(person) is not null) ??
         MightAndMagic7PersonState.Judge(name, count, person => _people(person) is not null, _greetings, _starting);
@@ -1186,6 +1190,13 @@ internal sealed class MightAndMagic7Fixtures
                         break;
                     case "npc-set-item":
                         if (Hand(mapEvent, current) is { } refusedItem) return refusedItem;
+                        break;
+                    case "speak-in-house" when _rules._endgame.AtHouse(current.House) is { } ending:
+                        if (Party is null || !ending.Requires.All(HasRecord) || !HasRecord(ending.QuestRecord))
+                            return new Refusal("ending-requirements-unmet", "The party has not completed the arc that leads to this ending.");
+                        Record(ending.Record, true);
+                        Record(ending.QuestRecord, false);
+                        _said.Add(ending.Reading.Title + ". " + ending.Reading.Text);
                         break;
                     case "speak-in-house" when Houses is { } houses:
                         // The house opens and the run goes on, as the donor's does (src/Engine/Evt/EvtInterpreter.cpp:189-198).
