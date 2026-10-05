@@ -31,13 +31,14 @@ quietly depend on their data.
   `docs/research/mmextension-openmm8-survey.md`
 - experience outline with manual citations: `docs/research/mm7-manual-outline.md`
 - extracted data inventory with donor citations: `docs/research/mm7-data-inventory.md`
-- format specs for the importer's remaining work: `docs/research/mm7-map-formats.md` and
+- format specs for the importer: `docs/research/mm7-map-formats.md` and
   `docs/research/mm7-media-formats.md`
 - design shape: `docs/gameplay-design.md` and `docs/code-organization.md`
-- repository shape, current state, and how to develop: `README.md`
+- repository shape and how to develop: `README.md`
 
 Before substantial work, resolve the current Den task and project guidance. Den
-owns live task status and dependencies. If it is unreachable, report the failed
+owns live task status, dependencies, open work and residue; repository documents
+never record them (see "Documentation and check posture"). If it is unreachable, report the failed
 read; do not invent task records or infer dependency completion from source or
 Git. Continue work whose scope and authority are already established, pausing
 only decisions or actions that depend on unavailable Den information.
@@ -70,102 +71,7 @@ Donor and extracted data inform the design; they do not bind it. Where a task's
 required behavior and the original game disagree, the task and the design
 documents decide, and the difference is recorded rather than silently rounded.
 
-## Current state
-
-Den owns which stones are open; this section states the shape the code has and the residue it still
-carries. Stones 1 to 5 (shell, import, world, party, interaction and services) are closed.
-Stones 6 to 8 (combat; progression and magic; quests and knowledge) have also landed their mechanisms;
-remaining residue has concrete receiving tasks below. Secret surfaces reach the party's Perception
-through the ordinary interaction owner. Stone 9 (breadth) has not started.
-The parent-criteria audit is recorded in `docs/evidence/foundation-closure.md`.
-Per-mechanism detail lives in the owning project README (`src/PartyRpg.Kit/README.md`,
-`src/PartyRpg.Rulesets.MightAndMagic7/README.md`, and the others under `src/`), not here.
-
-- **Graph and surface.** Kit, ruleset and host build against the pinned Engine pair; the importer stays
-  offline. One product entry declares input intents and `crawler.ui`. The changed projection
-  (`crawler.hud` / `crawler.ui.snapshot.v1`) reaches a companion with presentation state only;
-  host-written fixtures bind both languages. `WorldView` draws imported meshes and media through the
-  Engine beneath the adventure frame, requiring a GPU adapter. Playtest observation reports live actor feet.
-  Visible light-bearing decorations supply a bounded nearest set of Engine point lights beside the carried light.
-  Creation, character and shared inventory, spellbook and mixing, dialogue and counters, journal and
-  automap, combat and rest use deliberate screens over those same owners.
-  The Host's title and save/load menus use the existing session lifecycle and one explicit save slot;
-  visible menus own input, including the admitted update that closes them.
-- **Content.** The importer reads the operator's own install and `write` emits deterministic packs; no game
-  data is committed, and every count the documents quote is checked by `mm7import verify`. The kit validates
-  the whole content root at start and loads exactly what the bundle selects. The default bundle,
-  `mm7-new-game` supplies a purse, nearby stock and an opening errand whose reward reaches first training;
-  without them the product shows setup guidance.
-  `scripts/developer-launch.sh` discovers installed tools and prepares packs from an explicit operator source.
-- **World and time.** Places, arrival points and transitions load from packs; using a clicked exit or treading
-  on a plate (a map event whose branches pick the move), boarding a fare the party bought, and a travel spell all
-  take one transition path that charges the clock
-  and the larder once. Movement and collision are the Engine's (the character step over each place's
-  spatial artifact, flying mode under a flight, and the water a place's packs name beside it); a fall past the
-  threshold and standing in water harm members through the ruleset's rules. Engine derives navigation in that
-  same scene for the actual body; pursuit uses foot-position waypoints or holds by name when unavailable.
-  `GameClock`
-  over an authored calendar is the only time, and every advance reaches every owner registered with it.
-- **Party.** One `PartyEntity` holds the roster, durable member selection, shared item inventory,
-  member equipment, purse, larder, followers ([bounded reading](docs/evidence/followers.md)), standing,
-  effects and records. One ledger settles every charge. Creation and scenario starts share the factory
-  and owner composition, proved by the parity suite; the scenario's `party` word selects the flow
-  (creation by default), and the projection names it.
-- **Interaction and services.** One use workflow serves doors, containers, people and fixtures. Engine selects
-  in a forward hemisphere, including elevated targets at the same reach. T or Next target cycles its focus;
-  distant targets carry an out-of-reach refusal ([live reading](docs/evidence/elevation-reach.md)). A fixture, and a
-  house whose own event does more than open it, runs the steps of its imported map event this game interprets and
-  refuses the rest by name; a person's house and greeting are what those events left on the party's records. One service
-  mechanism, an operation table judged before anything is settled, serves every shipped service kind; towns
-  keep hours on the one clock, including service and residence entrances reached by ordinary use; rest, camp and wait
-  are distinct, camping reads the outdoor ground grid under the party with place terrain as fallback
-  ([town reading](docs/evidence/house-ground.md)), and sleep
-  leaves dead, petrified and eradicated members untouched and names them; conversations recompute their topics from
-  party state and hand off to counters, and a topic runs its global event as a use of the speaker's placement.
-  The same panel reaches every counter operation; its offers show patient or coin amount, price and refusal
-  from the mechanism before a transaction settles.
-- **Combat.** Ordinary attack addresses only the roster's selected member ([live reading](docs/evidence/member-selection.md)); N or a panel row changes that
-  choice. Recovery keeps it and names a refused attack; incapability selects the first capable member or
-  nobody. A new paced player turn selects its actor, while a ready off-turn choice refuses without spending
-  that turn. One fight over the live world with two pacings over one recovery quantity, one resolution
-  path, conditions up to death, corpses and loot through the container mechanism, and cleared places
-  restored by the clock. Creatures come from `encounter` placements the ruleset resolves and from the maps'
-  own `actor` records, both when a place is populated, and this game's AI orders them through the gate the
-  player's control uses. Flying creatures use Engine flight. Named attacks and spells judge reach before spending or provocation.
-  What a spell leaves on a creature is the creature's own state, and a charm or a
-  binding puts it on the party's `Ally` side.
-- **Growth and magic.** `PartyProgression` is the one writer of experience, levels, skill points, ranks and
-  promotions; the first training step of a service visit includes rest on the one clock (the light/dark choice lives in the character's class and is irreversible). Skills have four
-  masteries under this game's ceilings; promotion requires recovery from a laid-out condition; item spells change the actual instance's property, hardening and charge capacity through the same casting workflow; nine schools and 99 spells share one casting workflow whose eight
-  effect categories each reach their owner, stated per spell in `docs/magic-coverage.md`; alchemy mixes the
-  shipped recipes. Fixed special-item powers read actual working equipment; a consumed lamp writes permanent member resistance through ordinary item use (approximate repertoire). Preservation on the caster or potion drinker keeps below-empty health unconscious until
-  its member effect expires; saves carry the wound's deficit and the original deadline. Counted deeds accumulate on party records through once-only quest turn-in; town-hall
-  bounties add gold earned, and bound Knight arena opponents earn one win on settlement through those same
-  owners ([arena reading](docs/evidence/arena-bouts.md)); current quest/fight saves preserve pending earning.
-- **Record.** Quests (definitions from content, instances on the party), `PartyJournal`, `PartyKnowledge`,
-  standing read from records, and the `PartyMaps` automap, with ruleset edge words and a matching party arrow. A taken errand's needed item stays in the party:
-  removal and charge use ask the quest owner, and its own turn-in delivers through the same custody owner.
-- **Persistence.** One current schema, written only on explicit save requests, carries party, clock, world,
-  quests, journal, knowledge, maps and the resident fight, including bodies, held loot and recovery;
-  fatigue, spell and shelf-restock deadlines retain their original due times
-  ([fight reading](docs/evidence/fight-persistence.md)). A load rebuilds transient handles on the same
-  clock; contradictory documents are refused with every problem named.
-- **Refusals and rolls.** Every mechanism refuses with the kit's one `Refusal` (a code from that mechanism's
-  code class and a sentence); a requirement is judged as a `Verdict`; chance goes through `KeyedRolls` over
-  the Engine's keyed random service; the words a game uses for what the kit only counts come from
-  `IGameNames`.
-- **Verification.** `scripts/verify.sh`, also the `verify` workflow, runs every suite listed in
-  `tests/README.md`. Live checks follow `docs/live-checks.md`; published readings are in `docs/evidence/`.
-
-**Open residue and its receivers** (Den task ids; Den owns their status):
-
-- Stone 5, interaction and services: a topic event reaches uncarried NPC group news (#9150).
-- Stone 7, progression and magic: world-targeted Telekinesis (#9145) and follower profession benefits (#9151) remain.
-
-When a stone lands or a residue closes, update this section, `README.md`, and the owning project README
-together.
-
-## Current product graph
+## Product graph
 
 | Owner | Responsibility |
 | --- | --- |
@@ -186,9 +92,8 @@ gameplay DSL, or a universal plug-in ABI. Named, explicitly composed Kit service
 and typed RuleEvents are encouraged where they make gameplay ownership and
 contribution discoverable.
 
-The concrete project graph now exists and the laws that hold it are checked; new projects and new
-kit mechanisms belong in `src/README.md` and the per-project READMEs, which must be updated with the
-code that changes them.
+New projects and new kit mechanisms belong in `src/README.md` and the per-project READMEs, which
+are updated with the code that changes them.
 
 ## Kit, Might and Magic, and tuning rules
 
@@ -328,7 +233,7 @@ provenance and receipts; timing left to the product). The kit keeps its own owne
   `GameClock`; stacking groups and receipts answer no rule this game has.
 
 Revisit this when a rule needs modifiers stacked from several sources (item
-enchantments, #8513) or fungible stacks.
+enchantments) or fungible stacks.
 
 ## Update, donors, and evidence
 
@@ -359,15 +264,10 @@ donor file path or a documented table, not recalled from memory. Record the path
 with the claim, as the donor surveys do. Where donors disagree or a divergence is
 unverified, say so rather than picking the convenient answer.
 
-Live work lives in Den, not in Markdown. The foundation stones are campaigns
-`rusty-crawler#8454`–`#8462`, one per stone, each with child tasks carrying
-outcome, scope, acceptance criteria, and expected evidence; dependencies between
-them encode the building order in `docs/gameplay-design.md` §5. Den owns task
-status, dependencies, and scheduling — do not mirror task lists into repository
-documents, where they go stale and are later read as current (the residue list
-under "Current state" names receiver ids and nothing else). Repository
-documents own the durable shape and the evidence; a point-in-time feature map may
-still be written here when a campaign needs one.
+Live work lives in Den, not in Markdown. Den tasks carry outcome, scope,
+acceptance criteria and expected evidence, and their dependencies encode the
+building order in `docs/gameplay-design.md` §5. Den owns task status,
+dependencies, scheduling, open residue and which stones or campaigns are done.
 
 ## Coverage execution and drift
 
@@ -421,6 +321,15 @@ task's definition of done. Stop an upstream-blocked task honestly and continue
 independent ready work; never invent a substitute to unblock the queue.
 
 ## Documentation and check posture
+
+**No progress in Markdown.** Repository documents own durable rules, the design
+shape, the owner map and published evidence. They never carry task status,
+"current state" summaries, open/closed stone lists, residue lists, receiver task
+ids for unbuilt work, or feature maps: progress kept in both Den and a document
+is double-booked, the document goes stale, and a later agent reads it as current.
+A document may state a mechanism's durable limitation ("this step is refused by
+name"); who will lift it, and when, is Den's. Evidence documents may cite the
+task they were recorded for as provenance.
 
 Keep durable repository documents free of commit revisions and pinned versions: a
 stale pin in prose invites a later agent to roll the code back to match the

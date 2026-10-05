@@ -120,12 +120,12 @@ Owns:
     permanent resistance (`:4788-4817`), which `MightAndMagic7Fixtures` writes into the member's own stored
     resistances (the kit's `CharacterResistances`, saved with the member and capped at a byte), and by a genie
     lamp used through the ordinary carried-item action (our always-resistance adaptation); a Lich's floor is read as a floor under the stored figure. Followers
-    have presence and gold-finding policy below; further profession terms are routed to #9151 and working fixed special-item resistances enter this same sum. A special attack's saving throw reads the same sum.
+    have presence and gold-finding policy below; further profession terms are not read and working fixed special-item resistances enter this same sum. A special attack's saving throw reads the same sum.
   - **the scores every sum reads** (`Character.cpp:729-765`, `GetActualStat`): the score the character carries
     at the share their age leaves of it (`MightAndMagic7Ageing`, the donor's table at `:222-232`), plus a potion's
     boost of that score on them and the party's day of the gods, which adds to all seven (`:2360-2387`). Faithful
     for those terms; ordinary working item bonuses for Might, Endurance and Speed are added by their property
-    strength (approximate repertoire). The conditions multiplier and the profession contributions routed to #9151 remain absent. The pools are set by progression and are not re-read while a boost runs (ours).
+    strength (approximate repertoire). The conditions multiplier and other profession contributions are not read. The pools are set by progression and are not re-read while a boost runs (ours).
   - **what a spell adds** (`Character.cpp:2322-2395`, `GetMagicalBonus`): every buff is read as the character's
     own plus the party's of the same name, so a potion on one member and a spell on the band are one reading —
     a haste takes the donor's flat twenty-five ticks whichever carries it (`:1723-1728`), and nothing the party
@@ -706,7 +706,7 @@ and a decoration target is aimed at half its look's height and seen by its front
 niche can be used ([event reading](../../docs/evidence/world-events.md)). **Presentation, passed over**: the product
 plays no sound and shows no portrait reaction or movie, so `play-sound`, `character-animation`,
 `toggle-indoor-light` (every interior light the shipped levels carry has a radius of zero, which the donor's sector
-lighting reads as reaching nothing, `OpenEnroth/src/Engine/Graphics/Lighting.cpp:133-151`; keeping and drawing its switch is #9267's requirement should the lights ever be drawn), `show-movie` (the three effects the donor's player hangs on a movie's name — the arbiter's
+lighting reads as reaching nothing, `OpenEnroth/src/Engine/Graphics/Lighting.cpp:133-151`; keeping and drawing its switch is required only if the lights are ever drawn), `show-movie` (the three effects the donor's player hangs on a movie's name — the arbiter's
 alignment and the crossing's week of rest, `OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:288-300` — are the
 executable's and are not kept: this build's path is the class a promotion chooses), and a `set-faces-bit` that only makes a face group fluid changes nothing and the
 event's gameplay steps still run — a decision (a fluid face is not water a party drowns in, and its
@@ -796,7 +796,7 @@ with its `%30` and `%31`–`%34` codes written as `{date}` and `{member:1}`–`{
 `Chronicle` line with the day written as this build writes days (the donor spells the month,
 `OpenEnroth/src/GUI/GUIWindow.cpp:953-965`: approximate); a slot the table lacks is `fixture-history-unknown`.
 **Refused by name** (`fixture-step-not-interpreted`, `fixture-variable-not-interpreted`): unsupported instructions
-and variables name the missing behavior; NPC group news points to #9150. Over
+and variables name the missing behavior, NPC group news among them. Over
 the operator's install a fresh party using each of the 810 fixture and floor-trigger events once has all 810 run — 145 of
 them taking it along a travel link, 54 setting it down elsewhere in its place, and 3 ambush plates putting 80
 creatures on the field — and none refused; the ruleset suite checks these counts. On the first region the town well gives fifty points of fire resistance and its note, the wells east
@@ -830,7 +830,7 @@ A regular run passes over the offer steps, as the donor's does. A run that meets
 interpret settles nothing and the person still says what the run had said (the topic table's own text when it had
 said nothing), with the refusal as the residue. Over the operator's install, a fresh party choosing each of the 365
 topic-raised events once has 364 run — 3 of them taking the party along a world-issued link: the crossing to
-Harmondale (68) and the temples' (69, 70) — and one stops at `set-npc-group-news`, routed to #9150; `bounties` and `arena-wins-knight` now compare
+Harmondale (68) and the temples' (69, 70) — and one stops at `set-npc-group-news`, which is refused by name; `bounties` and `arena-wins-knight` now compare
 the canonical counted records; the ruleset suite counts it. **What is ours**: the donor offers at most four scripted topics at once (`NPCTopics.cpp:603`), this build
 every one its check allows; a topic said once is withheld for the rest of the conversation, as every topic is.
 Fidelity per system — what matches
@@ -908,7 +908,7 @@ ordinary buy/sell/identify/repair operations. Artifacts keep fixed definition id
 one-copy registry. The complete original special-item power repertoire is not claimed.
 
 The [item-effect record](../../docs/evidence/item-enchanting.md) records focused checks and live limits.
-World-targeted Telekinesis remains receiver #9145. The selected fixed powers and ordinary Genie Lamp use
+World-targeted Telekinesis is not implemented. The selected fixed powers and ordinary Genie Lamp use
 are implemented below; the complete original special-item repertoire is not claimed.
 
 ## Preservation
@@ -955,7 +955,7 @@ banker and pirate bonuses in that order and sums the joined companions' authored
 the salary, divided by 10000, with a minimum one coin for a positive finding and nonzero salary. A salary
 never exceeds the finding. Ordinary sales and refunds use direct credit and pay no salary. These rules
 follow OpenEnroth `src/Engine/Party.cpp:859-902` and profession identities in OpenEnroth `src/Engine/Objects/NPCEnums.h`;
-other profession abilities are carried by #9151 rather than claimed by this mechanism.
+other profession abilities are not claimed by this mechanism.
 
 Sacrifice names an actual hired companion through the existing opaque spell aim and casting workflow.
 Story or absent companions are refused before payment. A successful cast removes that hired presence,
@@ -1028,7 +1028,7 @@ feet (OpenEnroth `src/Engine/Party.h:281`). Light is ours: a sun that rises at t
 a dim blue night under a clear dark sky, the party's light, and the imported decoration look's radius and RGB colour.
 Each active drawn decoration contributes an Engine point light at its feet plus half its imported height; the level's
 invisible flag and an interaction `set-sprite` omission or hide remove it. The kit view selects the nearest bounded set
-before presenting those lights, while `#9267` owns indoor light-switch state. Distance fades into the sky's colour outdoors
+before presenting those lights, while indoor light-switch state is passed over by name. Distance fades into the sky's colour outdoors
 and into darkness indoors between tuned distances (`view.fog-start`/`view.fog-end`, `view.interior-fog-start`/`view.interior-fog-end`), never past the view distance; ours, since the donor fades only in foggy weather (OpenEnroth `src/Engine/Graphics/Renderer/OpenGLRenderer.cpp:1626-1652`). The [world rendering reading](../../docs/evidence/world-rendering.md)
 records the ordinary new game drawn outdoors and an interior entered and left.
 

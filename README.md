@@ -14,28 +14,26 @@ only. It is not the implicit PartyRpg architecture.
 The working formula is: **Engine guarantees. Kit shapes. Ruleset decides.
 Bundle assembles. Host launches.**
 
-> **Current state.** Foundation stones 1 to 5 (shell, import, world, party, interaction and services) are closed.
-> Stones 6 to 8 (combat, progression and magic, quests and knowledge) have also landed their mechanisms;
-> remaining work has Den receivers. Imported secret surfaces now use the best acting member's Perception:
-> first use discovers them and a later use opens the door or runs its event
-> ([discovery reading](docs/evidence/secret-discovery.md)). The owner's routing is recorded in the
-> [parent acceptance audit](docs/evidence/foundation-closure.md).
-> Stone 9 (breadth) has not started. With the
-> operator's imported packs selected, a session creates or resumes a party, walks it through the imported
-> world, pays for crossings, fares and nights, rests the living while naming fallen companions left as they were, opens doors and containers, drinks from wells and reads
-> obelisks and signs, talks, hires and dismisses companions, trades, steals and pays its fines, trains, promotes recovered members, learns and casts spells, selects a member and fights in real time or in rounds, takes
-> and turns in errands, and keeps a dated journal, notes and an automap it can save and resume. The same save
-> carries the resident fight, including creature recovery, provocation, effects, summons and bodies with their held loot
-> ([bounded fight reading](docs/evidence/fight-persistence.md)),
-> hired and story followers with their portrait and conversation surfaces ([bounded companion reading](docs/evidence/followers.md)), opened doors, searched containers, defeated placements, the purses people still carry, and the
-> original due times for sleep, running spell effects and shelf restocks, as the
-> [save/resume reading](docs/evidence/deadline-persistence.md) records. The service
-> panel reaches cures, training, provisions, rooms, bank deposits and withdrawals, and fares, with offers priced
-> for the chosen patient or amount by the service owner. The default `mm7-new-game` bundle plays the imported packs from the
-> first region's party start, with an authored purse, nearby outfitter stock and an introductory errand offered by Ailyssa through ordinary conversation. Its reward gives a healthy four-member party enough experience for first training and skill growth at the island counter.
-> Carried spellbooks are studied through the inventory and the same school/mastery rules used by lessons.
-> Without imported packs, the product shows how to generate them instead of a world. [`AGENTS.md`](AGENTS.md) states the shape and lists the residue with
-> each receiver; the project READMEs under [`src/`](src/README.md) hold the per-mechanism detail.
+## What the product does
+
+Den owns which work is open or done; this README describes the shape the code has. Imported secret surfaces
+use the best acting member's Perception: first use discovers them and a later use opens the door or runs its
+event ([discovery reading](docs/evidence/secret-discovery.md)). With the
+operator's imported packs selected, a session creates or resumes a party, walks it through the imported
+world, pays for crossings, fares and nights, rests the living while naming fallen companions left as they were, opens doors and containers, drinks from wells and reads
+obelisks and signs, talks, hires and dismisses companions, trades, steals and pays its fines, trains, promotes recovered members, learns and casts spells, selects a member and fights in real time or in rounds, takes
+and turns in errands, and keeps a dated journal, notes and an automap it can save and resume. The same save
+carries the resident fight, including creature recovery, provocation, effects, summons and bodies with their held loot
+([bounded fight reading](docs/evidence/fight-persistence.md)),
+hired and story followers with their portrait and conversation surfaces ([bounded companion reading](docs/evidence/followers.md)), opened doors, searched containers, defeated placements, the purses people still carry, and the
+original due times for sleep, running spell effects and shelf restocks, as the
+[save/resume reading](docs/evidence/deadline-persistence.md) records. The service
+panel reaches cures, training, provisions, rooms, bank deposits and withdrawals, and fares, with offers priced
+for the chosen patient or amount by the service owner. The default `mm7-new-game` bundle plays the imported packs from the
+first region's party start, with an authored purse, nearby outfitter stock and an introductory errand offered by Ailyssa through ordinary conversation. Its reward gives a healthy four-member party enough experience for first training and skill growth at the island counter.
+Carried spellbooks are studied through the inventory and the same school/mastery rules used by lessons.
+Without imported packs, the product shows how to generate them instead of a world. [`AGENTS.md`](AGENTS.md) states the rules;
+the project READMEs under [`src/`](src/README.md) hold the per-mechanism detail.
 
 The adventure frame keeps the drawn world, four party portraits, resources, target and latest response
 visible together. Creation, the character book and shared inventory, spellbook and mixing, dialogue and
@@ -362,4 +360,4 @@ verification limits. Preservation uses the existing member effect and health own
 potion drinker remains unconscious after otherwise lethal wounds, until the original deadline. The current
 party save carries damage past zero; expiry neither heals nor resurrects. The spell keeps this game's
 caster-only carrier, approximating the donor's ally/party targeting. The [Preservation reading](docs/evidence/preservation.md)
-states the checks and live limits. World-targeted Telekinesis remains receiver #9145. Selected fixed artifact/relic powers and ordinary Genie Lamp permanent resistance use actual equipment and custody; unknown fixed powers are named. The [special-item reading](docs/evidence/special-item-powers.md) states the approximate repertoire.
+states the checks and live limits. Selected fixed artifact/relic powers and ordinary Genie Lamp permanent resistance use actual equipment and custody; unknown fixed powers are named. The [special-item reading](docs/evidence/special-item-powers.md) states the approximate repertoire.

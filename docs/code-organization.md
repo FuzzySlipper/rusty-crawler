@@ -3,7 +3,7 @@
 Status: **the owner map the code is built to.** It fixes where things belong, so a
 task does not have to invent the seams; it describes owners and boundaries, not
 APIs. The owners below exist in `src/`; what each implements is in its project
-README, and the open residue is in [`../AGENTS.md`](../AGENTS.md) under "Current state".
+README, and open work is in Den.
 
 Read it with [`gameplay-design.md`](gameplay-design.md), which defines the shape
 being expressed, and [`../AGENTS.md`](../AGENTS.md), which owns the vocabulary,

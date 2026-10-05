@@ -1110,7 +1110,7 @@ internal sealed class MightAndMagic7Fixtures
                         if (Greet(mapEvent, current) is { } refusedGreeting) return refusedGreeting;
                         break;
                     case "set-npc-group-news":
-                        return NotInterpreted(_target, mapEvent, current, "a 'set-npc-group-news' instruction awaiting imported group/news arguments and their conversation reader (#9150)");
+                        return NotInterpreted(_target, mapEvent, current, "a 'set-npc-group-news' instruction awaiting imported group/news arguments and their conversation reader");
                     case "npc-set-item":
                         if (Hand(mapEvent, current) is { } refusedItem) return refusedItem;
                         break;

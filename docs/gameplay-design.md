@@ -1,7 +1,6 @@
 # Gameplay design: the shape of the game
 
-Status: **the design the product is built to.** Stones 1 to 8 have landed against
-it (their open residue is listed in [`../AGENTS.md`](../AGENTS.md)). This document
+Status: **the design the product is built to.** Den tracks which parts are open. This document
 fixes the *shape* of the game — what the player does, what systems must therefore
 exist, and how faithful each one is meant to be. It deliberately does not fix
 tuning, formulas, or interfaces; those belong to the ruleset, the content, and

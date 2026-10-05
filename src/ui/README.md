@@ -100,9 +100,8 @@ holding, price arithmetic or eligibility in the companion. Counters without an o
 ## Player-facing acceptance
 
 The adventure frame (`hud.ts`, `frame.ts`) is the player's surface: the world with the party's portraits, purse and
-controls, and the books and contextual screens over it. Until their own screens land (#9221–#9226), the books hold the
-existing sections unchanged; those sections and the diagnostic panel are a mechanism-inspection surface that does not
-satisfy the game-feature landing rule in the repository's [AGENTS.md](../../AGENTS.md). Adding another row, command,
+controls, and the books and contextual screens over it. The diagnostic panel's sections are a mechanism-inspection
+surface that does not satisfy the game-feature landing rule in the repository's [AGENTS.md](../../AGENTS.md). Adding another row, command,
 button or collapsible section to them is not an ordinary feature implementation.
 
 The product must instead present a persistent adventure HUD and recognizable contextual screens

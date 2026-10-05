@@ -182,7 +182,7 @@ master, and four grand master.
 | 39 | damage | 2 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 40 | condition | 2 | ally | implemented | the named conditions lifted through the member's own condition state |  |
 | 41 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
-| 42 | utility | 3 | none | not yet | a door or a container across the room | world-targeted spell admission through the current interaction owner (#9145) |
+| 42 | utility | 3 | none | not yet | a door or a container across the room | world-targeted spell admission through the current interaction owner |
 | 43 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 44 | damage | 4 | foe | approximated | the donor takes a share of the target's current health; this rolls the row's base and dice |  |
 | 45 | detection | 1 | caster | implemented | a report read from the places and the population the world holds |  |
