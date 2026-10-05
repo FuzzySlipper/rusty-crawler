@@ -37,7 +37,8 @@ dismissal in a composed session:
 - A Monk raises armour class through lent Dodging and an Apprentice the Fire school's level a spell is cast at;
   purchased skill entries never change and both readings return on dismissal.
 
-The focused class passed 11 cases.
+The focused class passed 11 cases, and the full `scripts/verify.sh` gate passed on the branch with every suite
+green (NativeAOT not run).
 
 ## Live reading
 
