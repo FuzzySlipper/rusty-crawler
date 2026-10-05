@@ -96,6 +96,15 @@ public sealed class EquipmentPolicyTests
     }
 
     [Fact]
+    public void A_club_needs_no_trainable_skill_and_uses_its_hidden_novice_attack_bonus()
+    {
+        Blow club = Strike("50");
+        Assert.Equal(6d, club.Rolled); // 2d2 plus Might's two; Club adds no damage.
+        Assert.Equal(Chance(19, 39), club.Chance); // Accuracy plus hidden novice Club.
+        Assert.Equal(Seconds(98), club.RecoverySeconds);
+    }
+
+    [Fact]
     public void A_change_this_game_refuses_is_refused_by_name_and_leaves_the_figure_as_it_was()
     {
         (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(Content());
@@ -317,6 +326,7 @@ public sealed class EquipmentPolicyTests
               "documentId": "items",
               "definitionKind": "item",
               "entries": [
+                { "id": "50", "name": "A club", "value": 1, "type": "single-handed", "skill": "club", "damageDice": "2d2", "damageModifier": "0" },
                 { "id": "1", "name": "A longsword", "value": 50, "type": "single-handed", "skill": "sword", "damageDice": "3d3", "damageModifier": "0" },
                 { "id": "2", "name": "A greatsword", "value": 90, "type": "two-handed", "skill": "sword", "damageDice": "3d4", "damageModifier": "1" },
                 { "id": "15", "name": "A dagger", "value": 8, "type": "single-handed", "skill": "dagger", "damageDice": "2d2", "damageModifier": "0" },
@@ -341,7 +351,7 @@ public sealed class EquipmentPolicyTests
                 {
                   "id": "party", "coins": 200, "food": 6, "reputation": 0, "fame": 0,
                   "pack": [
-                    { "item": "1", "count": 1 }, { "item": "2", "count": 1 }, { "item": "15", "count": 1 },
+                    { "item": "50", "count": 1 }, { "item": "1", "count": 1 }, { "item": "2", "count": 1 }, { "item": "15", "count": 1 },
                     { "item": "60", "count": 1 }, { "item": "66", "count": 1 }, { "item": "76", "count": 1 },
                     { "item": "84", "count": 1 }, { "item": "222", "count": 1 }
                   ],

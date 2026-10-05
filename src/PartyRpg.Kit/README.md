@@ -635,3 +635,5 @@ list is said once and the faces keep their own. Each `SceneBurst` the rule repor
 its point; a refused or budget-dropped burst is noted once and changes nothing it marks. `CombatState.RecentBlows`
 keeps the fight's last applied orders, each with a growing serial, for a presentation to read without re-deciding;
 nothing saves it. The view's notes are also published as `scene-note` diagnostics.
+
+`ItemReading.Text` carries optional readable prose. Equipment projections expose it for both worn and shared-pack items, and inspecting it changes no item custody or gameplay state.

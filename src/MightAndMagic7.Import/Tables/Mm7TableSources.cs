@@ -79,9 +79,13 @@ public static class Mm7TableSources
     /// <summary>The history table: the lines a party's history book holds, which map events write by slot.</summary>
     public static LodSource History { get; } = new("history", RulesArchive, "history.txt");
 
+    /// <summary>Item-keyed message scroll text.</summary>
+    public static LodSource MessageScrolls { get; } = new("message-scrolls", RulesArchive, "scroll.txt");
+
     /// <summary>Every declared table source.</summary>
     public static IReadOnlyList<LodSource> All { get; } =
     [
+        MessageScrolls,
         MapStats,
         Services,
         Monsters,

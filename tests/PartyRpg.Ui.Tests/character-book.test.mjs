@@ -152,3 +152,22 @@ test('the awards page lists what the party has accomplished in the game’s word
     h.restore();
   }
 });
+
+
+test('an inspected letter shows its prose literally without turning it into markup or consuming it', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+    const letter = structuredClone(running);
+    const text = 'Meet at the inn.\n<em>This is ink, not HTML.</em>';
+    letter.equipment.pack[0].text = text;
+    h.emit(letter);
+    const book = open(h, 'inventory');
+    book.querySelector('.crawler-inventory-grid .crawler-item-tile').click();
+    const prose = book.querySelector('.crawler-inspect-text');
+    assert.equal(prose.textContent, text);
+    assert.equal(prose.querySelector('em'), null);
+    assert.equal(h.claims.length, 0);
+    ui.dispose();
+  } finally { h.restore(); }
+});

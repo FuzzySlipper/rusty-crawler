@@ -133,6 +133,7 @@ internal static class SyntheticInstallation
                     LodFixture.TextTable("npctext.txt", TopicTexts()),
                     LodFixture.TextTable("AUTONOTE.TXT", Discoveries()),
                     LodFixture.TextTable("history.txt", History()),
+                    LodFixture.TextTable("scroll.txt", "Item\tText\tTitle\n700\tA synthetic letter.\tLetter\n701\t\tEmpty\n"),
                     ("dtile.bin", LodFixture.Compressed(TileTable())),
                     .. events,
                 ]));

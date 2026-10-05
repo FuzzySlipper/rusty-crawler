@@ -1258,6 +1258,7 @@
             "name": "Crude Longsword",
             "image": "/__rusty/product/runtime/ui-images/4",
             "kind": "Sword",
+            "text": "",
             "facts": [
               "Damage 3d3",
               "Uses the Sword skill",
@@ -1308,6 +1309,7 @@
         "name": "Leather Armor",
         "image": "/__rusty/product/runtime/ui-images/5",
         "kind": "Leather armour",
+        "text": "",
         "facts": [
           "Armour \u002B4",
           "Uses the Leather skill",
@@ -1325,6 +1327,7 @@
         "name": "Dagger",
         "image": "",
         "kind": "Dagger",
+        "text": "",
         "facts": [
           "Damage 2d2",
           "Broken \u2014 a smith or a repair service mends it"
@@ -1342,6 +1345,7 @@
         "name": "Genie Lamp \u2014 permanent resistance gift",
         "image": "",
         "kind": "Item",
+        "text": "",
         "facts": [
           "Worth 0 gold"
         ],
@@ -1355,6 +1359,7 @@
         "name": "A scroll of light",
         "image": "/__rusty/product/runtime/ui-images/6",
         "kind": "Spell scroll",
+        "text": "",
         "facts": [
           "Worth 10 gold"
         ],
@@ -1368,6 +1373,7 @@
         "name": "Golem part",
         "image": "",
         "kind": "Item",
+        "text": "",
         "facts": [],
         "slots": [],
         "use": "",

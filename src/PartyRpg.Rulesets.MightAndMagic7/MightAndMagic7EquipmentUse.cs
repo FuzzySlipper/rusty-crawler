@@ -39,8 +39,8 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// </para>
 /// <para>
 /// <b>What this cannot judge is refused rather than allowed.</b> An item whose row names a skill this game's
-/// skill table does not carry — the shipped table files three clubs under a hidden skill it never declares —
-/// cannot be said to be usable by anybody, and it is refused by name. Guessing that an unknown requirement
+/// skill table does not carry is refused by name. The known hidden Club requirement is an exception:
+/// OpenEnroth <c>src/Engine/Objects/Character.cpp:6742</c> initializes it at novice for every character. Guessing that an unknown requirement
 /// is no requirement would hand a character a weapon the game's own table says is not theirs. Content that
 /// declares no skill table at all states no requirement to judge, and only the place and the hands are judged.
 /// </para>
@@ -57,8 +57,7 @@ internal sealed class MightAndMagic7EquipmentUse : IEquipmentUseRule
     /// The donor's reader turns any word its skill map does not name into its hidden misc skill
     /// (OpenEnroth <c>src/Engine/Tables/ItemTable.cpp:146</c>), and the shipped table writes that group as
     /// "Misc": no character trains it, and the donor's own wand path never reads a skill at all. Naming it
-    /// here is what lets a wand be wielded while a row filed under a skill this game does not carry — the
-    /// shipped table's clubs — is still refused.
+    /// here lets a wand be wielded without adding a trainable miscellaneous skill.
     /// </remarks>
     private const string MiscGroup = "misc";
 
@@ -165,7 +164,8 @@ internal sealed class MightAndMagic7EquipmentUse : IEquipmentUseRule
         // wand is fired at the donor's own fixed skill value rather than at its bearer's
         // (src/Engine/Spells/CastSpellInfo.h:61, WANDS_SKILL_VALUE) — so a wand needs no skill this game can
         // train, which is what this group means here.
-        if (string.Equals(named, MiscGroup, StringComparison.OrdinalIgnoreCase)) return null;
+        if (string.Equals(named, MiscGroup, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(named, "club", StringComparison.OrdinalIgnoreCase)) return null;
         if (_skills is null) return null;
 
         if (_skills.Resolve(named) is not { } skill)

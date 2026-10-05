@@ -4738,7 +4738,7 @@ function equipment(overrides = {}) {
     available: true,
     slots: ['off hand', 'main hand', 'bow', 'armour'],
     members: [
-      { index: 0, member: '1', name: 'Roderick', powers: '', worn: [{ slot: 'main hand', item: '21', definition: '1', name: 'Crude Longsword', image: '', kind: 'Sword', facts: ['Damage 3d3'] }] },
+      { index: 0, member: '1', name: 'Roderick', powers: '', worn: [{ slot: 'main hand', item: '21', definition: '1', name: 'Crude Longsword', image: '', kind: 'Sword', text: '', facts: ['Damage 3d3'] }] },
       { index: 1, member: '2', name: 'Aelina', powers: '', worn: [] },
     ],
     items: [

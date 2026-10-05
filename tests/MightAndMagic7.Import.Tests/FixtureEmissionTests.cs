@@ -280,6 +280,20 @@ public sealed class FixtureEmissionTests
     }
 
     [Fact]
+    public void Message_scrolls_keep_their_item_identity_and_empty_rows()
+    {
+        string root = SyntheticInstallation.Create();
+        try
+        {
+            var table = MessageScrollTable.Read(LodInstall.Open(root));
+            Assert.Equal("A synthetic letter.", table.Texts[700]);
+            Assert.Equal(string.Empty, table.Texts[701]);
+            Assert.Equal("Events.lod", table.Table.Source.ArchiveName);
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
     public void The_discovery_table_reads_its_notes_and_counts_the_rows_that_hold_none()
     {
         string root = SyntheticInstallation.Create();

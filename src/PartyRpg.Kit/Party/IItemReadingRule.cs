@@ -23,4 +23,8 @@ public interface IItemReadingRule
 /// <summary>What a player is told about one item.</summary>
 /// <param name="Kind">The game's word for what it is: a sword, leather armour, a spell scroll.</param>
 /// <param name="Facts">Each fact as a line a person reads, in the order the game states them.</param>
-public sealed record ItemReading(string Kind, IReadOnlyList<string> Facts);
+public sealed record ItemReading(string Kind, IReadOnlyList<string> Facts)
+{
+    /// <summary>The item's readable prose, shown intact when inspected; empty for an item without text.</summary>
+    public string Text { get; init; } = string.Empty;
+}

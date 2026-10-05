@@ -1827,6 +1827,9 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// <summary>The entry a member has in the skill a word names, or a none entry when they have not learned it.</summary>
     private SkillEntry SkillOf(PartyMember member, string word)
     {
+        // OpenEnroth src/Engine/Objects/Character.cpp:6742: the hidden Club skill is always novice.
+        if (string.Equals(word, ClubWord, StringComparison.OrdinalIgnoreCase))
+            return new SkillEntry(new SkillId(ClubWord), 1, new SkillTier(1), 0);
         foreach (SkillEntry entry in member.Skills.Entries)
         {
             if (string.Equals(entry.Skill.Value, word, StringComparison.OrdinalIgnoreCase))
@@ -2102,8 +2105,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// <summary>The donor's base recovery for a weapon's or a piece's skill, in ticks.</summary>
     /// <remarks>
     /// OpenEnroth <c>src/Engine/mm7_data.cpp:355-378</c>. A club reads the hundred ticks the donor carries for it,
-    /// which it notes is the earlier game's value; this game's item table files its clubs under a skill nobody can
-    /// learn, so no character of this game swings one.
+    /// which it notes is the earlier game's value; the hidden Club skill is always novice and cannot be trained.
     /// </remarks>
     private static int BaseTicks(string skill) => skill switch
     {

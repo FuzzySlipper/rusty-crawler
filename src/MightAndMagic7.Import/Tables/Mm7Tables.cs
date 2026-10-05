@@ -19,7 +19,8 @@ public sealed class Mm7Tables
         QuestTable quests,
         PersonTable people,
         DiscoveryTable discoveries,
-        HistoryTable history)
+        HistoryTable history,
+        MessageScrollTable messageScrolls)
     {
         Classes = classes;
         Skills = skills;
@@ -35,6 +36,7 @@ public sealed class Mm7Tables
         People = people;
         Discoveries = discoveries;
         History = history;
+        MessageScrolls = messageScrolls;
     }
 
     /// <summary>Classes and ranks.</summary>
@@ -79,6 +81,9 @@ public sealed class Mm7Tables
     /// <summary>The history table: the lines a party's history book holds, by the slot a map event writes.</summary>
     public HistoryTable History { get; }
 
+    /// <summary>Message scroll text keyed by item.</summary>
+    public MessageScrollTable MessageScrolls { get; }
+
     /// <summary>Reads every typed table from an installation.</summary>
     public static Mm7Tables Read(LodInstall install)
     {
@@ -101,6 +106,7 @@ public sealed class Mm7Tables
             QuestTable.Read(install),
             PersonTable.Read(install),
             DiscoveryTable.Read(install),
-            HistoryTable.Read(install));
+            HistoryTable.Read(install),
+            MessageScrollTable.Read(install));
     }
 }

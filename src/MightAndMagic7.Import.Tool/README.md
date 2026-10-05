@@ -91,3 +91,5 @@ The shipped `NWC.EVT` event 501 names Harmondale at X=-177331, beyond its outdoo
 travel link uses that destination's actual Party Start instead and records `arrivalNormalization` plus
 `sourceX`. Both ordinary fixture use and graph travel read that same link. This is a deliberate usable
 arrival adaptation; the importer does not guess which digit the source author intended.
+
+Message-scroll prose is joined onto item definitions as `readingText`, with `readingSource` naming the source entry. Empty source text stays empty; no placeholder prose is invented.

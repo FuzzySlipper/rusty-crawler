@@ -110,3 +110,5 @@ A screen may scroll a bounded list; it must organize the gameplay decision, show
 result/refusal and preserve relevant party/world context. The companion continues to render the
 one product projection and report semantic actions; it acquires no gameplay or screen authority,
 clock or world renderer. Console/debug commands may call the existing canonical owners for agents.
+
+The inventory inspector displays item reading text as literal, wrapping prose with preserved line breaks. It sends no gameplay action merely to read a letter.

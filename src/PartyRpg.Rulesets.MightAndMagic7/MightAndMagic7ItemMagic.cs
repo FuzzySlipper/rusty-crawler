@@ -6,6 +6,7 @@ using PartyRpg.Kit.Magic;
 using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
+using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.World;
@@ -31,17 +32,19 @@ internal sealed class MightAndMagic7ItemMagic : IItemUseRule
     private readonly Func<PartyEntity?> _party;
     private readonly TuningProfile _tuning;
     private readonly Func<SessionWorld?> _world;
+    private readonly Func<PartyProgression?> _progression;
     private readonly Dictionary<ItemDefinitionId, string> _travelItems = [];
     private const string Attempts = "item:enchant-attempts";
 
     internal MightAndMagic7ItemMagic(ContentCatalog? catalog, MightAndMagic7Spells? spells, GameClock? clock,
-        IRandomService? random, Func<PartyEntity?> party, Func<SessionWorld?>? world = null)
+        IRandomService? random, Func<PartyEntity?> party, Func<SessionWorld?>? world = null, Func<PartyProgression?>? progression = null)
     {
         _spells = spells;
         _clock = clock;
         _random = random;
         _party = party;
         _world = world ?? (() => null);
+        _progression = progression ?? (() => null);
         _tuning = MightAndMagic7Tuning.Read(catalog);
         if (catalog is null) return;
         foreach ((_, _, ContentEntry entry) in catalog.Entries("item"))
@@ -277,11 +280,31 @@ internal sealed class MightAndMagic7ItemMagic : IItemUseRule
 
     public string? ActionOf(ItemInstance item) =>
         _spells?.TaughtBy(item.Definition) is not null ? "Study" :
-        (_travelItems.ContainsKey(item.Definition) || item.Definition.Value == "616" && _items.ContainsKey(item.Definition)) ? "Use" : null;
+        (_travelItems.ContainsKey(item.Definition) || item.Definition.Value is "616" or "630" or "646" && _items.ContainsKey(item.Definition)) ? "Use" : null;
 
     public ItemUseResult Use(PartyEntity party, PartyMember member, ItemInstance item)
     {
         if (ActionOf(item) is null) return ItemUseResult.Refused(new(ItemUseCodes.Unsupported, "This item has no ordinary use in this ruleset."));
+        // OpenEnroth src/Engine/Objects/Character.cpp:3532-3549: an apple gives one provision,
+        // a horseshoe gives its user two skill points, and both are consumed.
+        if (item.Definition.Value is "630" or "646")
+        {
+            bool apple = item.Definition.Value == "630";
+            if (!MightAndMagic7Conditions.CanAct(member))
+                return ItemUseResult.Refused(new(MightAndMagic7Codes.ItemUseMemberIncapable, $"{member.Profile.Name} must recover before using this item."));
+            if (item.State.Damage > 0)
+                return ItemUseResult.Refused(new(MightAndMagic7Codes.ItemUseBroken, "Repair the item before using it."));
+            var progression = _progression();
+            if (!apple && progression is null)
+                return ItemUseResult.Refused(new(MightAndMagic7Codes.ItemUseOwnerAbsent, "The horseshoe needs the session's progression owner."));
+            if (apple ? party.Food.Portions == int.MaxValue : member.Progression.SkillPoints > int.MaxValue - 2)
+                return ItemUseResult.Refused(new("item-gift-full", "There is no room for this item's gift; it is retained."));
+            var removal = party.ConsumeItem(item.Id);
+            if (!removal.Removed) return ItemUseResult.Refused(removal.Refusal!);
+            if (apple) party.Food.Credit(1);
+            else progression!.Gift(member.Id, 0, 2);
+            return new(true, "item-use-applied", apple ? "Red Apple adds one provision; the apple is consumed." : $"{member.Profile.Name} gains two skill points; the horseshoe is consumed.");
+        }
         if (_travelItems.TryGetValue(item.Definition, out string? link))
         {
             if (!MightAndMagic7Conditions.CanAct(member))

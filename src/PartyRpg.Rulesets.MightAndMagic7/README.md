@@ -1147,3 +1147,11 @@ or provisions and refuses repeated use inside the temple, as the donor retains i
 (OpenEnroth `src/Engine/Objects/Character.cpp:3550-3552`, OpenEnroth `src/Engine/Engine.cpp:1501-1510`). Its ordinary exit returns
 to Harmondale. The importer normalizes that exit's out-of-map source coordinate to Harmondale's real
 Party Start and records the normalization, rather than guessing a corrected numeric coordinate.
+
+## Complete table readings
+
+The hidden Club skill is always novice, as initialized by OpenEnroth `src/Engine/Objects/Character.cpp:6742`. It permits the three club rows and contributes one attack point without adding a trainable skill or aliasing Mace. Unknown requirements still refuse by name.
+
+Message scrolls expose imported `readingText` in the ordinary inventory inspector. Selecting the item reads it without consumption; empty source rows remain empty. Reserved item rows, unused skill rows and the documented limits of fixed artifact powers are retained as explicit content distinctions.
+
+The ordinary inventory also uses Red Apples and Horseshoes: one provision to the shared larder or two skill points to the selected member, then consumption. The donor behavior is OpenEnroth `src/Engine/Objects/Character.cpp:3532-3549`. `PartyFood` and `PartyProgression.Gift` remain the only writers; an unavailable owner, incapacity, broken item, retained quest custody or full destination refuses without consuming.

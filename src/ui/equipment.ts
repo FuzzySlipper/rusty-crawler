@@ -20,6 +20,7 @@ export interface EquipmentWornView {
   /** The game's word for what it is, and what a player is told about it. */
   readonly kind: string;
   readonly facts: readonly string[];
+  readonly text: string;
 }
 
 /** One thing in the party's shared pack, wearable or not, as the inventory page shows and inspects it. */
@@ -30,6 +31,7 @@ export interface EquipmentPackView {
   readonly image: string;
   readonly kind: string;
   readonly facts: readonly string[];
+  readonly text: string;
   /** The slots the figure has for it; empty when nobody can wear it. */
   readonly slots: readonly string[];
   /** The ordinary action the game offers for it, or empty. */
@@ -103,6 +105,7 @@ export function readEquipment(f: Fields): EquipmentView {
         image: worn.text('image'),
         kind: worn.text('kind'),
         facts: worn.words('facts'),
+        text: worn.text('text'),
       })),
     })),
     items: f.list('items', (item) => ({
@@ -118,6 +121,7 @@ export function readEquipment(f: Fields): EquipmentView {
       image: item.text('image'),
       kind: item.text('kind'),
       facts: item.words('facts'),
+      text: item.text('text'),
       slots: item.words('slots'),
       use: item.text('use'),
       retained: item.text('retained'),

@@ -26,6 +26,7 @@ public sealed record EquipmentWornSnapshot(string Slot, string Item, string Defi
             ("name", builder.String(Name)),
             ("image", builder.String(Image)),
             ("kind", builder.String(Reading?.Kind ?? string.Empty)),
+            ("text", builder.String(Reading?.Text ?? string.Empty)),
             ("facts", builder.Array([.. (Reading?.Facts ?? []).Select(builder.String)])));
 }
 
@@ -55,6 +56,7 @@ public sealed record EquipmentPackSnapshot(
             ("name", builder.String(Name)),
             ("image", builder.String(Image)),
             ("kind", builder.String(Reading?.Kind ?? string.Empty)),
+            ("text", builder.String(Reading?.Text ?? string.Empty)),
             ("facts", builder.Array([.. (Reading?.Facts ?? []).Select(builder.String)])),
             ("slots", builder.Array([.. Slots.Select(builder.String)])),
             ("use", builder.String(Use)),

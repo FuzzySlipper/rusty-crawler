@@ -25,3 +25,5 @@ Non-spell carried-item uses enter Kit `PartyItemUse` and the compiled item polic
 Kit `PlaceEntrance` also expresses horizontal region boundaries. They read the Engine-admitted party
 pose and enter the existing `SessionWorld.Travel` path. Authored ruleset roads, counter destinations,
 equipment gates and carried-item travel use that same path; the adventure feedback shows its answer.
+
+Item inspection carries optional readable prose from the ruleset through the Kit projection. The inventory inspector presents that text without interpreting it. The importer joins message text to item identities offline.

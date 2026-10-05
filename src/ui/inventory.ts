@@ -84,6 +84,11 @@ export function mountInventory(host: Host): { readonly element: HTMLElement; ren
       }),
     );
     lines.push(facts);
+    if (row.text) {
+      const text = element('p', 'crawler-inspect-text');
+      text.textContent = row.text;
+      lines.push(text);
+    }
     if (choice.kind === 'pack' && choice.row.retained !== '') {
       const retained = element('p', 'crawler-inspect-retained');
       retained.textContent = choice.row.retained;

@@ -118,7 +118,7 @@ internal sealed class MightAndMagic7Session : IGameSession
         // composed here because the ruleset is the one point both halves are composed over, and before the
         // effect path because a body a spell stands back up is taken off the same ground.
         CorpseGround corpses = new();
-        MightAndMagic7ItemMagic? itemMagic = Declared(context.Content) is null ? null : new(Declared(context.Content), spells, clock, context.Engine?.Random, () => owners.Party, () => owners.World);
+        MightAndMagic7ItemMagic? itemMagic = Declared(context.Content) is null ? null : new(Declared(context.Content), spells, clock, context.Engine?.Random, () => owners.Party, () => owners.World, () => owners.Progression);
         MightAndMagic7SpellEffects? spellEffects = spells is null ? null : new MightAndMagic7SpellEffects(spells, clock, () => owners.World, () => composed, corpses, itemMagic,
             () => conversation?.Followers, () => owners.Progression,
             MightAndMagic7Tuning.Read(Declared(context.Content)).Whole(MightAndMagic7Tuning.TelekinesisReach), () => owners);

@@ -199,3 +199,7 @@ numbers come from indoor extras and the outdoor face field at 0x122; event passa
 address both families, including faces initially marked ethereal. Portals remain excluded. Navigation
 bounds include both endpoints of every door's travel. The report and pack state collision door and
 mutable face counts; no runtime code reads the source formats or re-triangulates polygons.
+
+## Message scrolls
+
+`MessageScrollTable` reads item-keyed prose from the declared rules archive and retains empty rows. The format is documented by OpenEnroth `src/Engine/Tables/MessageScrollTable.cpp`; the reader uses the existing quoted tabular parser and rejects duplicate item identities.

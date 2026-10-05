@@ -129,6 +129,31 @@ public sealed class SpecialItemPowerTests
     private static ProjectedNode Equipment(RecordingUiService ui) => ProjectedNode.Of(ui.Latest().Value).Field("equipment");
     private static void Wear(IGameSession session, ItemInstance item, ulong step = 2) => session.Update(RulesetTestContext.Update(step, 1,
         RulesetTestContext.Payload($$"""{"action":"party.equip","member":0,"item":"{{item.Id}}"}""")));
+    [Fact]
+    public void Apples_and_horseshoes_consume_once_and_give_through_the_canonical_owners()
+    {
+        var (context, ui) = Context();
+        using var session = Session(context, ui);
+        var live = (MightAndMagic7Session)session;
+        var party = live.Party!;
+        var apple = party.CreateItem(new("630"));
+        Assert.True(party.AcquireItem(apple).Admitted);
+        var shoe = party.CreateItem(new("646"));
+        Assert.True(party.AcquireItem(shoe).Admitted);
+        int food = party.Food.Portions, points = party.Members[0].Progression.SkillPoints;
+        Use(session, apple, 2);
+        Assert.True(live.Owners.ItemUses!.Last!.Applied);
+        Assert.Equal(food + 1, party.Food.Portions);
+        Use(session, shoe, 3);
+        Assert.True(live.Owners.ItemUses.Last!.Applied);
+        Assert.Equal(points + 2, party.Members[0].Progression.SkillPoints);
+        Assert.Null(party.FindItem(apple.Id));
+        Assert.Null(party.FindItem(shoe.Id));
+        Use(session, shoe, 4);
+        Assert.False(live.Owners.ItemUses.Last!.Applied);
+        Assert.Equal(points + 2, party.Members[0].Progression.SkillPoints);
+    }
+
     private static void Use(IGameSession session, ItemInstance item, ulong step) => session.Update(RulesetTestContext.Update(step, 1,
         RulesetTestContext.Payload($$"""{"action":"party.item.use","member":0,"item":"{{item.Id}}"}""")));
     private static ItemInstance Take(PartyEntity party, string id)
@@ -160,6 +185,8 @@ public sealed class SpecialItemPowerTests
                      {"id":"525","name":"Twilight","type":"cloak","skill":"misc","material":"Relic","value":30000,"damageDice":"1","damageModifier":"12"},
                      {"id":"531","name":"Elfbane","type":"two-handed","skill":"sword","material":"Artifact","value":15000,"damageDice":"4d6","damageModifier":"12"},
                      {"id":"504","name":"Governor's Armor","type":"armour","skill":"plate","material":"Artifact","value":30000,"damageDice":"1","damageModifier":"10"},
+                     {"id":"630","name":"Red Apple","type":"misc","skill":"misc"},
+                     {"id":"646","name":"Horseshoe","type":"misc","skill":"misc"},
                      {"id":"616","name":"Genie Lamp","type":"misc","skill":"misc","material":"5","value":2000}]
                     """)!.AsArray()) json["entries"]!.AsArray().Add(entry!.DeepClone());
             }

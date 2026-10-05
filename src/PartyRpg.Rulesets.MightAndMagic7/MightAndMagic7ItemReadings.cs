@@ -53,7 +53,8 @@ internal sealed class MightAndMagic7ItemReadings : IItemReadingRule
             rows[new ItemDefinitionId(entry.Id)] = new Row(
                 entry.GetString("type").Trim(),
                 entry.GetString("skillGroup").Trim(),
-                entry.GetString("picture").Trim());
+                entry.GetString("picture").Trim(),
+                entry.GetString("readingText"));
         }
 
         return rows.Count == 0 ? null : new MightAndMagic7ItemReadings(rows, figure, worth, spells);
@@ -82,7 +83,7 @@ internal sealed class MightAndMagic7ItemReadings : IItemReadingRule
             facts.Add(string.Create(CultureInfo.InvariantCulture, $"Power {item.State.Potency}"));
         if ((_worth?.Invoke(item) ?? 0) is > 0 and var worth) facts.Add(string.Create(CultureInfo.InvariantCulture, $"Worth {worth} gold"));
         facts.AddRange(StateOf(item));
-        return new ItemReading(KindOf(row), facts);
+        return new ItemReading(KindOf(row), facts) { Text = row.Text };
     }
 
     /// <inheritdoc />
@@ -128,5 +129,5 @@ internal sealed class MightAndMagic7ItemReadings : IItemReadingRule
         _ => string.Empty,
     };
 
-    private readonly record struct Row(string Type, string SkillGroup, string Picture);
+    private readonly record struct Row(string Type, string SkillGroup, string Picture, string Text);
 }

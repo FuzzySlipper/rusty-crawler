@@ -124,6 +124,7 @@ public sealed class SkillPolicyTests
                 (Id: "helm", Skill: "leather", Type: "helmet"),
                 (Id: "gauntlets", Skill: "leather", Type: "gauntlets"),
                 (Id: "club", Skill: "club", Type: "single-handed"),
+                (Id: "unknown", Skill: "unknown", Type: "single-handed"),
                 (Id: "ring", Skill: string.Empty, Type: "ring"),
             ]);
         MightAndMagic7Skills skills = MightAndMagic7Skills.Read(catalog)
@@ -158,9 +159,12 @@ public sealed class SkillPolicyTests
         // An item whose row names a skill this game's skill table does not carry cannot be said to be usable
         // by anybody, so it is refused with its own word rather than quietly allowed: guessing that an
         // unknown requirement is no requirement would hand out a weapon the game's table says is not theirs.
-        Refusal unknown = gate.Judge(knight, MightAndMagic7Figure.MainHand, Instance(party, "club"))!;
+        Refusal unknown = gate.Judge(knight, MightAndMagic7Figure.MainHand, Instance(party, "unknown"))!;
         Assert.Equal("equipment-skill-unknown", unknown.Code);
-        Assert.Contains("club", unknown.Message, StringComparison.Ordinal);
+        Assert.Contains("unknown", unknown.Message, StringComparison.Ordinal);
+
+        // Club is the donor's explicit always-known hidden skill, not an arbitrary unknown word.
+        Assert.Null(gate.Judge(knight, MightAndMagic7Figure.MainHand, Instance(party, "club")));
 
         // An item that names no skill needs none: a ring is not a trade.
         Assert.Null(gate.Judge(knight, MightAndMagic7Figure.Rings[0], Instance(party, "ring")));

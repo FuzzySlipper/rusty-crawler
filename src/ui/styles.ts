@@ -422,6 +422,7 @@ ${HUD_STYLES}
 .crawler-session .crawler-inspect-picture { width: 4.5rem; height: 4.5rem; padding: 0.2rem; border: 1px solid #4b4030; background: rgba(0, 0, 0, 0.45); }
 .crawler-inspect-name { margin: 0; color: #f0e4c4; font-weight: 600; }
 .crawler-inspect-kind { margin: 0; color: #b9ad8c; font-size: 0.8rem; }
+.crawler-inspect-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
 .crawler-inspect-facts { margin: 0.4rem 0; padding-left: 1.1rem; font-size: 0.85rem; }
 .crawler-inspect-retained { color: #c9b0e8; font-size: 0.8rem; }
 .crawler-inspect-actions { display: flex; flex-wrap: wrap; gap: 0.3rem; }

@@ -226,6 +226,11 @@ internal static partial class PackWriter
 
                 writer.WriteString("material", item.Material);
                 writer.WriteString("picture", item.Picture);
+                if (tables.MessageScrolls.Texts.TryGetValue(item.Id, out string? text))
+                {
+                    writer.WriteString("readingText", text);
+                    writer.WriteString("readingSource", tables.MessageScrolls.Table.Source.EntryName);
+                }
                 WriteOptionalNumber(writer, "spriteIndex", item.SpriteIndex == 0 ? null : item.SpriteIndex);
             }));
         }
