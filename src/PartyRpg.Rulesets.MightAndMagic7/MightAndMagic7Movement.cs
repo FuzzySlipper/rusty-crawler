@@ -158,6 +158,10 @@ internal static class MightAndMagic7Movement
     /// </remarks>
     internal const string WaterSurface = "water";
 
+    /// <summary>The functional suit read by underwater travel and ground protection.</summary>
+    internal static bool WearsDivingSuit(PartyMember member) =>
+        member.Equipment.ItemIn(MightAndMagic7Figure.Armour) is { Definition.Value: "604", State.Damage: 0 };
+
     /// <summary>How often water drowns a party standing in it: thirty game seconds.</summary>
     /// <remarks>
     /// OpenEnroth sets its water timer 128 ticks ahead each time it drowns the party (<c>src/Engine/Engine.cpp:1085-1086</c>),
@@ -374,7 +378,7 @@ internal static class MightAndMagic7Movement
             ground.Id == WaterSurface && !WalksOnWater() ? DrowningInterval : null;
 
         public int DamageTo(PartyMember member, SurfaceEffect ground) =>
-            MightAndMagic7SpellEffects.LaidOut(member) || member.Effects.Has(SpellEffectIds.WaterBreathing)
+            MightAndMagic7SpellEffects.LaidOut(member) || member.Effects.Has(SpellEffectIds.WaterBreathing) || WearsDivingSuit(member)
                 ? 0
                 : member.Resources.HitPoints.Maximum / 10;
 
@@ -390,6 +394,7 @@ internal static class MightAndMagic7Movement
                     if (MightAndMagic7SpellEffects.LaidOut(member)) continue;
                     if (flying && member.Effects.Has(SpellEffectIds.Fly)) shelters.Add(new GroundShelter(SpellEffectIds.Fly, FlyName, member.Id, Everybody: true));
                     if (member.Effects.Has(SpellEffectIds.WaterWalk)) shelters.Add(new GroundShelter(SpellEffectIds.WaterWalk, WaterWalkName, member.Id, Everybody: true));
+                    if (WearsDivingSuit(member)) shelters.Add(new GroundShelter(new EffectId("diving-suit"), "Wetsuit", member.Id, Everybody: false));
                     if (member.Effects.Has(SpellEffectIds.WaterBreathing))
                     {
                         shelters.Add(new GroundShelter(SpellEffectIds.WaterBreathing, WaterBreathingName, member.Id, Everybody: false));

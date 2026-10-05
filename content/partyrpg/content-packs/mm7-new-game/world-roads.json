@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 1,
+  "documentId": "world-roads",
+  "definitionKind": "travel-link",
+  "entries": [
+    {
+      "id": "road-2-north",
+      "fromPlace": 2,
+      "toPlace": 4,
+      "entryPoint": "South Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-2-south",
+      "fromPlace": 2,
+      "toPlace": 11,
+      "entryPoint": "North Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-2-east",
+      "fromPlace": 2,
+      "toPlace": 4,
+      "entryPoint": "South Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-2-west",
+      "fromPlace": 2,
+      "toPlace": 3,
+      "entryPoint": "East Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-3-north",
+      "fromPlace": 3,
+      "toPlace": 5,
+      "entryPoint": "South Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-3-south",
+      "fromPlace": 3,
+      "toPlace": 6,
+      "entryPoint": "North Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-3-east",
+      "fromPlace": 3,
+      "toPlace": 2,
+      "entryPoint": "West Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-3-west",
+      "fromPlace": 3,
+      "toPlace": 13,
+      "entryPoint": "East Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-4-north",
+      "fromPlace": 4,
+      "toPlace": 14,
+      "entryPoint": "East Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-4-south",
+      "fromPlace": 4,
+      "toPlace": 2,
+      "entryPoint": "North Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-4-west",
+      "fromPlace": 4,
+      "toPlace": 5,
+      "entryPoint": "East Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-5-north",
+      "fromPlace": 5,
+      "toPlace": 4,
+      "entryPoint": "West Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-5-south",
+      "fromPlace": 5,
+      "toPlace": 3,
+      "entryPoint": "North Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-5-east",
+      "fromPlace": 5,
+      "toPlace": 4,
+      "entryPoint": "West Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-5-west",
+      "fromPlace": 5,
+      "toPlace": 3,
+      "entryPoint": "North Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-6-north",
+      "fromPlace": 6,
+      "toPlace": 3,
+      "entryPoint": "South Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-6-east",
+      "fromPlace": 6,
+      "toPlace": 11,
+      "entryPoint": "West Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-11-north",
+      "fromPlace": 11,
+      "toPlace": 2,
+      "entryPoint": "South Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-11-south",
+      "fromPlace": 11,
+      "toPlace": 6,
+      "entryPoint": "East Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-11-east",
+      "fromPlace": 11,
+      "toPlace": 2,
+      "entryPoint": "South Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-11-west",
+      "fromPlace": 11,
+      "toPlace": 6,
+      "entryPoint": "East Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-13-east",
+      "fromPlace": 13,
+      "toPlace": 3,
+      "entryPoint": "West Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-14-south",
+      "fromPlace": 14,
+      "toPlace": 4,
+      "entryPoint": "North Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-14-east",
+      "fromPlace": 14,
+      "toPlace": 4,
+      "entryPoint": "North Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "road-14-west",
+      "fromPlace": 14,
+      "toPlace": 15,
+      "entryPoint": "East Start",
+      "source": "authored-region-road",
+      "requiresWornItem": "604",
+      "requiresSlot": "armour"
+    },
+    {
+      "id": "road-15-east",
+      "fromPlace": 15,
+      "toPlace": 14,
+      "entryPoint": "West Start",
+      "source": "authored-region-road"
+    },
+    {
+      "id": "temple-bottle",
+      "toPlace": 74,
+      "entryPoint": "Party Start",
+      "source": "authored-item-travel"
+    }
+  ]
+}

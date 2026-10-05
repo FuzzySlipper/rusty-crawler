@@ -45,11 +45,13 @@ internal sealed class MightAndMagic7FareNetwork : IFareNetwork
 
     private readonly IReadOnlyList<Counter> _counters;
     private readonly IReadOnlyDictionary<string, string> _placeNames;
+    private readonly Dictionary<string, List<PlaceId>> _destinations;
 
-    private MightAndMagic7FareNetwork(IReadOnlyList<Counter> counters, IReadOnlyDictionary<string, string> placeNames)
+    private MightAndMagic7FareNetwork(IReadOnlyList<Counter> counters, IReadOnlyDictionary<string, string> placeNames, Dictionary<string, List<PlaceId>>? destinations = null)
     {
         _counters = counters;
         _placeNames = placeNames;
+        _destinations = destinations ?? [];
     }
 
     /// <summary>A network with no counter in it, for a session that loaded no content.</summary>
@@ -132,7 +134,17 @@ internal sealed class MightAndMagic7FareNetwork : IFareNetwork
             int order = Order(left.Service).CompareTo(Order(right.Service));
             return order != 0 ? order : string.CompareOrdinal(left.Service, right.Service);
         });
-        return new MightAndMagic7FareNetwork(counters, names);
+        Dictionary<string, List<PlaceId>> destinations = [];
+        foreach ((LoadedPack pack, ContentDocument document, ContentEntry entry) in catalog.Entries("service-destination"))
+        {
+            string service = entry.GetId("service"), destination = entry.GetId("toPlace");
+            if (!standing.TryGetValue(service, out Counter? seller) || !names.ContainsKey(destination) || seller.Place.Value == destination)
+                throw new ContentValidationException("A passage must name a placed travel counter and another loaded destination.",
+                    [new("service-destination-invalid", $"Passage '{entry.Id}' names counter '{service}' and destination '{destination}'.", pack.PackId, document.DocumentId)]);
+            if (!destinations.TryGetValue(service, out var stops)) destinations[service] = stops = [];
+            stops.Add(new PlaceId(destination));
+        }
+        return new MightAndMagic7FareNetwork(counters, names, destinations);
     }
 
     /// <summary>The routes this game sells passages on, in the order the network walks them.</summary>
@@ -152,7 +164,7 @@ internal sealed class MightAndMagic7FareNetwork : IFareNetwork
         if (_counters.FirstOrDefault(counter => string.Equals(counter.Service, service, StringComparison.Ordinal)) is not { } sold) return [];
         return
         [
-            .. Stops(sold.Route)
+            .. Stops(sold.Route).Concat(_destinations.GetValueOrDefault(service) ?? []).Distinct()
                 .Where(place => place != sold.Place)
                 .Select(place => new Passage(place, _placeNames.GetValueOrDefault(place.Value, place.Value), sold.Route)),
         ];
@@ -169,24 +181,14 @@ internal sealed class MightAndMagic7FareNetwork : IFareNetwork
         // ticket names a place and a route, so two crossings alike in both would be a journey nobody could
         // tell from the other.
         List<PlaceTransition> journeys = [];
-        foreach (string route in Routes)
+        HashSet<(PlaceId, PlaceId, string)> added = [];
+        foreach (Counter counter in _counters)
+        foreach (Passage passage in SoldBy(counter.Service))
         {
-            IReadOnlyList<PlaceId> stops = [.. Stops(route).Where(known.ContainsKey)];
-            foreach (PlaceId from in stops)
-            {
-                foreach (PlaceId to in stops)
-                {
-                    if (from == to) continue;
-                    journeys.Add(new PlaceTransition(
-                        from,
-                        to,
-                        Landing(known[to]),
-                        string.Create(CultureInfo.InvariantCulture, $"fare-{route}-{from}-{to}"))
-                    {
-                        FareRoute = route,
-                    });
-                }
-            }
+            if (!known.ContainsKey(passage.Place) || !added.Add((counter.Place, passage.Place, passage.Route))) continue;
+            journeys.Add(new PlaceTransition(counter.Place, passage.Place, Landing(known[passage.Place]),
+                string.Create(CultureInfo.InvariantCulture, $"fare-{passage.Route}-{counter.Place}-{passage.Place}"))
+                { FareRoute = passage.Route });
         }
 
         return journeys;

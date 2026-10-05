@@ -33,6 +33,24 @@ namespace PartyRpg.Kit.World;
 /// </remarks>
 public sealed record PlaceEntrance
 {
+    /// <summary>Creates a walked region boundary on one horizontal axis, independent of altitude.</summary>
+    public PlaceEntrance(PlaceTransition transition, PlaceBoundary boundary, string source)
+    {
+        ArgumentNullException.ThrowIfNull(transition);
+        ArgumentNullException.ThrowIfNull(boundary);
+        if (transition.From is not { } from || transition.IsFare)
+            throw new ArgumentException("A walked boundary must leave a place and cannot sell a fare.", nameof(transition));
+        ArgumentException.ThrowIfNullOrWhiteSpace(source);
+        Transition = transition;
+        Kind = TransitionKind.Walking;
+        Place = from;
+        Boundary = boundary;
+        Source = source;
+    }
+
+    /// <summary>The horizontal region boundary, or null for a spherical entrance.</summary>
+    public PlaceBoundary? Boundary { get; }
+
     /// <summary>Creates an entrance.</summary>
     /// <param name="transition">The transition walking into this entrance takes, which a place must issue.</param>
     /// <param name="kind">What kind of travel the walk-in is, which the transition path prices it as.</param>
@@ -172,6 +190,7 @@ public sealed record PlaceEntrance
     /// <param name="pose">The pose to test, in the entrance's own place.</param>
     public bool Contains(PlacePose pose)
     {
+        if (Boundary is { } boundary) return boundary.Contains(pose);
         double dx = pose.X - X;
         double dy = pose.Y - Y;
         double dz = pose.Z - Z;
@@ -187,4 +206,28 @@ public sealed record PlaceEntrance
     {
         if (!double.IsFinite(value)) throw new ArgumentOutOfRangeException(name, value, message);
     }
+}
+
+/// <summary>A content-defined half-plane crossed by ordinary movement; collision remains the mover's.</summary>
+public sealed record PlaceBoundary
+{
+    /// <summary>Creates an edge along X or Y, entered above or below its finite coordinate.</summary>
+    public PlaceBoundary(bool alongX, double coordinate, bool above)
+    {
+        if (!double.IsFinite(coordinate)) throw new ArgumentOutOfRangeException(nameof(coordinate));
+        AlongX = alongX;
+        Coordinate = coordinate;
+        Above = above;
+    }
+
+    /// <summary>Whether this boundary tests X rather than Y.</summary>
+    public bool AlongX { get; }
+    /// <summary>The coordinate at which the region ends.</summary>
+    public double Coordinate { get; }
+    /// <summary>Whether the outside lies above rather than below the coordinate.</summary>
+    public bool Above { get; }
+    /// <summary>Whether a pose is past this boundary.</summary>
+    public bool Contains(PlacePose pose) => Above
+        ? (AlongX ? pose.X : pose.Y) > Coordinate
+        : (AlongX ? pose.X : pose.Y) < Coordinate;
 }

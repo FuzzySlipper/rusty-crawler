@@ -19,7 +19,10 @@ ordinary reticle names Sally when the party faces her. The party follows the roa
 identify village services and do not claim to point to Sally. The errand pays 4,000 total experience plus 25 coins
 through the existing quest owners. A healthy four-member party receives 1,000 experience per member, enough to reach
 the first training step.
-Everything else the product plays is
+The same pack's world roads and boundaries author the outdoor adjacency missing from event programs.
+The Harmondale stable's extra Arena destination and Temple in a Bottle's travel definition also live
+here. Destination poses use the imported named starts; the ruleset README records the travel adaptations.
+The remaining source content is
 imported from the operator's own data into [`../imports`](../imports), and a live check's hand-written scenario
 is staged there too ([`../../../docs/live-checks.md`](../../../docs/live-checks.md)). A pack authored for the repository — a
 tuning profile, a scenario, definitions that are ours rather than the original's — belongs here and is

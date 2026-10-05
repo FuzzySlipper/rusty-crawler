@@ -1038,13 +1038,22 @@ internal static partial class PackWriter
                 // named arrival only where the destination actually has such a point: five shipped
                 // interiors have none, and for those the instruction's zeroed position is what the game
                 // has, so the pack carries the position and records the point it wanted.
-                bool namesTheStart = link is { X: 0, Y: 0, Z: 0 };
+                // This shipped exit is outside the destination terrain (-177331 on X). Normalize
+                // the unusable pose to the destination's real start, retaining the source fact below.
+                bool outsideTempleReturn = link.SourceEvtName.Equals("NWC.EVT", StringComparison.OrdinalIgnoreCase)
+                    && link.EventId == 501 && link.DestinationMapId == 2 && link.X == -177331;
+                bool namesTheStart = link is { X: 0, Y: 0, Z: 0 } || outsideTempleReturn;
                 string startPoint = "Party Start";
                 bool destinationHasStart = maps.TryGetValue(destination, out DecodedMap? decoded)
                     && decoded.EntryPoints.Any(point => string.Equals(point.Name, startPoint, StringComparison.OrdinalIgnoreCase));
                 if (namesTheStart && destinationHasStart)
                 {
                     writer.WriteString("entryPoint", startPoint);
+                    if (outsideTempleReturn)
+                    {
+                        writer.WriteString("arrivalNormalization", "source-position-outside-destination");
+                        writer.WriteNumber("sourceX", link.X);
+                    }
                 }
                 else
                 {

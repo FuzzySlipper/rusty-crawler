@@ -66,6 +66,15 @@ internal static class ImportedContent
         return catalog.Selected(written);
     }
 
+    /// <summary>The imported packs together with the ordinary game's authored policy and routes.</summary>
+    internal static ContentCatalog Playable()
+    {
+        var imported = Written(Load());
+        var authored = ContentCatalogLoader.Load(new FileContentSource(Repository.PathOf("content")),
+            new ContentLayout("partyrpg/content-packs", "absent-imports", "absent-bundles")).RequireValid();
+        return ContentCatalog.From([.. imported.Packs, authored.Find("mm7-new-game")!], [.. imported.Issues, .. authored.Issues]).RequireValid();
+    }
+
     /// <summary>Why a case that reads the given table cannot run here, or null when it can.</summary>
     /// <param name="document">The document's file name inside the tables pack.</param>
     internal static string? Unavailable(string document)

@@ -12,12 +12,14 @@ public sealed class WorldContentInventoryTests
     [ImportedFact("places.json")]
     public void Every_imported_place_has_geometry_arrivals_and_resolved_placement_references()
     {
-        ContentCatalog catalog = ImportedContent.Written(ImportedContent.Load());
+        ContentCatalog catalog = ImportedContent.Playable();
         Assert.True(catalog.IsValid, string.Join("; ", catalog.Issues));
         PlaceGraph graph = MightAndMagic7World.Graph(catalog);
         PlacePopulationContent population = PlacePopulationContent.Read(graph);
         var entrances = PlaceEntranceLoader.Load(catalog, graph);
         MightAndMagic7Interaction.Validate(catalog);
+        _ = new MightAndMagic7TravelCostRule(catalog: catalog);
+        _ = new MightAndMagic7ItemMagic(catalog, null, null, null, () => null);
         Assert.Equal(76, graph.Places.Count);
         Assert.Equal(13, graph.Places.Count(place => place.Kind == PlaceKind.Region));
         Assert.Equal(63, graph.Places.Count(place => place.Kind == PlaceKind.Interior));
@@ -63,6 +65,7 @@ public sealed class WorldContentInventoryTests
                     changed = true;
                 }
         } while (changed);
+        Assert.Equal(graph.Places.Count, reachable.Count);
 
         if (Environment.GetEnvironmentVariable("CRAWLER_WORLD_REPORT") is not { Length: > 0 } report) return;
         var documents = catalog.Packs.SelectMany(pack => pack.Documents.Select(document => new

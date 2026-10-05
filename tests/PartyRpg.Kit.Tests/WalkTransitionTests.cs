@@ -30,6 +30,28 @@ public sealed class WalkTransitionTests
     private const double ReachX = 200;
     private const double ReachRadius = 60;
 
+    [Theory]
+    [InlineData(true, true, 200, 0)]
+    [InlineData(true, false, -200, 0)]
+    [InlineData(false, true, 0, 200)]
+    [InlineData(false, false, 0, -200)]
+    public void Boundaries_use_the_same_walked_transition_and_do_not_bounce_on_arrival(bool x, bool above, double dx, double dy)
+    {
+        PlaceGraph graph = PlaceGraphLoader.Load(Catalog());
+        PartyPoseOwner party = Party();
+        RecordingRule rule = new();
+        double edge = above ? 150 : -150;
+        PlaceEntrance boundary = new(graph.Transitions.Single(link => link.Source == "edge"), new PlaceBoundary(x, edge, above), "border");
+        Assert.False(boundary.Contains(new PlacePose(x ? edge : 0, x ? 0 : edge, 9000, 0, 0)));
+        using SessionWorld world = new(graph, party, new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()), rule,
+            time: null, mover: RecordingMover.Scripted(party, [(dx, dy, 9000), (0, 0, 0)]), entrances: [boundary]);
+        world.Step(MovementIntent.Still, 1);
+        Assert.Equal(new PlaceId("2"), world.Place);
+        Assert.True(world.LastCrossing!.Arrived);
+        world.Step(MovementIntent.Still, 1);
+        Assert.Equal(TransitionKind.Walking, Assert.Single(rule.Asked).Kind);
+    }
+
     [Fact]
     public void Walking_into_an_entrance_takes_its_transition_through_the_one_path_and_arrives_properly()
     {

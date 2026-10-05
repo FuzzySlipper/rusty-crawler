@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "documentId": "service-destinations",
+  "definitionKind": "service-destination",
+  "entries": [
+    {
+      "id": "harmondale-arena",
+      "service": "54",
+      "toPlace": "76"
+    }
+  ]
+}

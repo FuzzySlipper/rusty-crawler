@@ -219,7 +219,7 @@ internal static class MightAndMagic7World
                 // The cost rule is composed over the party itself, because a fare is the party's own passage:
                 // the counter that sells one writes it on the party and the road that honours it reads and
                 // tears the same state, so a seat bought in one town cannot be spent in another's name.
-                new MightAndMagic7TravelCostRule(entity),
+                new MightAndMagic7TravelCostRule(entity, catalog),
                 clock,
                 mover,
                 context.Engine?.Diagnostics,

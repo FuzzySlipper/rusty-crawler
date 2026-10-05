@@ -146,6 +146,25 @@ public static class PlaceEntranceLoader
             return null;
         }
 
+        if (entry.GetString("shape") == "boundary")
+        {
+            string axis = entry.GetString("axis"), side = entry.GetString("side");
+            if (kind != TransitionKind.Walking || transition.IsFare || transition.From is null ||
+                axis is not ("x" or "y") || side is not ("above" or "below") ||
+                entry.GetDouble("coordinate") is not { } coordinate || !double.IsFinite(coordinate))
+            {
+                Defect("entrance-boundary-invalid", $"Boundary '{entry.Id}' needs walking travel, axis x/y, side above/below and a finite coordinate.");
+                return null;
+            }
+            return new PlaceEntrance(transition, new PlaceBoundary(axis == "x", coordinate, side == "above"), entry.Id);
+        }
+
+        if (entry.GetString("shape") is not ("" or "sphere"))
+        {
+            Defect("entrance-shape-unknown", $"Entrance '{entry.Id}' has unknown shape '{entry.GetString("shape")}'.");
+            return null;
+        }
+
         if (entry.GetDouble("x") is not { } x || entry.GetDouble("y") is not { } y || entry.GetDouble("z") is not { } z)
         {
             Defect(

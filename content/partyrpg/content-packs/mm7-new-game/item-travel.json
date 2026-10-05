@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "documentId": "item-travel",
+  "definitionKind": "item-travel",
+  "entries": [
+    {
+      "id": "temple-bottle",
+      "item": "650",
+      "link": "temple-bottle"
+    }
+  ]
+}

@@ -1,0 +1,267 @@
+{
+  "schemaVersion": 1,
+  "documentId": "world-boundaries",
+  "definitionKind": "place-entrance",
+  "entries": [
+    {
+      "id": "road-2-north",
+      "link": "road-2-north",
+      "fromPlace": 2,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "y",
+      "side": "above",
+      "coordinate": 22528
+    },
+    {
+      "id": "road-2-south",
+      "link": "road-2-south",
+      "fromPlace": 2,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "y",
+      "side": "below",
+      "coordinate": -22528
+    },
+    {
+      "id": "road-2-east",
+      "link": "road-2-east",
+      "fromPlace": 2,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "x",
+      "side": "above",
+      "coordinate": 22528
+    },
+    {
+      "id": "road-2-west",
+      "link": "road-2-west",
+      "fromPlace": 2,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "x",
+      "side": "below",
+      "coordinate": -22528
+    },
+    {
+      "id": "road-3-north",
+      "link": "road-3-north",
+      "fromPlace": 3,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "y",
+      "side": "above",
+      "coordinate": 22528
+    },
+    {
+      "id": "road-3-south",
+      "link": "road-3-south",
+      "fromPlace": 3,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "y",
+      "side": "below",
+      "coordinate": -22528
+    },
+    {
+      "id": "road-3-east",
+      "link": "road-3-east",
+      "fromPlace": 3,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "x",
+      "side": "above",
+      "coordinate": 22528
+    },
+    {
+      "id": "road-3-west",
+      "link": "road-3-west",
+      "fromPlace": 3,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "x",
+      "side": "below",
+      "coordinate": -22528
+    },
+    {
+      "id": "road-4-north",
+      "link": "road-4-north",
+      "fromPlace": 4,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "y",
+      "side": "above",
+      "coordinate": 22528
+    },
+    {
+      "id": "road-4-south",
+      "link": "road-4-south",
+      "fromPlace": 4,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "y",
+      "side": "below",
+      "coordinate": -22528
+    },
+    {
+      "id": "road-4-west",
+      "link": "road-4-west",
+      "fromPlace": 4,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "x",
+      "side": "below",
+      "coordinate": -22528
+    },
+    {
+      "id": "road-5-north",
+      "link": "road-5-north",
+      "fromPlace": 5,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "y",
+      "side": "above",
+      "coordinate": 22528
+    },
+    {
+      "id": "road-5-south",
+      "link": "road-5-south",
+      "fromPlace": 5,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "y",
+      "side": "below",
+      "coordinate": -22528
+    },
+    {
+      "id": "road-5-east",
+      "link": "road-5-east",
+      "fromPlace": 5,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "x",
+      "side": "above",
+      "coordinate": 22528
+    },
+    {
+      "id": "road-5-west",
+      "link": "road-5-west",
+      "fromPlace": 5,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "x",
+      "side": "below",
+      "coordinate": -22528
+    },
+    {
+      "id": "road-6-north",
+      "link": "road-6-north",
+      "fromPlace": 6,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "y",
+      "side": "above",
+      "coordinate": 22528
+    },
+    {
+      "id": "road-6-east",
+      "link": "road-6-east",
+      "fromPlace": 6,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "x",
+      "side": "above",
+      "coordinate": 22528
+    },
+    {
+      "id": "road-11-north",
+      "link": "road-11-north",
+      "fromPlace": 11,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "y",
+      "side": "above",
+      "coordinate": 22528
+    },
+    {
+      "id": "road-11-south",
+      "link": "road-11-south",
+      "fromPlace": 11,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "y",
+      "side": "below",
+      "coordinate": -22528
+    },
+    {
+      "id": "road-11-east",
+      "link": "road-11-east",
+      "fromPlace": 11,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "x",
+      "side": "above",
+      "coordinate": 22528
+    },
+    {
+      "id": "road-11-west",
+      "link": "road-11-west",
+      "fromPlace": 11,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "x",
+      "side": "below",
+      "coordinate": -22528
+    },
+    {
+      "id": "road-13-east",
+      "link": "road-13-east",
+      "fromPlace": 13,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "x",
+      "side": "above",
+      "coordinate": 22528
+    },
+    {
+      "id": "road-14-south",
+      "link": "road-14-south",
+      "fromPlace": 14,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "y",
+      "side": "below",
+      "coordinate": -22528
+    },
+    {
+      "id": "road-14-east",
+      "link": "road-14-east",
+      "fromPlace": 14,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "x",
+      "side": "above",
+      "coordinate": 22528
+    },
+    {
+      "id": "road-14-west",
+      "link": "road-14-west",
+      "fromPlace": 14,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "x",
+      "side": "below",
+      "coordinate": -22528
+    },
+    {
+      "id": "road-15-east",
+      "link": "road-15-east",
+      "fromPlace": 15,
+      "kind": "walking",
+      "shape": "boundary",
+      "axis": "x",
+      "side": "above",
+      "coordinate": 22528
+    }
+  ]
+}

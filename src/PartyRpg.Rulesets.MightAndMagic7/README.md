@@ -1115,3 +1115,35 @@ Smith/Armorer/Alchemist repair (`Character.cpp:567-585`), the shady professions'
 (`Party.cpp:824-834`), the daily active abilities of healers, cooks and the travel masters (`NPC.cpp:84-230`), the
 Cartographer's wizard eye and the donor's two places that suspend every profession (OpenEnroth `src/Engine/MapEnumFunctions.h:29-31`).
 These professions still join, cost and share found gold as authored.
+
+
+## Roads and exceptional destinations
+
+The ordinary bundle's authored `travel-link` and `place-entrance` documents state 26 outdoor roads.
+Boundary entrances use a horizontal axis, coordinate and outside side; Engine still admits movement
+and owns collision. The roads match the adjacency in OpenEnroth `src/Engine/Graphics/Outdoor.cpp:68-123,282-327`
+and cross at the source game's 22,528-unit threshold (OpenEnroth `src/Engine/mm7_data.h:131`). Travel uses this
+ruleset's one-day crossing cost and ration, an explicit approximation of the donor's per-route days.
+A donor-named arrival absent from the shipped map uses its actual Party Start, or first actual start,
+as authored in the route; no destination origin is invented.
+
+A link's `requiresWornItem` and `requiresSlot` apply to every party member before any travel charge.
+Avlee west requires a working Wetsuit in each armour slot; the reverse road does not. The suit's source
+row is miscellaneous, but its compiled equipment meaning is armour (`Character.cpp:5736-5738`),
+with no trained skill. It also shelters its wearer from this product's ground-water damage. Ordinary
+movement over the underwater terrain remains grounded; buoyant swimming and the donor's special
+paper-doll restrictions are not emulated. This is an adapted traversal rule, not exact underwater physics.
+
+`service-destination` entries add destinations to a named, placed travel counter. They need no counter
+at the destination. The Harmondale stable sells an Arena passage through the same quote, ticket,
+boarding and arrival owners as its other journeys. It follows our daily availability and tuned coach
+cost/duration, rather than the donor's Sunday/four-day route 34
+(OpenEnroth `src/GUI/UI/Houses/Transport.cpp:38-95`). The imported Arena exit returns to Harmondale.
+
+`item-travel` maps a held item definition to a world-issued arrival template. `PartyItemUse` verifies
+shared-pack custody; the item policy checks the acting member and item, binds the template to the
+current place and takes the existing portal path. Temple in a Bottle is retained, charges no road time
+or provisions and refuses repeated use inside the temple, as the donor retains it
+(OpenEnroth `src/Engine/Objects/Character.cpp:3550-3552`, OpenEnroth `src/Engine/Engine.cpp:1501-1510`). Its ordinary exit returns
+to Harmondale. The importer normalizes that exit's out-of-map source coordinate to Harmondale's real
+Party Start and records the normalization, rather than guessing a corrected numeric coordinate.

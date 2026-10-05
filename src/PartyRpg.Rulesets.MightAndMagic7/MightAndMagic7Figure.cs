@@ -157,7 +157,9 @@ internal sealed class MightAndMagic7Figure : IEquipmentFigure
         Dictionary<ItemDefinitionId, MightAndMagic7WornItem> items = [];
         foreach ((_, _, ContentEntry entry) in catalog.Entries(MightAndMagic7EquipmentUse.ItemDefinitionKind))
         {
-            MightAndMagic7WornKind kind = KindOf(entry.GetString("type"));
+            // The source table calls the suit miscellaneous; the game wears it as armour
+            // (OpenEnroth Character.cpp:5736-5738). This compiled identity is ruleset policy.
+            MightAndMagic7WornKind kind = entry.Id == "604" ? MightAndMagic7WornKind.Armour : KindOf(entry.GetString("type"));
             if (kind == MightAndMagic7WornKind.None) continue;
             (int dice, int sides) = Dice(entry.GetString("damageDice"));
             items[new ItemDefinitionId(entry.Id)] = new MightAndMagic7WornItem(

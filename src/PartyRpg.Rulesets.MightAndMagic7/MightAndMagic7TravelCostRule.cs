@@ -64,18 +64,37 @@ internal sealed class MightAndMagic7TravelCostRule : ITravelCostRule
             ProvisionUnit.Portions));
 
     private readonly PartyEntity? _party;
+    private readonly Dictionary<string, (ItemDefinitionId Item, EquipmentSlot Slot, string Name)> _requirements = [];
 
     /// <summary>Creates the rule over the party whose bought passages it honours.</summary>
     /// <param name="party">
     /// The party whose bought passages are read and torn, or null when no party was composed. Without one
     /// there is nothing that could hold a fare, so paid travel is refused by name rather than taken free.
     /// </param>
-    internal MightAndMagic7TravelCostRule(PartyEntity? party = null) => _party = party;
+    internal MightAndMagic7TravelCostRule(PartyEntity? party = null, ContentCatalog? catalog = null)
+    {
+        _party = party;
+        if (catalog is null) return;
+        var items = catalog.Entries("item").ToDictionary(row => row.Entry.Id, row => row.Entry);
+        foreach ((var pack, var document, var link) in catalog.Entries("travel-link"))
+        {
+            if (link.GetId("requiresWornItem") is not { Length: > 0 } item) continue;
+            EquipmentSlot slot = new(link.GetString("requiresSlot"));
+            if (!items.TryGetValue(item, out var definition) || !MightAndMagic7Figure.Has(slot))
+                throw new ContentValidationException("A travel equipment requirement must name a loaded item and a real equipment slot.",
+                    [new("travel-equipment-unknown", $"Travel '{link.Id}' requires item '{item}' in slot '{slot}'.", pack.PackId, document.DocumentId)]);
+            _requirements[link.Id] = (new ItemDefinitionId(item), slot, definition.GetString("name"));
+        }
+    }
 
     /// <inheritdoc />
     public TravelCostQuote Quote(TransitionRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
+        if (_requirements.TryGetValue(request.Transition.Source, out var required) &&
+            (_party is null || _party.Members.Count == 0 || _party.Members.Any(member =>
+                member.Equipment.ItemIn(required.Slot) is not { } worn || worn.Definition != required.Item || worn.State.Damage > 0)))
+            return TravelCostQuote.Refused(new("travel-equipment-required", $"Every party member must wear a working {required.Name} in {required.Slot} before this crossing."));
         return request.Kind switch
         {
             TransitionKind.Walking or TransitionKind.Entrance => TravelCostQuote.Payable(Crossing),

@@ -45,6 +45,7 @@ const ACTS: Readonly<Record<string, string>> = {
   counter: 'Counter',
   conversation: 'Talk',
   item: 'Item',
+  travel: 'Travel',
   mix: 'Mix',
   equip: 'Equip',
 };

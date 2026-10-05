@@ -27,6 +27,26 @@
       "path": "opening.json",
       "documentId": "opening-errand",
       "definitionKind": "quest"
+    },
+    {
+      "path": "world-roads.json",
+      "documentId": "world-roads",
+      "definitionKind": "travel-link"
+    },
+    {
+      "path": "world-boundaries.json",
+      "documentId": "world-boundaries",
+      "definitionKind": "place-entrance"
+    },
+    {
+      "path": "service-destinations.json",
+      "documentId": "service-destinations",
+      "definitionKind": "service-destination"
+    },
+    {
+      "path": "item-travel.json",
+      "documentId": "item-travel",
+      "definitionKind": "item-travel"
     }
   ]
 }

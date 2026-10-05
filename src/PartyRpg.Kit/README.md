@@ -207,6 +207,7 @@ in origin, destination and route, which a ticket could not tell apart; placement
 by `PlacePopulationContent`, and an entrance's loader refuses a world holding one transition id twice,
 `PlaceStateLedger`, `TransitionExecutive` with its required cost contract, and the entrances a walking
 party takes — `PlaceEntrance` with its loader, consulted inside the movement step so a step that
+crosses a content-defined horizontal `PlaceBoundary` (axis, coordinate and outside side) or
 carries the party into an entrance's reach travels through that one transition path, or, for an entrance that
 `raises` a placement instead of naming a transition (a plate in the floor whose event decides where the party
 goes), uses that placement through the one interaction workflow (`PartyInteraction.Raise`, a target whose verb is
@@ -214,7 +215,8 @@ goes), uses that placement through the one interaction workflow (`PartyInteracti
 that way is charged on arrival, its quoted time to the session's one clock and its quoted provisions
 to the party's larder through the ledger's one path, exactly once, and a refused transition is charged
 nothing; the cost rule's `Quote` reads without spending and `Arrived` settles any rule-owned cost only
-after destination and ground admission; a crossing a counter sells names only the `route` it runs on — authored as a travel link, or
+after destination and ground admission. `LastCrossing` keeps a walked crossing's answer for ordinary
+adventure feedback, including a named equipment or arrival refusal. A crossing a counter sells names only the `route` it runs on — authored as a travel link, or
 answered by the game's `IFareNetwork` over the places read, which is how a ruleset decides a counter's
 destinations — and how many days it takes is the game's `IFareDurationRule`, asked by `PlaceGraphLoader` once
 per sold crossing; a passage the party holds names the place and the route, never the days, and boarding

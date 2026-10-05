@@ -237,6 +237,9 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// <summary>The place the party is in.</summary>
     public PlaceId Place => Party.Place;
 
+    /// <summary>The last ordinary walked crossing, including its refusal, for adventure feedback.</summary>
+    public TransitionResult? LastCrossing { get; private set; }
+
     /// <summary>The entities the current place is populated with, and the one owner that steps them.</summary>
     public PlacePopulation Population => _population;
 
@@ -983,6 +986,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
             }
 
             TransitionResult result = Travel(entrance.Transition!, entrance.Kind!.Value);
+            LastCrossing = result;
             if (result.Arrived)
             {
                 // The party is somewhere else now, so the entrances of the place it left cannot apply to

@@ -7,6 +7,8 @@ using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Time;
+using PartyRpg.Kit.Sessions;
+using PartyRpg.Kit.World;
 using Rusty.Engine;
 
 namespace PartyRpg.Rulesets.MightAndMagic7;
@@ -28,20 +30,33 @@ internal sealed class MightAndMagic7ItemMagic : IItemUseRule
     private readonly IRandomService? _random;
     private readonly Func<PartyEntity?> _party;
     private readonly TuningProfile _tuning;
+    private readonly Func<SessionWorld?> _world;
+    private readonly Dictionary<ItemDefinitionId, string> _travelItems = [];
     private const string Attempts = "item:enchant-attempts";
 
     internal MightAndMagic7ItemMagic(ContentCatalog? catalog, MightAndMagic7Spells? spells, GameClock? clock,
-        IRandomService? random, Func<PartyEntity?> party)
+        IRandomService? random, Func<PartyEntity?> party, Func<SessionWorld?>? world = null)
     {
         _spells = spells;
         _clock = clock;
         _random = random;
         _party = party;
+        _world = world ?? (() => null);
         _tuning = MightAndMagic7Tuning.Read(catalog);
         if (catalog is null) return;
         foreach ((_, _, ContentEntry entry) in catalog.Entries("item"))
             _items[new ItemDefinitionId(entry.Id)] = new(entry.GetString("name"), entry.GetString("type"),
                 entry.GetString("material"), entry.GetDouble("value") is { } price ? (int)Math.Clamp(price, 0, int.MaxValue) : 0);
+        var links = catalog.Entries("travel-link").ToDictionary(row => row.Entry.Id, row => row.Entry);
+        foreach ((var pack, var document, var entry) in catalog.Entries("item-travel"))
+        {
+            ItemDefinitionId item = new(entry.GetId("item"));
+            string link = entry.GetId("link");
+            if (!_items.ContainsKey(item) || !links.TryGetValue(link, out var travel) || travel.GetId("fromPlace").Length > 0 ||
+                !_travelItems.TryAdd(item, link))
+                throw new ContentValidationException("A travel item must name one held-item definition and one world-issued transition.",
+                    [new("item-travel-invalid", $"Travel item '{entry.Id}' names item '{item}' and link '{link}'.", pack.PackId, document.DocumentId)]);
+        }
     }
 
     internal IReadOnlyList<SpellAim> Aims() => _party() is { } party
@@ -262,11 +277,26 @@ internal sealed class MightAndMagic7ItemMagic : IItemUseRule
 
     public string? ActionOf(ItemInstance item) =>
         _spells?.TaughtBy(item.Definition) is not null ? "Study" :
-        item.Definition.Value == "616" && _items.ContainsKey(item.Definition) ? "Use" : null;
+        (_travelItems.ContainsKey(item.Definition) || item.Definition.Value == "616" && _items.ContainsKey(item.Definition)) ? "Use" : null;
 
     public ItemUseResult Use(PartyEntity party, PartyMember member, ItemInstance item)
     {
         if (ActionOf(item) is null) return ItemUseResult.Refused(new(ItemUseCodes.Unsupported, "This item has no ordinary use in this ruleset."));
+        if (_travelItems.TryGetValue(item.Definition, out string? link))
+        {
+            if (!MightAndMagic7Conditions.CanAct(member))
+                return ItemUseResult.Refused(new(MightAndMagic7Codes.ItemUseMemberIncapable, $"{member.Profile.Name} must recover before using {_items[item.Definition].Name}."));
+            if (item.State.Damage > 0)
+                return ItemUseResult.Refused(new(MightAndMagic7Codes.ItemUseBroken, "Repair the travel item before using it."));
+            if (_world() is not { } world || world.Graph.Transitions.FirstOrDefault(candidate => candidate.Source == link) is not { } transition)
+                return ItemUseResult.Refused(new("item-travel-world-absent", "This travel item needs its destination in the loaded world."));
+            if (world.Place == transition.To)
+                return ItemUseResult.Refused(new("item-travel-already-there", "The party is already inside; use the exit to leave."));
+            TransitionResult journey = world.Travel(transition with { From = world.Place }, TransitionKind.Portal);
+            return journey.Arrived
+                ? new(true, "item-use-applied", $"{_items[item.Definition].Name} carries the party to {world.Graph.Require(journey.Place).Name}; the item is retained.")
+                : ItemUseResult.Refused(journey.Refusal!);
+        }
         if (_spells is { } spells && spells.TaughtBy(item.Definition) is { } taught)
         {
             SpellDefinition spell = spells.Catalog.Read(taught);
