@@ -1,13 +1,13 @@
 {
   "structuralValidation": "passed",
   "reachabilityMethod": "Optimistic upper bound: canonical ruleset graph including fare network; all world-issued arrivals admitted; conditional gates ignored; unreachable source events excluded. Does not prove physical reach or successful event execution.",
-  "allPlacesReachableEvenOptimistically": false,
+  "allPlacesReachableEvenOptimistically": true,
   "places": 76,
-  "transitions": 277,
-  "fareTransitions": 84,
-  "entrances": 1023,
+  "transitions": 305,
+  "fareTransitions": 85,
+  "entrances": 1049,
   "entryPoints": 92,
-  "optimisticReachable": 72,
+  "optimisticReachable": 76,
   "unresolvedPlacementReferences": 0,
   "danglingTransitions": 0,
   "placesWithoutEntryPoints": 0,
@@ -115,9 +115,41 @@
     {
       "pack": "mm7-media",
       "document": "looks"
+    },
+    {
+      "pack": "mm7-new-game",
+      "document": "new-game-start"
+    },
+    {
+      "pack": "mm7-new-game",
+      "document": "new-game-creation-policy"
+    },
+    {
+      "pack": "mm7-new-game",
+      "document": "new-game-service-stock"
+    },
+    {
+      "pack": "mm7-new-game",
+      "document": "opening-errand"
+    },
+    {
+      "pack": "mm7-new-game",
+      "document": "world-roads"
+    },
+    {
+      "pack": "mm7-new-game",
+      "document": "world-boundaries"
+    },
+    {
+      "pack": "mm7-new-game",
+      "document": "service-destinations"
+    },
+    {
+      "pack": "mm7-new-game",
+      "document": "item-travel"
     }
   ],
-  "tablesSha256": "6b97085c611a8867dd93351f852920f6db38f83f2b08fc67f96a721b16efba8b",
+  "tablesSha256": "b876d9f4afea6553b26a204ae4d3896a0364cf79020fef7e579d7f6528012585",
   "inventory": [
     {
       "id": "1",
@@ -156,7 +188,7 @@
       ],
       "placements": 867,
       "optimisticReachable": true,
-      "via": "fare-coach-2-3"
+      "via": "road-2-west"
     },
     {
       "id": "4",
@@ -169,7 +201,7 @@
       ],
       "placements": 794,
       "optimisticReachable": true,
-      "via": "fare-coach-2-4"
+      "via": "road-2-north"
     },
     {
       "id": "5",
@@ -181,7 +213,7 @@
       ],
       "placements": 527,
       "optimisticReachable": true,
-      "via": "fare-coach-2-5"
+      "via": "road-3-north"
     },
     {
       "id": "6",
@@ -193,7 +225,7 @@
       ],
       "placements": 508,
       "optimisticReachable": true,
-      "via": "fare-coach-2-6"
+      "via": "road-3-south"
     },
     {
       "id": "7",
@@ -249,7 +281,7 @@
       ],
       "placements": 1044,
       "optimisticReachable": true,
-      "via": "36"
+      "via": "road-2-south"
     },
     {
       "id": "12",
@@ -271,7 +303,7 @@
       ],
       "placements": 677,
       "optimisticReachable": true,
-      "via": "fare-coach-2-13"
+      "via": "road-3-west"
     },
     {
       "id": "14",
@@ -283,7 +315,7 @@
       ],
       "placements": 473,
       "optimisticReachable": true,
-      "via": "fare-coach-2-14"
+      "via": "road-4-north"
     },
     {
       "id": "15",
@@ -293,8 +325,8 @@
         "East Start"
       ],
       "placements": 96,
-      "optimisticReachable": false,
-      "via": null
+      "optimisticReachable": true,
+      "via": "road-14-west"
     },
     {
       "id": "16",
@@ -560,7 +592,7 @@
       ],
       "placements": 402,
       "optimisticReachable": true,
-      "via": "64"
+      "via": "169"
     },
     {
       "id": "40",
@@ -647,8 +679,8 @@
         "Party Start"
       ],
       "placements": 535,
-      "optimisticReachable": false,
-      "via": null
+      "optimisticReachable": true,
+      "via": "187"
     },
     {
       "id": "48",
@@ -946,8 +978,8 @@
         "Party Start"
       ],
       "placements": 195,
-      "optimisticReachable": false,
-      "via": null
+      "optimisticReachable": true,
+      "via": "temple-bottle"
     },
     {
       "id": "75",
@@ -968,8 +1000,8 @@
         "Party Start"
       ],
       "placements": 41,
-      "optimisticReachable": false,
-      "via": null
+      "optimisticReachable": true,
+      "via": "fare-coach-2-76"
     }
   ]
 }

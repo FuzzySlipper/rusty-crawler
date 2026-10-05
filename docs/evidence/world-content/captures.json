@@ -1,0 +1,449 @@
+{
+  "schema": "crawler-playtest-report/v1",
+  "task_id": 8510,
+  "outcome": "pass",
+  "mission": "Ordinary stable travel from Harmondale to an outdoor region, ordinary Temple in a Bottle use to The Strange Temple, and ordinary fixture exit back to Harmondale.",
+  "profile": {
+    "id": "crawler-9463-arena",
+    "backend": "browser",
+    "environment": "service",
+    "host_mode": "owned_private_host",
+    "host_repo": "/tmp/crawler-9463-arena",
+    "repo_head": "b6b6e50c65d7f34a5fa174e35d538b46e8867993",
+    "repo_dirty_at_launch": true,
+    "session_id": "db64165b-586b-4e51-a35c-5dea06876777",
+    "slot_id": "slot-2",
+    "url": "http://127.0.0.1:30301/"
+  },
+  "neutral_initial_observation": {
+    "image_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/browser/db64165b-586b-4e51-a35c-5dea06876777/40f15cdd-5a0d-44cc-a081-f27ad2987515.png",
+    "metadata_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/browser/db64165b-586b-4e51-a35c-5dea06876777/40f15cdd-5a0d-44cc-a081-f27ad2987515.json",
+    "note": "Title modal over Harmondale; New Game and Continue visible before starting."
+  },
+  "ordinary_action_timeline": {
+    "events_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/browser/db64165b-586b-4e51-a35c-5dea06876777/events.jsonl",
+    "journal_line_count": 54,
+    "actions": [
+      {
+        "event_lines": [
+          5,
+          6
+        ],
+        "kind": "browser_click",
+        "selector": "button:text-is(\"New Game\")",
+        "effect": "started authored party"
+      },
+      {
+        "event_lines": [
+          7,
+          8
+        ],
+        "kind": "keyboard_hold",
+        "keys": [
+          87
+        ],
+        "key": "W",
+        "ms": 2500,
+        "effect": "approached Harmondale stable"
+      },
+      {
+        "event_lines": [
+          9,
+          10
+        ],
+        "kind": "keyboard_hold",
+        "keys": [
+          71
+        ],
+        "key": "G",
+        "ms": 120,
+        "effect": "opened Christian conversation"
+      },
+      {
+        "event_lines": [
+          13,
+          14
+        ],
+        "kind": "browser_click",
+        "selector": "button:text-is(\"Ask about the coach\")",
+        "result": "strict-mode failure; no state change"
+      },
+      {
+        "event_lines": [
+          15,
+          16
+        ],
+        "kind": "browser_click",
+        "selector": ".crawler-dialogue-topic",
+        "effect": "opened visible coach fare list"
+      },
+      {
+        "event_lines": [
+          17,
+          18
+        ],
+        "kind": "browser_click",
+        "selector": "div:nth-child(1) > .crawler-counter-choice > .crawler-counter-offer",
+        "effect": "selected visible Erathia fare"
+      },
+      {
+        "event_lines": [
+          19,
+          20
+        ],
+        "kind": "keyboard_hold",
+        "keys": [
+          73
+        ],
+        "key": "I",
+        "ms": 120,
+        "effect": "opened character/shared pack"
+      },
+      {
+        "event_lines": [
+          23,
+          24
+        ],
+        "kind": "browser_click",
+        "selector": "button:text-is(\"Inventory\")",
+        "effect": "opened shared inventory tab"
+      },
+      {
+        "event_lines": [
+          27,
+          28
+        ],
+        "kind": "browser_click",
+        "selector": "button:text-is(\"Temple in a Bottle\")",
+        "result": "timeout; no state change"
+      },
+      {
+        "event_lines": [
+          29,
+          30
+        ],
+        "kind": "pointer_click",
+        "x": 433,
+        "y": 284,
+        "width": 1280,
+        "height": 720,
+        "button": 1,
+        "ms": 100,
+        "effect": "selected visible Temple in a Bottle item"
+      },
+      {
+        "event_lines": [
+          33,
+          34
+        ],
+        "kind": "browser_click",
+        "selector": "button:text-is(\"Use\")",
+        "result": "strict-mode failure; no state change"
+      },
+      {
+        "event_lines": [
+          35,
+          36
+        ],
+        "kind": "browser_click",
+        "selector": ".crawler-inventory-use",
+        "effect": "used bottle; arrived in The Strange Temple; item retained"
+      },
+      {
+        "event_lines": [
+          37,
+          38
+        ],
+        "kind": "keyboard_hold",
+        "keys": [
+          27
+        ],
+        "key": "Escape",
+        "ms": 120,
+        "effect": "closed inventory"
+      },
+      {
+        "event_lines": [
+          39,
+          40
+        ],
+        "kind": "keyboard_hold",
+        "keys": [
+          68
+        ],
+        "key": "D",
+        "ms": 1000,
+        "effect": "ordinary movement toward exit fixture"
+      },
+      {
+        "event_lines": [
+          41,
+          42
+        ],
+        "kind": "keyboard_hold",
+        "keys": [
+          83,
+          68
+        ],
+        "keys_names": [
+          "S",
+          "D"
+        ],
+        "ms": 550,
+        "effect": "ordinary movement adjustment"
+      },
+      {
+        "event_lines": [
+          43,
+          44
+        ],
+        "kind": "keyboard_hold",
+        "keys": [
+          87
+        ],
+        "key": "W",
+        "ms": 650,
+        "effect": "ordinary movement adjustment"
+      },
+      {
+        "event_lines": [
+          45,
+          46
+        ],
+        "kind": "keyboard_hold",
+        "keys": [
+          83
+        ],
+        "key": "S",
+        "ms": 350,
+        "effect": "ordinary movement adjustment"
+      },
+      {
+        "event_lines": [
+          47,
+          48
+        ],
+        "kind": "keyboard_hold",
+        "keys": [
+          69
+        ],
+        "key": "E",
+        "ms": 500,
+        "effect": "turned toward actual exit fixture"
+      },
+      {
+        "event_lines": [
+          49,
+          50
+        ],
+        "kind": "keyboard_hold",
+        "keys": [
+          71
+        ],
+        "key": "G",
+        "ms": 120,
+        "effect": "used actual Temple exit; arrived in Harmondale"
+      },
+      {
+        "event_lines": [
+          51,
+          52
+        ],
+        "kind": "keyboard_hold",
+        "keys": [
+          73
+        ],
+        "key": "I",
+        "ms": 120,
+        "effect": "opened shared pack for retention proof"
+      },
+      {
+        "event_lines": [
+          53,
+          54
+        ],
+        "kind": "keyboard_hold",
+        "keys": [
+          27
+        ],
+        "key": "Escape",
+        "ms": 120,
+        "effect": "closed inventory before stop"
+      }
+    ]
+  },
+  "read_only_assistance": [
+    {
+      "command": "playtest interaction db64165b-586b-4e51-a35c-5dea06876777",
+      "evidence_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/interaction-2c78ef81-7643-4c4c-a520-7cb1748759c4.json",
+      "use": "identified actual Temple exit fixture; observation only"
+    },
+    {
+      "command": "playtest interaction db64165b-586b-4e51-a35c-5dea06876777",
+      "evidence_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/interaction-051866db-a274-4933-b6b1-01cd6955d382.json",
+      "use": "refreshed exit target observation; observation only"
+    }
+  ],
+  "captures": [
+    {
+      "capture_id": "2bb9f84c-2df2-41e9-acff-e260ff549bd3",
+      "label": "new-game-start",
+      "artifact_id": "d89ec08a-fea1-4d0e-96a8-48cafa914cf5",
+      "frame_sequence": 1003,
+      "simulation_step": 1329,
+      "view_revision": 1010,
+      "image_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/browser/db64165b-586b-4e51-a35c-5dea06876777/d89ec08a-fea1-4d0e-96a8-48cafa914cf5.png",
+      "metadata_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/capture-2bb9f84c-2df2-41e9-acff-e260ff549bd3.json"
+    },
+    {
+      "capture_id": "b67db08f-1f1b-4847-83b6-d1bf9eaa5afe",
+      "label": "stable-approach",
+      "artifact_id": "7023f740-bdf1-43d3-98ac-ae9f61b6ba92",
+      "frame_sequence": 1330,
+      "simulation_step": 2347,
+      "view_revision": 1337,
+      "image_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/browser/db64165b-586b-4e51-a35c-5dea06876777/7023f740-bdf1-43d3-98ac-ae9f61b6ba92.png",
+      "metadata_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/capture-b67db08f-1f1b-4847-83b6-d1bf9eaa5afe.json"
+    },
+    {
+      "capture_id": "0da0a93c-7152-449a-895f-4b6bbecc90fc",
+      "label": "stable-dialogue",
+      "artifact_id": "e37432f5-2adf-4019-8ac0-e9c7d310e7f7",
+      "frame_sequence": 1572,
+      "simulation_step": 2747,
+      "view_revision": 1579,
+      "image_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/browser/db64165b-586b-4e51-a35c-5dea06876777/e37432f5-2adf-4019-8ac0-e9c7d310e7f7.png",
+      "metadata_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/capture-0da0a93c-7152-449a-895f-4b6bbecc90fc.json"
+    },
+    {
+      "capture_id": "45bfdd06-335a-414f-b3a7-3676b1a55f4d",
+      "label": "coach-fares-erathia",
+      "artifact_id": "b8e50026-1690-4952-9ece-b25b7c75d30e",
+      "frame_sequence": 2592,
+      "simulation_step": 3772,
+      "view_revision": 2599,
+      "image_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/browser/db64165b-586b-4e51-a35c-5dea06876777/b8e50026-1690-4952-9ece-b25b7c75d30e.png",
+      "metadata_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/capture-45bfdd06-335a-414f-b3a7-3676b1a55f4d.json"
+    },
+    {
+      "capture_id": "a90ace8e-0eb7-4c3f-bfc3-8012b9075a5a",
+      "label": "erathia-arrival",
+      "artifact_id": "fab4f50f-76b6-4e22-b8ae-f93f01a1a5e3",
+      "frame_sequence": 3316,
+      "simulation_step": 4711,
+      "view_revision": 3323,
+      "image_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/browser/db64165b-586b-4e51-a35c-5dea06876777/fab4f50f-76b6-4e22-b8ae-f93f01a1a5e3.png",
+      "metadata_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/capture-a90ace8e-0eb7-4c3f-bfc3-8012b9075a5a.json"
+    },
+    {
+      "capture_id": "fb91df54-515f-4bae-aeca-d497bfa323ad",
+      "label": "erathia-inventory-before-bottle",
+      "artifact_id": "559609c2-6723-492d-b1ae-3e185663ab04",
+      "frame_sequence": 3513,
+      "simulation_step": 5411,
+      "view_revision": 3520,
+      "image_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/browser/db64165b-586b-4e51-a35c-5dea06876777/559609c2-6723-492d-b1ae-3e185663ab04.png",
+      "metadata_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/capture-fb91df54-515f-4bae-aeca-d497bfa323ad.json"
+    },
+    {
+      "capture_id": "58d72561-711e-47f1-b5fe-2b300c153d52",
+      "label": "strange-temple-arrival-from-erathia",
+      "artifact_id": "4fb1a2ad-be98-42c8-90eb-a50c4e7b8960",
+      "frame_sequence": 4401,
+      "simulation_step": 8098,
+      "view_revision": 4408,
+      "image_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/browser/db64165b-586b-4e51-a35c-5dea06876777/4fb1a2ad-be98-42c8-90eb-a50c4e7b8960.png",
+      "metadata_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/capture-58d72561-711e-47f1-b5fe-2b300c153d52.json"
+    },
+    {
+      "capture_id": "4e9e717c-e7a0-45c3-b510-ab4c229d42ab",
+      "label": "temple-exit-approach",
+      "artifact_id": "c9ee0f6b-f6e8-4a68-95f0-baf1f7e95a4c",
+      "frame_sequence": 6098,
+      "simulation_step": 9929,
+      "view_revision": 6105,
+      "image_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/browser/db64165b-586b-4e51-a35c-5dea06876777/c9ee0f6b-f6e8-4a68-95f0-baf1f7e95a4c.png",
+      "metadata_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/capture-4e9e717c-e7a0-45c3-b510-ab4c229d42ab.json"
+    },
+    {
+      "capture_id": "86868f0d-22d0-4ec5-b70f-0ff3fd16e369",
+      "label": "temple-exit-nearby",
+      "artifact_id": "fe96bf2e-f7c4-4378-a1ff-b0c1d0715364",
+      "frame_sequence": 8050,
+      "simulation_step": 12585,
+      "view_revision": 8074,
+      "image_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/browser/db64165b-586b-4e51-a35c-5dea06876777/fe96bf2e-f7c4-4378-a1ff-b0c1d0715364.png",
+      "metadata_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/capture-86868f0d-22d0-4ec5-b70f-0ff3fd16e369.json"
+    },
+    {
+      "capture_id": "df810d36-fbe9-4264-b7dd-7c7fe3017157",
+      "label": "temple-exit-ready",
+      "artifact_id": "ad41b781-0b55-47e1-b446-0b078d0cd354",
+      "frame_sequence": 8748,
+      "simulation_step": 13642,
+      "view_revision": 8793,
+      "image_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/browser/db64165b-586b-4e51-a35c-5dea06876777/ad41b781-0b55-47e1-b446-0b078d0cd354.png",
+      "metadata_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/capture-df810d36-fbe9-4264-b7dd-7c7fe3017157.json"
+    },
+    {
+      "capture_id": "76c4720f-b31b-496e-99fe-008515654f59",
+      "label": "temple-exit-facing",
+      "artifact_id": "bc89031c-83dc-42f3-b995-f02dcd6c72a1",
+      "frame_sequence": 9620,
+      "simulation_step": 15233,
+      "view_revision": 9669,
+      "image_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/browser/db64165b-586b-4e51-a35c-5dea06876777/bc89031c-83dc-42f3-b995-f02dcd6c72a1.png",
+      "metadata_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/capture-76c4720f-b31b-496e-99fe-008515654f59.json"
+    },
+    {
+      "capture_id": "60c87824-6c52-4ce8-90f3-7bb773e9ae62",
+      "label": "harmondale-return-from-strange-temple",
+      "artifact_id": "d877e153-bbd4-4721-8f40-c265ab313bbf",
+      "frame_sequence": 9981,
+      "simulation_step": 15867,
+      "view_revision": 10031,
+      "image_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/browser/db64165b-586b-4e51-a35c-5dea06876777/d877e153-bbd4-4721-8f40-c265ab313bbf.png",
+      "metadata_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/capture-60c87824-6c52-4ce8-90f3-7bb773e9ae62.json"
+    },
+    {
+      "capture_id": "431bb145-afdb-4c2b-9c1b-a9da5009365d",
+      "label": "harmondale-inventory-bottle-retained",
+      "artifact_id": "796f7414-a0a3-4a15-b801-5eb4d5f1afc7",
+      "frame_sequence": 10141,
+      "simulation_step": 16500,
+      "view_revision": 10191,
+      "image_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/browser/db64165b-586b-4e51-a35c-5dea06876777/796f7414-a0a3-4a15-b801-5eb4d5f1afc7.png",
+      "metadata_path": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/capture-431bb145-afdb-4c2b-9c1b-a9da5009365d.json"
+    }
+  ],
+  "observed_results": {
+    "initial": "Harmondale; Roderick, Aelina, Borin, Nyx; 4000/4000 HP each; 100000 gold; 50 portions.",
+    "travel": "Visible J.V.C. Corral Erathia fare paid 50; receipt says passage 3 takes 2 days; arrival title Erathia.",
+    "bottle": "Visible feedback says Temple in a Bottle carries the party to The Strange Temple; the item is retained.",
+    "exit": "Visible feedback says the fixture leads the party on and the party arrives in Harmondale.",
+    "retention": "After return, shared pack visibly still contains Temple in a Bottle and shows 2 items.",
+    "unexpected": "All four HUD party cards showed Weak (1) after travel; food was 49 on Harmondale return; gold was 99950 after the fare.",
+    "limits": "No combat, debug travel, teleport, or state writes; read-only interaction inspection guided exit navigation."
+  },
+  "cleanup_receipt": {
+    "stop_command": "playtest stop db64165b-586b-4e51-a35c-5dea06876777",
+    "artifact_directory": "/home/agent/.local/state/crew-playtest-local/slots/slot-2/browser/db64165b-586b-4e51-a35c-5dea06876777",
+    "browser_closed": true,
+    "released": true,
+    "slot_id": "slot-2",
+    "host": {
+      "instance": "db64165b-586b-4e51-a35c-5dea06876777",
+      "lan_url": "http://192.168.1.10:30301/",
+      "local_url": "http://127.0.0.1:30301/",
+      "message": "stopped broker-owned process group",
+      "pid": 39767,
+      "port": 30301,
+      "project": "rusty-crawler",
+      "repo_root": "/tmp/crawler-9463-arena",
+      "status": "stopped",
+      "stopped": true,
+      "stderr_log": "/home/agent/.cache/den-serve/sessions/rusty-crawler-4c3a160ca434--db64165b-586b-4e51-a35c-5dea06876777/rusty-crawler-20261005T125455.649767488Z/server.stderr.log",
+      "stdout_log": "/home/agent/.cache/den-serve/sessions/rusty-crawler-4c3a160ca434--db64165b-586b-4e51-a35c-5dea06876777/rusty-crawler-20261005T125455.649767488Z/server.stdout.log"
+    }
+  }
+}

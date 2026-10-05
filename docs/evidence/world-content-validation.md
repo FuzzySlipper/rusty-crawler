@@ -38,22 +38,16 @@ The source distinction is documented by OpenEnroth
 and `src/Engine/PartyPlacement.h:14-27` (retained orientation). Donor source was consulted
 for semantics, not translated or copied.
 
-The canonical graph has 277 transitions, including 84 fare transitions, and 1,023
-entrances. Its optimistic reachable set from Emerald Island contains **72 of 76 places**.
+The canonical graph has 305 transitions, including 85 fare transitions, and 1,049
+entrances. Its optimistic reachable set from Emerald Island contains **76 of 76 places**.
 This calculation admits all world-issued conversation arrivals and ignores conditional gates;
-it excludes source events classified as unreachable. It is an upper bound, not proof that
-the other 72 places can all be reached physically or that every conditional event succeeds.
-Shoals, The Lincoln, The Strange Temple and Arena remain outside even this upper bound.
-The report deliberately records `allPlacesReachableEvenOptimistically: false`.
+it excludes source events classified as unreachable. It validates graph connectivity, not that
+all 76 places have been visited or every quest gate exercised in ordinary play. The refreshed
+`ImportedSessionTests|WorldContentInventoryTests` run passed all four cases without skips.
 
-The missing route families are visible in donor references: outdoor edge travel and the
-Avlee/Shoals suit check in `src/Engine/Graphics/Outdoor.cpp:68-123,282-327`, Arena route 34
-in `src/GUI/UI/Houses/Transport.cpp:38-95`, and Temple in a Bottle use in
-`src/Engine/Objects/Character.cpp:3550-3552` with arrival in `src/Engine/Engine.cpp:1501-1510`.
-The existing runtime fare network joins placed stable/boat counters; its ordinary item-use
-owner has no bottle travel action. Portal and beacon casting require a prior visit or recorded
-beacon and therefore cannot establish these first visits. This record does not substitute
-debug travel or extra generic portals for those behaviors.
+The outdoor boundaries, Arena fare and bottle route are included in the canonical graph.
+Their route-specific ordinary-control observations and donor provenance are retained in
+[`world-routes-validation.md`](world-routes-validation.md).
 
 ## Explicit source exclusions
 
@@ -75,20 +69,33 @@ a deliberate content addition, not recovery of an established source entrance.
 
 ## Bounded ordinary traversal
 
-Owned browser session `4eb4f338-6163-48c2-a7f6-41abfaccc02b`, slot 3, used the fresh
-packs in an isolated checkout. Its scenario changed only the new-party starting place to
-Bandit Caves and selected the derived `arrival-151`; the normal party creation and runtime
-were retained. Source coordinates were supplied to the observer as labelled navigation help.
+One continuous owned browser session (`db64165b-586b-4e51-a35c-5dea06876777`, slot 2)
+used the `crawler-9463-arena` isolated profile with the fresh imported packs. The initial
+scenario supplied high health, 100,000 coins, 50 food, equipment and a Temple in a Bottle,
+and placed the party beside the real Harmondale stable door. This tests traversal, not
+acquisition, survival balance or unaided discovery. Gameplay code matched the validated
+checkout; subsequent changes before this observation were evidence documents only.
 
-The observer completed ordinary creation, turned and moved with held keyboard inputs,
-then used G. Capture `e5cc5ace-9e16-494a-bf0c-3a24dbc12966` shows outdoor terrain,
-the Erathia title and feedback that the fixture led the party there. This proves one
-interior-to-region transition from a derived entry point, not access there from Emerald Island.
+The observer used ordinary controls throughout this connected itinerary:
 
-Return traversal was not established. The party was already two Dead and two Unconscious
-members by the transition capture. T/G selected a distant out-of-sight chest rather than a
-cave entrance. Capture `8c67f789-2c01-469c-9e44-af399d2a9812` shows the rest screen
-explaining that sleep cannot restore the dead members. These observations do not establish
-a defective return entrance or its absence. They also do not satisfy a multi-region sample.
-The parent inspected both original captures. The session was stopped with `released: true`
-and `browser_closed: true`; its private host port refused connections afterward.
+1. [Harmondale stable](world-content/harmondale-start.png): G opened Christian's
+   conversation, then the visible counter and Erathia fare were selected.
+2. [Erathia arrival](world-content/erathia-arrival.png): the outdoor view and map title
+   changed; feedback states 50 coins and two days, and the purse became 99,950.
+3. [Strange Temple arrival](world-content/temple-arrival.png): the character inventory's
+   bottle Use control moved the party into the interior and explicitly retained the item.
+4. [Harmondale return](world-content/harmondale-return.png): ordinary movement and G at
+   the actual temple exit produced outdoor scenery, the Harmondale title and arrival feedback.
+5. [Retained bottle](world-content/bottle-retained.png): the inventory still held the bottle.
+
+Read-only interaction inspection guided the exit approach; it did not move the party or
+activate the fixture. The parent inspected the original initial, fare-arrival, temple and
+return images. The party acquired Weak (1), and food fell to 49; the trip still completed.
+This establishes a two-region and interior sample, not a complete walkthrough of the world.
+
+The original action timeline, capture/frame identities, assistance and cleanup receipt are
+retained in [captures.json](world-content/captures.json).
+
+The private host stopped with `stopped: true`, `released: true` and `browser_closed: true`.
+The earlier Bandit Caves observation established only an exit to Erathia with an incapacitated
+party; no re-entry or multi-region claim is based on that earlier run.
