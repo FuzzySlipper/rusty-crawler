@@ -239,7 +239,12 @@ internal sealed class MightAndMagic7Promotions : IPromotionRule
                 string label = ContentEntry.ReadString(row, "label");
                 double statedAmount = ContentEntry.ReadDouble(row, "amount") ?? 1;
                 int amount = double.IsFinite(statedAmount) && statedAmount >= 1 && statedAmount <= int.MaxValue && Math.Truncate(statedAmount) == statedAmount ? (int)statedAmount : 0;
-                if (name.Length == 0 || amount < 1 || kind is not ("giver" or "item" or "award"))
+                bool hasAlternatives = row.TryGetProperty("alternatives", out var options);
+                string[] alternatives = hasAlternatives && options.ValueKind == System.Text.Json.JsonValueKind.Array
+                    ? options.EnumerateArray().Select(value => value.ValueKind == System.Text.Json.JsonValueKind.String ? value.GetString() ?? "" : "").ToArray() : [];
+                if (name.Length == 0 || amount < 1 || kind is not ("giver" or "item" or "award" or "follower") ||
+                    (hasAlternatives && options.ValueKind != System.Text.Json.JsonValueKind.Array) || alternatives.Any(string.IsNullOrWhiteSpace) ||
+                    (alternatives.Length > 0 && kind != "award") || (kind == "follower" && amount != 1))
                 {
                     Defect($"Promotion '{entry.Id}' has an invalid requirement; it would allow an unearned promotion.");
                     continue;
@@ -248,7 +253,8 @@ internal sealed class MightAndMagic7Promotions : IPromotionRule
                 {
                     "giver" => PromotionRequirement.FromGiver(name, label),
                     "item" => PromotionRequirement.ForItem(name, amount, label),
-                    _ => PromotionRequirement.ForAward(name, amount, label),
+                    "follower" => new PromotionRequirement(PromotionRequirementKind.Follower, name, 1, label),
+                    _ => PromotionRequirement.ForAward(name, amount, label) with { AlternativeAwards = alternatives },
                 });
             }
             if (requirements.Count(r => r.Kind == PromotionRequirementKind.Giver) != 1 || requirements.Count < 2)

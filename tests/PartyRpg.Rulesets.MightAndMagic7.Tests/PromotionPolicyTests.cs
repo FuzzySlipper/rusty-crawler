@@ -86,7 +86,7 @@ public sealed class PromotionPolicyTests
     {
         using Fixture fixture = Fixture.Build("Knight");
         PartyMember member = fixture.Party.Members[0];
-        fixture.Party.Records.Mark(MightAndMagic7Quests.ErrandRecord("34"));
+        fixture.Party.Records.Mark(MightAndMagic7Quests.ErrandRecord("140"));
         member.Conditions.Apply(new ActiveCondition(new ConditionId(condition)));
         Refusal? judged = fixture.Progression.JudgeGrant("knight-cavalier", member.Id);
         Assert.Contains(condition, judged!.Message, StringComparison.Ordinal);
@@ -108,15 +108,15 @@ public sealed class PromotionPolicyTests
         // first promotion and two second-promotion alternatives, which is 27 ranks over 36 class rows.
         MightAndMagic7Promotions ladder = PromotionTestContent.Read(null);
         Assert.Equal(27, ladder.RankCount);
-        Assert.Equal(18, ladder.GiverCount);
+        Assert.Equal(20, ladder.GiverCount);
         Assert.Equal(27, ladder.Ladder.Ranks.Count(rank => rank.Requirements.Any(requirement => requirement.Kind == PromotionRequirementKind.Giver)));
-        Assert.Equal(17, ladder.QuestRequirementCount);
-        Assert.Equal(14, ladder.ItemRequirementCount);
+        Assert.Equal(15, ladder.QuestRequirementCount);
+        Assert.Equal(8, ladder.ItemRequirementCount);
 
-        // Nineteen ranks ask for a record of a deed: the seventeen errands, each stated as the record a
+        // Seventeen ranks ask for a record of a deed: the fifteen quest proofs, each stated as the record a
         // finished quest leaves, and the two counts the original keeps as its own awards rather than as
         // quests, which are the only award requirements that are not an errand's own record.
-        Assert.Equal(19, ladder.Ladder.Ranks.Count(rank => rank.Requirements.Any(requirement => requirement.Kind == PromotionRequirementKind.Award)));
+        Assert.Equal(17, ladder.Ladder.Ranks.Count(rank => rank.Requirements.Any(requirement => requirement.Kind == PromotionRequirementKind.Award)));
         Assert.Equal(2, ladder.Ladder.Ranks.Count(rank => rank.Requirements.Any(requirement =>
             requirement.Kind == PromotionRequirementKind.Award &&
             !requirement.Name.StartsWith(MightAndMagic7Identities.ErrandFlagPrefix, StringComparison.Ordinal))));
@@ -200,30 +200,19 @@ public sealed class PromotionPolicyTests
         Assert.Equal("Wizard", wizard.To.Value);
         Assert.Equal("npc-48", wizard.Giver);
         Assert.Equal("Thomas Grey", wizard.Requirements.First(requirement => requirement.Kind == PromotionRequirementKind.Giver).Label);
-        Assert.Equal(
-            ["639", "641", "642", "643", "644", "645"],
-            wizard.Requirements.Where(requirement => requirement.Kind == PromotionRequirementKind.Item).Select(requirement => requirement.Name));
-        Assert.Equal("promotion:sorcerer-wizard", wizard.Award);
-        Assert.DoesNotContain(wizard.Requirements, requirement => requirement.Kind == PromotionRequirementKind.Award);
+        PromotionRequirement assembled = wizard.Requirements.Single(r => r.Kind == PromotionRequirementKind.Award);
+        Assert.Equal("errand:73", assembled.Name);
+        Assert.Equal(["errand:74"], assembled.AlternativeAwards);
+        Assert.DoesNotContain(wizard.Requirements, r => r.Kind == PromotionRequirementKind.Item);
 
         PromotionRank lich = ladder.Ladder.Rank("wizard-lich")!;
         Assert.Equal("npc-49", lich.Giver);
-        Assert.Equal(
-            ["601", "602"],
-            lich.Requirements.Where(requirement => requirement.Kind == PromotionRequirementKind.Item).Select(requirement => requirement.Name));
+        Assert.Equal("615", Assert.Single(lich.Requirements, r => r.Kind == PromotionRequirementKind.Item).Name);
         Assert.Equal(MightAndMagic7Promotions.DarkChoice, lich.Choice);
-
-        // An errand whose words name a deed rather than a thing is stated as the record a finished quest
-        // leaves: the Priest's first rank is bit 43, the Spy's is bit 19, and the record's own name is the
-        // one the shipped topic table's requirement column already gates a person's topic on, so the rank and
-        // the town read one identity rather than two spellings of it.
         PromotionRequirement priest = ladder.Ladder.Rank("cleric-priest")!
-            .Requirements.Single(requirement => requirement.Kind == PromotionRequirementKind.Award);
-        Assert.Equal(MightAndMagic7Quests.ErrandRecord("43"), priest.Name);
-        Assert.Contains("find the lost pirate map", priest.Label, StringComparison.Ordinal);
-        Assert.Equal(
-            MightAndMagic7Quests.ErrandRecord("19"),
-            ladder.Ladder.Rank("rogue-spy")!.Requirements.Single(requirement => requirement.Kind == PromotionRequirementKind.Award).Name);
+            .Requirements.Single(requirement => requirement.Kind == PromotionRequirementKind.Item);
+        Assert.Equal("683", priest.Name);
+        Assert.Equal("errand:20", ladder.Ladder.Rank("rogue-spy")!.Requirements.Single(r => r.Kind == PromotionRequirementKind.Award).Name);
 
         // The two errands the original keeps as counts rather than as quests are stated as records with a
         // magnitude: five arena wins for the Champion (AwardEnums.h:88-91) and ten thousand gold of bounties
@@ -266,8 +255,7 @@ public sealed class PromotionPolicyTests
         Assert.Equal(new SkillCeiling(9, new SkillTier(2)), skills.Ceiling(member, fixture.Fire));
         Assert.Equal(ProgressionGrowth.None with { HitPoints = 2, SpellPoints = 3, SkillPoints = 5 }, progression.Rule.Growth(new ProgressionGrowthRequest(member, 2)));
 
-        // The first rank's own terms: the giver the shipped topic table names, and the six golem parts the
-        // shipped item table carries. Without them the rank is refused by name, and nothing moves.
+        // The first rank's own terms: the giver the shipped topic table names, and the completed Golem assembly. Without them the rank is refused by name, and nothing moves.
         PromotionResult refused = progression.Promote("sorcerer-wizard", "npc-48");
         Assert.False(refused.IsGranted);
         Assert.Equal(ProgressionCodes.PromotionRequirementsUnmet, refused.Refusal!.Code);
@@ -275,14 +263,14 @@ public sealed class PromotionPolicyTests
         Assert.Equal("First", first.Name);
         Assert.Equal("Sorcerer", first.Class);
         Assert.Equal(1, first.Rank);
-        string golem = Assert.Single(first.Missing, line => line.Contains("Golem chest", StringComparison.Ordinal));
+        string golem = Assert.Single(first.Missing, line => line.Contains("a fully assembled Golem (either head)", StringComparison.Ordinal));
         Assert.EndsWith(" 0", golem, StringComparison.Ordinal);
         Assert.Contains(golem, refused.Refusal.Message, StringComparison.Ordinal);
         Assert.Equal("Sorcerer", member.Profile.Class.Value);
 
         // With the proof on the party the rank lands, and the class and the rank move together: the ceilings
         // the new class states rise, and so does what every further level gives.
-        fixture.Carry("639", "641", "642", "643", "644", "645");
+        fixture.Party.Records.Mark("errand:73");
         PromotionResult given = progression.Promote("sorcerer-wizard", "npc-48");
         Assert.True(given.IsGranted);
         Assert.Equal("Wizard", member.Profile.Class.Value);
@@ -302,7 +290,7 @@ public sealed class PromotionPolicyTests
         Assert.Contains("npc-48", giver, StringComparison.Ordinal);
         Assert.Contains(giver, wrongGiver.Refusal.Message, StringComparison.Ordinal);
 
-        fixture.Carry("601", "602");
+        fixture.Carry("615");
         PromotionResult dark = progression.Promote("wizard-lich", "npc-49");
         Assert.True(dark.IsGranted);
         Assert.Equal("Lich", member.Profile.Class.Value);
@@ -394,7 +382,7 @@ public sealed class PromotionPolicyTests
     public void A_rank_is_taken_from_the_person_who_gives_it_and_reaches_the_projection()
     {
         // Staged the way an imported pack carries it: a place, the two people the shipped NPC table names
-        // for this family's ranks, a scripted party of one sorcerer, and the golem parts in its pack.
+        // for this family's ranks, a scripted party of one sorcerer, and explicit Golem-assembly proof.
         (ProductCreateContext context, RecordingUiService ui) = RulesetTestContext.Create(Staged());
         using IGameSession session = MightAndMagic7Ruleset.Instance.CreateSession(
             RulesetTestContext.RulesetContext(context, ui) with
@@ -403,6 +391,7 @@ public sealed class PromotionPolicyTests
                 Conversation = new ConversationIntentNames(Declared.ConversationLeaveIntent, Declared.UiActionContract),
             });
         session.Start();
+        ((MightAndMagic7Session)session).Party!.Records.Mark("errand:73");
 
         // What the panel publishes before anybody is promoted: the ladder itself, member by member, with
         // every rank their class leads to and what each of them asks for.
@@ -418,12 +407,12 @@ public sealed class PromotionPolicyTests
         Assert.Equal("Wizard", wizard.Field("toClass").AsString());
         Assert.Equal("npc-48", wizard.Field("giver").AsString());
         Assert.Equal("Thomas Grey", wizard.Field("giverName").AsString());
-        Assert.Equal(7, wizard.Field("requirements").Length());
+        Assert.Equal(2, wizard.Field("requirements").Length());
         ProjectedNode proof = wizard.Field("requirements").Item(1);
-        Assert.Equal("item", proof.Field("kind").AsString());
-        Assert.Equal("639", proof.Field("name").AsString());
-        Assert.Equal("Golem chest", proof.Field("label").AsString());
-        Assert.Equal("Golem chest", proof.Field("text").AsString());
+        Assert.Equal("award", proof.Field("kind").AsString());
+        Assert.Equal("errand:73", proof.Field("name").AsString());
+        Assert.Equal("a fully assembled Golem (either head)", proof.Field("label").AsString());
+        Assert.Equal("a fully assembled Golem (either head)", proof.Field("text").AsString());
 
         // The party talks to the person who gives the rank: the use opens the conversation, and the rank is
         // offered as a topic on that person's own list.
@@ -447,10 +436,9 @@ public sealed class PromotionPolicyTests
         ProjectedNode grant = after.Field("granted").Item(0);
         Assert.Equal("Sorcerer", grant.Field("fromClass").AsString());
         Assert.Equal(1d, grant.Field("fromRank").AsNumber());
-        Assert.Equal(7, grant.Field("met").Length());
+        Assert.Equal(2, grant.Field("met").Length());
         Assert.Contains("granted by Thomas Grey", grant.Field("met").Item(0).AsString(), StringComparison.Ordinal);
-        Assert.Equal("carries Golem chest", grant.Field("met").Item(1).AsString());
-        Assert.Equal("carries Golem left arm", grant.Field("met").Item(6).AsString());
+        Assert.Equal("holds the record of a fully assembled Golem (either head)", grant.Field("met").Item(1).AsString());
         ProjectedNode landed = after.Field("members").Item(0);
         Assert.Equal("Wizard", landed.Field("class").AsString());
         Assert.Equal(2d, landed.Field("rank").AsNumber());
@@ -524,7 +512,7 @@ public sealed class PromotionPolicyTests
             Enumerable.Range(0, talking.Field("topics").Length()).Select(talking.Field("topics").Item).Select(node => node.Field("id").AsString()));
 
         // Taking it reaches the progression owner, which judges the rank against the party the player built:
-        // the person who gives it is met, and the six golem parts the shipped item table carries are not —
+        // the person who gives it is met, and the completed Golem assembly is not —
         // so the party is told exactly what its own characters are missing.
         session.Update(RulesetTestContext.Update(3, 1, RulesetTestContext.ChooseTopic("promote:sorcerer-wizard")));
         ProjectedNode refused = ProjectedNode.Of(ui.Latest().Value).Field("promotion");
@@ -532,9 +520,9 @@ public sealed class PromotionPolicyTests
         Assert.Equal("promotion-requirements-unmet", refused.Field("code").AsString());
         Assert.Contains("Aelina", refused.Field("message").AsString(), StringComparison.Ordinal);
         ProjectedNode missing = refused.Field("denied").Item(0).Field("missing");
-        Assert.Equal(6, missing.Length());
-        Assert.Contains("Golem chest", missing.Item(0).AsString(), StringComparison.Ordinal);
-        Assert.Contains("carries 0", missing.Item(0).AsString(), StringComparison.Ordinal);
+        Assert.Equal(1, missing.Length());
+        Assert.Contains("a fully assembled Golem (either head)", missing.Item(0).AsString(), StringComparison.Ordinal);
+        Assert.Contains("stands at 0", missing.Item(0).AsString(), StringComparison.Ordinal);
 
         // The ladder itself is published for the party the player built, member by member, with the rank
         // that member's class leads to.

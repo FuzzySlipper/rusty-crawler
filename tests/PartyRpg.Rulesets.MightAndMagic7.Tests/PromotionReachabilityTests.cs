@@ -49,6 +49,49 @@ public sealed class PromotionReachabilityTests
     };
 
     [ImportedFact("global-events.json")]
+    public void Displayed_requirements_supply_the_proof_the_imported_completion_actually_judges()
+    {
+        ContentCatalog catalog = ImportedContent.Playable();
+        var promotions = MightAndMagic7Promotions.Read(catalog);
+        var events = MightAndMagic7MapEvents.Read(catalog);
+        foreach (PromotionRank rank in promotions.Ladder.Ranks)
+        {
+            var proof = Assert.Single(rank.Requirements, r => r.Kind != PromotionRequirementKind.Giver);
+            if (proof.Kind == PromotionRequirementKind.Item)
+                Assert.Equal(catalog.Entries("item").Single(row => row.Entry.Id == proof.Name).Entry.GetString("name"), proof.Label);
+            foreach (string name in new[] { proof.Name }.Concat(proof.AlternativeAwards))
+            {
+                using PartyEntity party = PromoterTopicTests.Party(("Candidate", rank.From.Value, rank.Rank - 1));
+                var progression = new PartyProgression(MightAndMagic7Progression.Instance, party, promotions: promotions);
+                var displayed = Assert.Single(Assert.Single(PromotionSnapshot.From(progression).Members).Promotions, r => r.ToClass == rank.To.Value);
+                Assert.Contains(displayed.Requirements, r => r.Name == proof.Name && r.Text == proof.ToString());
+                string seed = proof.Kind switch
+                {
+                    PromotionRequirementKind.Item => $"item:{name}",
+                    PromotionRequirementKind.Follower => $"follower:{name[4..]}",
+                    _ => name.StartsWith("errand:", StringComparison.Ordinal) ? $"quest:{name[7..]}" : $"{name}={proof.Amount}",
+                };
+                Seed(party, seed);
+                // The direct owner and the ordinary imported caller must accept the same proof.
+                using PartyEntity direct = PromoterTopicTests.Party(("Candidate", rank.From.Value, rank.Rank - 1));
+                var directProgression = new PartyProgression(MightAndMagic7Progression.Instance, direct, promotions: promotions);
+                Assert.False(directProgression.Promote(rank.Id, rank.Giver).IsGranted);
+                Seed(direct, seed);
+                Assert.True(directProgression.Promote(rank.Id, rank.Giver).IsGranted);
+                MightAndMagic7Fixtures? fixtures = null;
+                var conversation = MightAndMagic7Conversation.Read(catalog, MightAndMagic7Services.Read(catalog), promotions,
+                    events: () => fixtures, party: () => party)!;
+                fixtures = new(events, random: new KeyedTestRandom(), progression: () => progression,
+                    people: conversation.PersonOf, topics: conversation.SpokenTopic, greetings: conversation.HasGreeting,
+                    followers: conversation.Followers, news: conversation.News);
+                var outcome = PromoterTopicTests.Answer(new MightAndMagic7Interaction(fixtures: fixtures), party, $"topic-{Cases[rank.To.Value].Event}");
+                Assert.True(string.IsNullOrEmpty(outcome.Residue), $"{rank.To}: {outcome.Residue}");
+                Assert.Equal(rank.To, party.Members[0].Profile.Class);
+            }
+        }
+    }
+
+    [ImportedFact("global-events.json")]
     public void Every_authored_rank_executes_its_imported_quest_completion_and_cannot_switch_to_its_sibling()
     {
         ContentCatalog catalog = ImportedContent.Playable();

@@ -276,7 +276,8 @@ the counter the party stands at quoted — every number the ruleset's, none of t
 promotes from and to, the rank it reaches, the alternative it takes, the record it leaves, and every
 `PromotionRequirement` it asks for; `IPromotionRule` is the ruleset's one answer over it), judges each
 requirement against the party — a giver the party is speaking with, an item the one inventory holds, a
-record the party carries, which is also how a finished errand is asked for, as the record the quest owner
+joined companion, or a record the party carries (including alternative records of the same deed),
+which is also how a finished errand is asked for, as the record the quest owner
 writes when it is turned in — and moves the class and the rank together, so a ceiling, a
 growth table, and every class condition read one fact rather than three that could drift. `Grant` is the
 same move for one member on terms a game's own scripted program has already judged (a promoter's event): it

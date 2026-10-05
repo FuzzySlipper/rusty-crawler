@@ -71,9 +71,17 @@ internal static class PromotionEligibility
                         : $"needs {requirement}, and the party carries {held.ToString(CultureInfo.InvariantCulture)}");
             }
 
+            case PromotionRequirementKind.Follower:
+            {
+                bool met = party.Followers.Find(new(requirement.Name)) is not null;
+                return new(requirement, met, met ? requirement.ToString() : $"needs {requirement}");
+            }
+
             default:
             {
                 int held = party.Records.CountOf(requirement.Name);
+                foreach (string alternative in requirement.AlternativeAwards)
+                    held = Math.Max(held, party.Records.CountOf(alternative));
                 bool met = held >= requirement.Amount;
                 return new PromotionRequirementVerdict(
                     requirement,

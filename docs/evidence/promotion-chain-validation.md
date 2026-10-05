@@ -35,6 +35,12 @@ fixtures and four eligible members. Removing the ordinary completion proof leave
 rank unchanged; supplying it grants the expected class and rank. Attempting a sibling
 second promotion then leaves the character on the chosen branch. The tests also exercise
 the preceding first promotion before checking each second-rank offer's story condition.
+A cross-check seeds only each displayed proof (including each alternative), verifies the direct owner
+refuses without it and accepts with it, then executes the corresponding imported completion program.
+The 18 initial quest givers lead to 20 granting speakers, because Initiate and Hunter are granted by
+the Spirit of the Water and Faerie King. Alice must be a joined companion; Wizard requires completed
+assembly with either head, rather than the six unassembled pieces.
+
 The class graph, givers, proofs and alternatives are loaded from content; there is no
 compiled list of promotion edges.
 
@@ -93,7 +99,7 @@ variable with the same numeric slot.
 
 ## Automated checks
 
-- Ruleset: 474 passed with the fresh operator import, no skips. This includes all promotion
+- Ruleset: 475 passed with the fresh operator import, no skips. This includes all promotion
   completion/offer checks and the composed companion, departure and chest regressions.
 - Importer: 218 passed, no skips, including the real operator event-argument check.
 - Kit: 855 passed, including projection-cache and silent/visible journey-feedback cases.

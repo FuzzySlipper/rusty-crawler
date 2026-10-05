@@ -3,10 +3,12 @@ namespace PartyRpg.Kit.Promotion;
 /// <summary>What kind of thing a rank asks for before it is given, as the vocabulary this mechanism judges.</summary>
 /// <remarks>
 /// <para>
-/// Three kinds, and each is a shape of state rather than a rule: <see cref="Giver"/> is a person, and it is
+/// Each kind is a shape of canonical party state rather than a game rule: <see cref="Giver"/> is a person, and it is
 /// the person the party is taking the rank from; <see cref="Item"/> is something the party carries, counted
 /// in the one inventory a party has; and <see cref="Award"/> is a record of a deed the party carries, with
 /// how much of it — which is also how a finished errand is asked for, as the record its turn-in leaves.
+/// A follower requirement reads the joined companion owner. An award can name alternative records of
+/// the same deed; any one of them suffices, without requiring duplicate state for equivalent outcomes.
 /// </para>
 /// <para>
 /// The kinds are deliberately few and deliberately closed: a rank's requirement is a named thing of one of
@@ -24,6 +26,9 @@ public enum PromotionRequirementKind
 
     /// <summary>A record of a deed the party carries, by the record's own identity and how much of it.</summary>
     Award,
+
+    /// <summary>A companion currently travelling with the party.</summary>
+    Follower,
 }
 
 /// <summary>One thing a rank asks for: a kind, the identity the owner resolves, and how much of it.</summary>
@@ -71,6 +76,9 @@ public sealed record PromotionRequirement
 
     /// <summary>How it reads to a person, or empty to read as the identity itself.</summary>
     public string Label { get; }
+
+    /// <summary>Other award identities that satisfy the same deed requirement; any one suffices.</summary>
+    public IReadOnlyList<string> AlternativeAwards { get; init; } = [];
 
     /// <summary>A rank given by one person, named by that person's own identity.</summary>
     /// <param name="giver">The person's identity among the people the world carries.</param>

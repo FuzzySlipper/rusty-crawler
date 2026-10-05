@@ -321,6 +321,7 @@ public sealed record PromotionSnapshot(
         PromotionRequirementKind.Giver => "giver",
         PromotionRequirementKind.Item => "item",
         PromotionRequirementKind.Award => "award",
+        PromotionRequirementKind.Follower => "follower",
         _ => "quest",
     };
 

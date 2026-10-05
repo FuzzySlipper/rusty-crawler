@@ -20,7 +20,7 @@
         },
         {
           "kind": "award",
-          "name": "errand:34",
+          "name": "errand:140",
           "amount": 1,
           "label": "explore the Haunted Mansion"
         }
@@ -68,7 +68,7 @@
         },
         {
           "kind": "award",
-          "name": "errand:35",
+          "name": "errand:60",
           "amount": 1,
           "label": "raid the Elven Treasury at Castle Navan"
         }
@@ -116,7 +116,7 @@
         },
         {
           "kind": "award",
-          "name": "errand:19",
+          "name": "errand:20",
           "amount": 1,
           "label": "move the counterweight in Watchtower 6"
         }
@@ -140,9 +140,9 @@
         },
         {
           "kind": "item",
-          "name": "620",
+          "name": "540",
           "amount": 1,
-          "label": "Big Tapestry"
+          "label": "Lady Carmine's Dagger"
         }
       ]
     },
@@ -158,15 +158,15 @@
       "requirements": [
         {
           "kind": "giver",
-          "name": "npc-38",
-          "label": "Bartholomew Hume",
+          "name": "npc-55",
+          "label": "Spirit of the Water",
           "amount": 1
         },
         {
           "kind": "award",
           "name": "errand:27",
           "amount": 1,
-          "label": "find the lost meditation spot in the Dwarven Barrows"
+          "label": "accept Bartholomew Hume’s quest and reach the meditation pool in the Barrows"
         }
       ]
     },
@@ -188,7 +188,7 @@
         },
         {
           "kind": "award",
-          "name": "errand:28",
+          "name": "errand:243",
           "amount": 1,
           "label": "defeat the High Priest of Baa"
         }
@@ -212,9 +212,9 @@
         },
         {
           "kind": "award",
-          "name": "errand:29",
+          "name": "errand:242",
           "amount": 1,
-          "label": "crack the code and enter the Tomb of Ashwar Nog'Nogoth"
+          "label": "open the hidden chest in the Tomb of Ashwar Nog’Nogoth"
         }
       ]
     },
@@ -236,7 +236,7 @@
         },
         {
           "kind": "award",
-          "name": "errand:22",
+          "name": "errand:23",
           "amount": 1,
           "label": "kill Wromthrax the Heartless in his cave in Tatalia"
         }
@@ -259,10 +259,10 @@
           "amount": 1
         },
         {
-          "kind": "award",
-          "name": "errand:24",
+          "kind": "follower",
+          "name": "npc-54",
           "amount": 1,
-          "label": "rescue Alice Hargreaves from William's Tower"
+          "label": "Alice Hargreaves travelling with the party"
         }
       ],
       "opens": "Light",
@@ -285,10 +285,10 @@
           "amount": 1
         },
         {
-          "kind": "award",
-          "name": "errand:26",
+          "kind": "follower",
+          "name": "npc-54",
           "amount": 1,
-          "label": "capture Alice Hargreaves and imprison her in William's Tower"
+          "label": "Alice Hargreaves travelling with the party"
         }
       ],
       "opens": "Dark",
@@ -312,7 +312,7 @@
         },
         {
           "kind": "award",
-          "name": "errand:31",
+          "name": "errand:58",
           "amount": 1,
           "label": "sabotage the lift in the Red Dwarf Mines"
         }
@@ -378,12 +378,12 @@
       "quest": "37",
       "choice": "",
       "award": "promotion:ranger-hunter",
-      "words": "Solve the secret of the entrance to the Faerie Mound in Avlee, speak to the Faerie King, and return to me.",
+      "words": "Accept Ebednezer Sower’s quest, solve the entrance to the Faerie Mound, and speak to the Faerie King.",
       "requirements": [
         {
           "kind": "giver",
-          "name": "npc-45",
-          "label": "Ebednezer Sower",
+          "name": "npc-52",
+          "label": "Faerie King",
           "amount": 1
         },
         {
@@ -412,7 +412,7 @@
         },
         {
           "kind": "award",
-          "name": "errand:36",
+          "name": "errand:41",
           "amount": 1,
           "label": "calm the trees of the Tularean Forest by speaking to the Oldest Tree"
         }
@@ -459,10 +459,10 @@
           "amount": 1
         },
         {
-          "kind": "award",
-          "name": "errand:43",
+          "kind": "item",
+          "name": "683",
           "amount": 1,
-          "label": "find the lost pirate map in the Tidewater Caverns"
+          "label": "Map to Evenmorn Island"
         }
       ]
     },
@@ -484,7 +484,7 @@
         },
         {
           "kind": "award",
-          "name": "errand:42",
+          "name": "errand:62",
           "amount": 1,
           "label": "purify the Altar of Evil in the Temple of the Moon"
         }
@@ -510,7 +510,7 @@
         },
         {
           "kind": "award",
-          "name": "errand:44",
+          "name": "errand:63",
           "amount": 1,
           "label": "deface the Altar of Good in the Temple of the Sun"
         }
@@ -536,7 +536,7 @@
         },
         {
           "kind": "award",
-          "name": "errand:49",
+          "name": "errand:50",
           "amount": 1,
           "label": "visit the three stonehenge monoliths"
         }
@@ -560,7 +560,7 @@
         },
         {
           "kind": "award",
-          "name": "errand:54",
+          "name": "errand:65",
           "amount": 1,
           "label": "lay the Dwarf King's bones to rest in the Barrow Downs"
         }
@@ -607,40 +607,13 @@
           "amount": 1
         },
         {
-          "kind": "item",
-          "name": "639",
+          "kind": "award",
+          "name": "errand:73",
+          "alternatives": [
+            "errand:74"
+          ],
           "amount": 1,
-          "label": "Golem chest"
-        },
-        {
-          "kind": "item",
-          "name": "641",
-          "amount": 1,
-          "label": "Golem head"
-        },
-        {
-          "kind": "item",
-          "name": "642",
-          "amount": 1,
-          "label": "Golem left leg"
-        },
-        {
-          "kind": "item",
-          "name": "643",
-          "amount": 1,
-          "label": "Golem right leg"
-        },
-        {
-          "kind": "item",
-          "name": "644",
-          "amount": 1,
-          "label": "Golem right arm"
-        },
-        {
-          "kind": "item",
-          "name": "645",
-          "amount": 1,
-          "label": "Golem left arm"
+          "label": "a fully assembled Golem (either head)"
         }
       ]
     },
@@ -688,15 +661,9 @@
         },
         {
           "kind": "item",
-          "name": "601",
+          "name": "615",
           "amount": 1,
           "label": "Lich Jar"
-        },
-        {
-          "kind": "item",
-          "name": "602",
-          "amount": 1,
-          "label": "Case of Soul Jars"
         }
       ],
       "opens": "Dark",

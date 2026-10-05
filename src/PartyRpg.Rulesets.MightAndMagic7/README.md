@@ -482,6 +482,10 @@ unlocking or disarming alone cannot grant it. Import retains their source trigge
 and instruction sequence. `OpenEnroth/src/Engine/Evt/Processor.cpp:201-231` documents execution
 starting at the step following the matching lifecycle trigger.
 
+The ladder states the actual completion proof, including joined Alice, the completed Golem with either
+head, and the quest proof records rather than their earlier acceptance records. Initiate and Hunter name
+the remote spirits who grant the rank. These same requirements reach Character and Ranks displays.
+
 The ladder's direct requirement offers remain available to authored scenarios without imported promotion
 programs. Both paths use the same progression owner, class, rank, skill ceilings and path refusal.
 The reachability audit and bounded ordinary promotion playthrough are published in
