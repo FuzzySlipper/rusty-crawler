@@ -274,40 +274,34 @@ public sealed class MonsterAiPolicyTests
     {
         Combatant self = fight.Combatants.First(combatant => combatant.Subject.Placement?.Content.Id == placement);
         if (CreatureHealth.Find(self.Subject.Entity!.Actor) is { } health) health.Wound(health.Current - leave);
-        return ai.Decide(Situation(fight, self)).Action;
+        return ai.Decide(Situation(ai, fight, self)).Action;
     }
 
     /// <summary>One creature's decision, unwounded.</summary>
     private static CreatureDecision Decide(Fixture fixture, MightAndMagic7MonsterAi ai, CombatState fight, string placement) =>
-        ai.Decide(Situation(fight, fight.Combatants.First(combatant => combatant.Subject.Placement?.Content.Id == placement)));
+        ai.Decide(Situation(ai, fight, fight.Combatants.First(combatant => combatant.Subject.Placement?.Content.Id == placement)));
 
     /// <summary>
     /// What one creature is told: every other actor in the fight, with this policy's own answer about each
     /// and the distance between them.
     /// </summary>
-    private static CreatureSituation Situation(CombatState fight, Combatant self)
+    private static CreatureSituation Situation(MightAndMagic7MonsterAi ai, CombatState fight, Combatant self)
     {
-        _ = fight;
         List<CreatureCandidate> candidates = [];
-        foreach (Combatant other in _fight!.Combatants)
+        foreach (Combatant other in fight.Combatants)
         {
             if (ReferenceEquals(other, self)) continue;
             bool party = other.Side == CombatSide.Party;
             candidates.Add(new CreatureCandidate(
                 other,
-                party || _ai!.AreEnemies(self.Subject, other.Subject),
+                party || ai.AreEnemies(self.Subject, other.Subject),
                 party,
                 Distance(self.Subject.Pose, other.Subject.Pose)));
         }
 
-        (int current, int maximum) = _fight.Vitals(self);
-        return new CreatureSituation(self, current, maximum, candidates, Round: 0, PartyPose: _fight.PartyPose);
+        (int current, int maximum) = fight.Vitals(self);
+        return new CreatureSituation(self, current, maximum, candidates, Round: 0, PartyPose: fight.PartyPose);
     }
-
-    /// <summary>The fight and policy the last fixture composed, which the situation helper builds from.</summary>
-    private static CombatState? _fight;
-
-    private static MightAndMagic7MonsterAi? _ai;
 
     private static double Distance(PlacePose from, PlacePose to)
     {
@@ -369,12 +363,7 @@ public sealed class MonsterAiPolicyTests
             _session = MightAndMagic7Ruleset.Instance.CreateSession(RulesetTestContext.RulesetContext(context, ui, combat: true));
             _session.Start();
             _session.Update(RulesetTestContext.Update(1, 1));
-            // The suite's helpers read the last fight through a static, which a suite running in parallel can replace,
-            // so the caller is given this session's own fight.
-            CombatState fight = ((MightAndMagic7Session)_session).Combat!;
-            _fight = fight;
-            _ai = Ai;
-            return fight;
+            return ((MightAndMagic7Session)_session).Combat!;
         }
 
         private IGameSession? _session;
