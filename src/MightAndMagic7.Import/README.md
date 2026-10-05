@@ -86,6 +86,9 @@ Owns:
   faces whose local event opens that house. The actual face's map locates the entrance; the table's unused
   Map column cannot relocate it. A reused event number on another map cannot donate unrelated geometry.
   Conflicting entrances on multiple maps are reported rather than averaged into one false location.
+  Door placement chooses one actual door face ahead of generic trim, rather than averaging disconnected
+  walls into an interior point. A raised door retains its sill height above outdoor terrain; a hanging
+  sign still uses the ground beneath it.
   Equal opening and closing hours normalize there, or on a household's placement, to an all-day window;
   source rows remain unchanged in the building table. Their use runs the existing house event path.
   Emitted counts and a grounded imported-town check are recorded in

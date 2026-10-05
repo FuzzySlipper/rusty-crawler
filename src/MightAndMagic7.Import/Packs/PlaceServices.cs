@@ -331,13 +331,13 @@ public static class PlaceServiceEmitter
             double x = used.Average(face => face.X);
             double y = used.Average(face => face.Y);
 
-            // The point's height is the ground the party walks on rather than the height of the face that
+            // The point's height is the ground or a raised door sill rather than the middle of the face that
             // was chosen for it: a shop's sign hangs two or three hundred units above the street and a
             // door's middle is half a door up, and a party reaches a counter by standing on the ground.
             // A region states that ground in its own height map, which is what the collision and the mover
             // are built from; an interior states no ground under a point, so the chosen face's own lowest
             // corner is the closest thing its geometry says.
-            (double z, string heightSource) = Ground(maps[mapId], x, y, chosen);
+            (double z, string heightSource) = Ground(maps[mapId], x, y, chosen, positionSource == "door-face-centroid");
 
             // Equal source hours mean always open (OpenEnroth UIHouses.cpp:304-317). The counter
             // definition owns service hours; only a household needs them on its placement.
@@ -412,7 +412,7 @@ public static class PlaceServiceEmitter
     /// geometry is its ground, and the lowest corner of the face the point was read from is the closest
     /// statement of it that needs no search through the level.
     /// </remarks>
-    private static (double Height, string Source) Ground(DecodedMap map, double x, double y, Candidate chosen)
+    private static (double Height, string Source) Ground(DecodedMap map, double x, double y, Candidate chosen, bool door)
     {
         if (map is not OutdoorMap outdoor) return (chosen.LowestZ, FaceHeightSource);
 
@@ -422,7 +422,12 @@ public static class PlaceServiceEmitter
         // model spans cells, and a mountain map steps hundreds of units between two of them.
         int cellX = (int)Math.Round((x / 512.0) + 64.5);
         int cellY = (int)Math.Round(63.5 - (y / 512.0));
-        return (outdoor.TerrainHeightAt(cellX, cellY), TerrainHeightSource);
+        double terrain = outdoor.TerrainHeightAt(cellX, cellY);
+        // A raised doorway belongs to its landing, not the terrain beneath the building.
+        // Projecting it down can put the interaction point inside a lower wall or cart.
+        return door && chosen.LowestZ > terrain
+            ? (chosen.LowestZ, FaceHeightSource)
+            : (terrain, TerrainHeightSource);
     }
 
     /// <summary>Whether a row's name is the table's own word for a row it reserves rather than a building.</summary>
@@ -539,7 +544,13 @@ public static class PlaceServiceEmitter
         if (signs.Count > 0) return (signs[0], signs, "sign-face-centroid");
 
         List<Candidate> doors = [.. faces.Where(face => LooksLikeDoor(face.Texture))];
-        if (doors.Count > 0) return (doors[0], doors, "door-face-centroid");
+        if (doors.Count > 0)
+        {
+            // Trim can cover many disconnected walls of one house event. Prefer an actual
+            // door texture and keep one real face; their average can lie inside the building.
+            Candidate door = doors.FirstOrDefault(face => !face.Texture.StartsWith("trim", StringComparison.OrdinalIgnoreCase)) ?? doors[0];
+            return (door, [door], "door-face-centroid");
+        }
 
         Candidate lowest = faces[0];
         foreach (Candidate face in faces)

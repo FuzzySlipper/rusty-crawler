@@ -27,6 +27,49 @@ namespace MightAndMagic7.Import.Tests;
 /// </remarks>
 public sealed class ServiceEmissionTests
 {
+    [Fact]
+    public void A_raised_outdoor_door_keeps_its_sill_above_the_terrain()
+    {
+        string installRoot = SyntheticInstallation.Create(withServices: true);
+        try
+        {
+            Mm7Tables tables = Mm7Tables.Read(LodInstall.Open(installRoot));
+            DecodedMap map = MapDecoder.DecodeOutdoor(LodFixture.Stored("own.odm",
+                MapDecoderTests.OutdoorPayload(peakHeight: 0, faceEvent: 11)));
+            PlaceServiceSummary result = PlaceServiceEmitter.Emit(tables.Services, tables,
+                [EvtProgram.Read("own.evt", SyntheticInstallation.SpeakInHouse(11, 98))],
+                new Dictionary<int, DecodedMap> { [SyntheticInstallation.ServiceMap(98)] = map });
+            PlaceServicePlacement counter = Assert.Single(result.Placements);
+            Assert.Equal("door-face-centroid", counter.PositionSource);
+            Assert.Equal(300, counter.Z);
+            Assert.Equal(PlaceServiceEmitter.FaceHeightSource, counter.HeightSource);
+        }
+        finally { Directory.Delete(installRoot, recursive: true); }
+    }
+
+    [Fact]
+    public void A_counter_uses_one_real_door_instead_of_averaging_disconnected_trim_and_doors()
+    {
+        string installRoot = SyntheticInstallation.Create(withServices: true);
+        try
+        {
+            Mm7Tables tables = Mm7Tables.Read(LodInstall.Open(installRoot));
+            DecodedMap map = MapDecoder.DecodeIndoor(LodFixture.Stored("own.blv",
+                ContainerDecoderTests.ContainerIndoorPayload([11, 11, 11], spacing: 2000,
+                    faceTextures: ["trimD", "Hhm1d", "Hhm1d"])));
+            PlaceServiceSummary result = PlaceServiceEmitter.Emit(tables.Services, tables,
+                [EvtProgram.Read("own.evt", SyntheticInstallation.SpeakInHouse(11, 98))],
+                new Dictionary<int, DecodedMap> { [SyntheticInstallation.ServiceMap(98)] = map });
+            PlaceServicePlacement counter = Assert.Single(result.Placements);
+            Assert.Equal("door-face-centroid", counter.PositionSource);
+            Assert.Equal(1, counter.SourceFaceIndex);
+            Assert.Equal(map.Faces[1].Vertices.Average(point => (double)point.X), counter.X);
+            Assert.Equal(map.Faces[1].Vertices.Average(point => (double)point.Y), counter.Y);
+            Assert.Equal(3, counter.FaceCount);
+        }
+        finally { Directory.Delete(installRoot, recursive: true); }
+    }
+
     [Theory]
     [InlineData(98, true)]
     [InlineData(99, true)]

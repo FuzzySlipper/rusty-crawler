@@ -226,7 +226,7 @@ public sealed class ContainerDecoderTests
     /// <param name="faceEventIds">The event each face raises, in face order.</param>
     /// <param name="spacing">How far apart the faces stand along the level's first axis.</param>
     /// <param name="faceAttributes">Each face's attribute word, in face order, or none for faces that carry none.</param>
-    internal static byte[] ContainerIndoorPayload(IReadOnlyList<int> faceEventIds, int spacing = 100, IReadOnlyList<uint>? faceAttributes = null)
+    internal static byte[] ContainerIndoorPayload(IReadOnlyList<int> faceEventIds, int spacing = 100, IReadOnlyList<uint>? faceAttributes = null, IReadOnlyList<string>? faceTextures = null)
     {
         DeltaWriter writer = new();
         writer.U32(1);
@@ -271,7 +271,7 @@ public sealed class ContainerDecoderTests
             writer.I16(0).I16(0).I16(10).I16(0);
         }
 
-        for (int index = 0; index < faceEventIds.Count; index++) writer.Text("Cfb1", 10);
+        for (int index = 0; index < faceEventIds.Count; index++) writer.Text(faceTextures?[index] ?? "Cfb1", 10);
 
         writer.U32((uint)faceEventIds.Count);
         int extra = writer.Length;

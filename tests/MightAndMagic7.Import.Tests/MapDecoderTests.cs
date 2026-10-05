@@ -584,7 +584,7 @@ public sealed class MapDecoderTests
     /// Whether the terrain's first row of squares is the second tileset's base tile, which the fixture's tile table makes
     /// water — and the row's last stored byte the tile after it, a shore.
     /// </param>
-    internal static byte[] OutdoorPayload(int extraVertices = 0, byte peakHeight = 5, bool waterRow = false)
+    internal static byte[] OutdoorPayload(int extraVertices = 0, byte peakHeight = 5, bool waterRow = false, ushort faceEvent = 0)
     {
         const int terrainCells = 128 * 128;
         MapWriter writer = new();
@@ -636,6 +636,7 @@ public sealed class MapDecoderTests
         writer.SetI16Array(face + 0x70, FaceSlots([0, 0, 10]));
         writer.SetI16(face + 0x112, 2);
         writer.SetI16(face + 0x114, -2);
+        writer.SetU16(face + 0x124, faceEvent);
         writer.SetU8(face + 0x12E, 3);          // corners
         writer.SetU8(face + 0x12F, 4);          // polygon type
 
