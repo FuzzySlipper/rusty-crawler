@@ -177,52 +177,113 @@ public sealed class PartyInteraction : IWorldInteractionScene
         return _result;
     }
 
-    /// <summary>Reads the Engine's current aim with an explicit action reach, then restores ordinary reach.</summary>
-    /// <remarks>The same selection and scene acquire the target; this grants no targeted-use assistance.</remarks>
+    /// <summary>
+    /// Reads what the Engine's selection would hold if one action — a spell, say — reached further than an
+    /// ordinary use and addressed only some kinds of target, without moving the party's ordinary focus.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The same scene builds the same candidates from the same placements, poses and sight; only the reach each
+    /// candidate carries and which candidates are offered are scoped to the action. The Engine's
+    /// <see cref="WorldInteraction.Preview"/> then answers by the same acquisition, retention and ranking an
+    /// ordinary refresh uses, and the sticky selection a player built with aim and cycling stays where it was.
+    /// </para>
+    /// <para>
+    /// The answer is only a ready target: one out of the action's reach, out of sight or unavailable is not
+    /// offered, because offering it would invite a casting the Engine will refuse.
+    /// </para>
+    /// </remarks>
+    /// <param name="reach">How far the action reaches, in the Engine's world units.</param>
+    /// <param name="eligible">Which targets the action addresses, or null for every target ordinary use offers.</param>
+    /// <returns>The target the action would address, or null when it would address nothing.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The reach is not a finite positive distance.</exception>
     public InteractionTarget? AimAtReach(double reach, Func<InteractionTargetDefinition, bool>? eligible = null)
     {
         CheckReach(reach);
-        double? previous = _reach;
-        var previousEligible = _eligible;
-        try
+        return Scoped(reach, eligible, () =>
         {
-            _reach = reach;
-            _eligible = eligible;
-            Update();
-            return FocusReason == InteractionReason.Ready ? FocusedTarget : null;
-        }
-        finally
-        {
-            _reach = previous;
-            _eligible = previousEligible;
-            Update();
-        }
+            InteractionReadout preview = _selection.Claim(this).Preview();
+            return preview is { Reason: InteractionReason.Ready, Selected: { } selected } ? _targets.Find(target => target.Number == selected.Id) : null;
+        });
     }
 
-    /// <summary>Uses an earlier aim at explicit reach through the same freshly validated Engine focus.</summary>
-    /// <remarks>A changed place, content identity, runtime number or revision refuses before resolution.</remarks>
+    /// <summary>
+    /// Uses an earlier action aim through the Engine's own focused use, at the action's reach, and reports what
+    /// came of it as any use is reported.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The aim is previewed again from fresh facts first. A different place, placement, runtime number or revision
+    /// — the party turned, walked, or the target changed since it was offered — is refused before anything
+    /// moves, and the ordinary focus is left as it was. Only an aim that is still what the selection would hold
+    /// becomes the Engine's focus, so the use is admitted by <see cref="WorldInteraction.UseFocused"/>: identity,
+    /// revision, reach, sight and availability are re-checked there, and the target reaches the one use workflow
+    /// through the scene's own handler. Target-ID assistance stays off.
+    /// </para>
+    /// <para>
+    /// Afterwards the focus is refreshed from ordinary facts, so a target the action reached across the room drops
+    /// out of the reticle and ordinary Use keeps its own reach.
+    /// </para>
+    /// </remarks>
+    /// <param name="expected">The aim the action was offered.</param>
+    /// <param name="reach">How far the action reaches, in the Engine's world units.</param>
+    /// <param name="eligible">Which targets the action addresses, or null for every target ordinary use offers.</param>
+    /// <returns>The use's result.</returns>
+    /// <exception cref="ArgumentNullException">The aim is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The reach is not a finite positive distance.</exception>
     public InteractionResult UseAtReach(InteractionTarget expected, double reach, Func<InteractionTargetDefinition, bool>? eligible = null)
     {
         ArgumentNullException.ThrowIfNull(expected);
         CheckReach(reach);
+        bool focused = false;
+        try
+        {
+            return Scoped(reach, eligible, () =>
+            {
+                WorldInteraction selection = _selection.Claim(this);
+                InteractionReadout preview = selection.Preview();
+                InteractionTarget? fresh = preview is { Reason: InteractionReason.Ready, Selected: { } selected }
+                    ? _targets.Find(target => target.Number == selected.Id)
+                    : null;
+                if (fresh is null || fresh.Id != expected.Id || fresh.Number != expected.Number || fresh.State.Revision != expected.State.Revision)
+                {
+                    _result = InteractionResult.Refused(expected, new Refusal(
+                        InteractionCodes.InteractionTargetChanged,
+                        $"{expected.Definition.Name} is no longer what the party faces as it was; face it again."));
+                    return _result;
+                }
+
+                focused = true;
+                _focus = selection.Update();
+                AdoptFocus();
+                return Use();
+            });
+        }
+        finally
+        {
+            if (focused)
+            {
+                _focus = _selection.Claim(this).Update();
+                AdoptFocus();
+            }
+        }
+    }
+
+    /// <summary>Runs one read of the scene with an action's reach and eligibility, then restores ordinary facts.</summary>
+    private T Scoped<T>(double reach, Func<InteractionTargetDefinition, bool>? eligible, Func<T> read)
+    {
         double? previous = _reach;
-        var previousEligible = _eligible;
+        Func<InteractionTargetDefinition, bool>? previousEligible = _eligible;
         try
         {
             _reach = reach;
             _eligible = eligible;
-            Update();
-            if (FocusedTarget is not { } fresh || fresh.Id != expected.Id ||
-                fresh.Number != expected.Number || fresh.State.Revision != expected.State.Revision)
-                return _result = InteractionResult.Refused(expected, new Refusal(InteractionCodes.InteractionTargetGone,
-                    "The earlier aim is no longer the available target the party faces."));
-            return Use();
+            return read();
         }
         finally
         {
             _reach = previous;
             _eligible = previousEligible;
-            Update();
         }
     }
 

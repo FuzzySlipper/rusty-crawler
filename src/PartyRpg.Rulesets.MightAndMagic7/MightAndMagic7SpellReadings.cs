@@ -663,8 +663,8 @@ internal static class Readings
     internal static SpellReading WorldUse() => SpellReading.None with
     {
         UsesWorld = true,
-        Expresses = "the faced visible door or container at stated spell reach, through the same Engine scene and canonical use workflow",
-        Divergence = "doors and containers only; traps and requirements remain ordinary uses rather than the donor's Telekinesis trap bypass; ordinary Use retains its reach",
+        Expresses = "the faced, visible door or container (a body included) at the spell's tuned reach, used through the party's one interaction and use workflow",
+        Divergence = "doors and containers only, not the donor's item pickup or event decorations; a lock, a requirement or a trap answers as an ordinary use would, so a sprung trap harms the party where the donor's blast reaches only a party near the chest; ordinary Use keeps its own reach",
     };
 
     internal static SpellReading Dispel() => SpellReading.None with { Dispels = true };

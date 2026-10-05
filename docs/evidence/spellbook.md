@@ -32,4 +32,4 @@ assigning and casting it, and a refusal case); this reading routes the live mixi
 - Recovery and target refusals are the casting workflow's answers at cast time, shown in the outcome line; the
   page's standing reason covers what the caster alone decides — learned, rung, points, and a school the caster's
   path closed.
-- World-targeted Telekinesis remains #9145 and is not claimed.
+- World-targeted Telekinesis was outside this reading; the [Telekinesis reading](telekinesis.md) records it.

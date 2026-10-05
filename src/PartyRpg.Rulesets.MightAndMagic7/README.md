@@ -908,8 +908,30 @@ ordinary buy/sell/identify/repair operations. Artifacts keep fixed definition id
 one-copy registry. The complete original special-item power repertoire is not claimed.
 
 The [item-effect record](../../docs/evidence/item-enchanting.md) records focused checks and live limits.
-World-targeted Telekinesis is not implemented. The selected fixed powers and ordinary Genie Lamp use
-are implemented below; the complete original special-item repertoire is not claimed.
+The selected fixed powers and ordinary Genie Lamp use are implemented below; the complete original
+special-item repertoire is not claimed.
+
+## Telekinesis
+
+Telekinesis (spell 42) reaches a door or a container — a body lying where it fell included — across the
+room through the party's one interaction, not through a spell-side spatial search. Its spellbook aim is the
+target the Engine's selection would hold at the spell's reach, read with `PartyInteraction.AimAtReach`, a
+preview that leaves the ordinary reticle and its sticky choice where they were. The aim names place,
+placement, runtime number and revision, so a party that turned, walked or saw the target change is refused
+(`spell-world-target-unavailable`) before a point is spent; so is a cast with nothing eligible in reach and
+in sight. A judged aim is used through `SessionOwners.UseAtReach`: the Engine's focused-use admission
+re-checks reach, sight and availability, and the one use workflow then judges requirements, traps, yield and
+state, reports, travels and teaches as an ordinary use, opening a conversation when somebody stands at a
+door. A lock, a requirement or a trap met there is the use's answer, and the casting is spent, as the donor
+spends a cast that reached its target. Ordinary Use keeps its own reach.
+
+The `spell.telekinesis-reach` tuning defaults to 5120, the donor's ranged-target depth
+(`src/Application/GameConfig.h:196`, read in `src/Engine/Engine.cpp:457-460`). The donor dispatches a
+Telekinesis target's pickup, loot or event (`src/Engine/Spells/CastSpellInfo.cpp:2161-2207`) and refuses an
+untargeted cast without spending (a change it notes from the original, which spent); this repertoire is narrower — no item pickup and no event decorations —
+and a sprung trap harms the party as an ordinary use's does, where the donor's blast reaches only a party
+within 768 units (`src/Engine/Objects/SpriteObject.cpp:512-517`). The
+[Telekinesis reading](../../docs/evidence/telekinesis.md) records focused checks and the bounded live cast.
 
 ## Preservation
 

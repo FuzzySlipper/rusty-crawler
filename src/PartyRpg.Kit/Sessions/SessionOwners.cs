@@ -1,6 +1,7 @@
 using PartyRpg.Kit.Alchemy;
 using PartyRpg.Kit.Combat;
 using PartyRpg.Kit.Conversation;
+using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Journal;
 using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit.Magic;
@@ -92,6 +93,47 @@ public sealed class SessionOwners
 
     /// <summary>What the party has mapped.</summary>
     public PartyMaps? Maps { get; private set; }
+
+    /// <summary>
+    /// Uses an earlier action aim — a spell that reaches further than a hand — through the live world's one
+    /// interaction, and settles what it did exactly as an ordinary use is settled.
+    /// </summary>
+    /// <remarks>
+    /// The world reports the use and takes any journey it leads to (<see cref="SessionWorld.InteractAtReach"/>);
+    /// what the use taught then goes to the knowledge owner and a use that lands on somebody opens the
+    /// conversation, which is what the party's own use control does after the same workflow.
+    /// </remarks>
+    /// <param name="expected">The aim the action was offered.</param>
+    /// <param name="reach">How far the action reaches, in the Engine's world units.</param>
+    /// <param name="eligible">Which targets the action addresses, or null for every target ordinary use offers.</param>
+    /// <returns>The use's result, or null when there is no world to use anything in.</returns>
+    public InteractionResult? UseAtReach(InteractionTarget expected, double reach, Func<InteractionTargetDefinition, bool>? eligible = null) =>
+        Settle(World?.InteractAtReach(expected, reach, eligible));
+
+    /// <summary>Settles what a use did beyond its own workflow: what it taught, and whom it lands on.</summary>
+    /// <remarks>
+    /// A use that lands on somebody opens the conversation with them, which is the one way a person is reached:
+    /// what stands behind them — a counter, a household, an errand — is offered from inside that conversation.
+    /// What a use taught is handed to the knowledge owner, which decides whether it is news.
+    /// </remarks>
+    internal InteractionResult? Settle(InteractionResult? result)
+    {
+        if (result is { IsApplied: true, Learned.Count: > 0 } taught && Knowledge is { } knowledge)
+        {
+            foreach (KnowledgeReport report in taught.Learned) knowledge.Record(report);
+        }
+
+        if (result is { IsApplied: true, Target: { } target } && Conversations is { } conversations)
+        {
+            // A use that hands the party to somebody — a fixture whose event calls a person over — opens the
+            // conversation with them; a use that led the party away, or a door that kept it outside, opens none; every
+            // other use opens one only when somebody stands at the placement.
+            if (result.Speaks is { } subject) conversations.Open(target.Id.Place, target.Placement, subject);
+            else if (result.Travels is null && !result.KeptOut) conversations.OpenTarget(target.Id.Place, target.Placement);
+        }
+
+        return result;
+    }
 
     /// <summary>The one state every attack is paced by.</summary>
     public CombatState? Combat { get; private set; }

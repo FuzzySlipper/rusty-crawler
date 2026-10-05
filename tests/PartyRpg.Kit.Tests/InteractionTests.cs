@@ -163,18 +163,50 @@ public sealed class InteractionTests
     }
 
     [Fact]
-    public void Action_reach_uses_the_same_engine_focus_and_restores_ordinary_reach()
+    public void Action_reach_previews_without_moving_focus_and_uses_through_the_engine_focused_admission()
     {
         TestRule rule = new(only: "chest");
         rule.Outcomes["chest"] = (_, _) => InteractionOutcome.Applied("searched", "The chest is searched.");
         using Hall hall = Hall.Build(rule, new PlacePose(-900, 0, 0, 1536, 0));
+        hall.Interaction.Update();
+        Assert.Equal(InteractionReason.OutOfReach, hall.Interaction.FocusReason);
+
+        // The preview answers at the action's reach while the ordinary reticle keeps its own answer.
         InteractionTarget target = Assert.IsType<InteractionTarget>(hall.Interaction.AimAtReach(1200));
         Assert.Equal(InteractionReason.OutOfReach, hall.Interaction.FocusReason);
+        Assert.Null(hall.Interaction.FocusedTarget);
         Assert.Equal(InteractionCodes.InteractionOutOfReach, hall.Interaction.Use().Code);
-        Assert.True(hall.World.InteractAtReach(target, 1200)!.IsApplied);
+        Assert.Empty(hall.World.Interactions.StateOf(HallPlace, target.Content).State);
+
+        InteractionResult used = hall.World.InteractAtReach(target, 1200)!;
+        Assert.True(used.IsApplied);
         Assert.Equal("searched", hall.World.Interactions.StateOf(HallPlace, target.Content).State);
+
+        // Afterwards ordinary facts hold again: the chest is out of an ordinary hand's reach.
+        Assert.Equal(InteractionReason.OutOfReach, hall.Interaction.FocusReason);
         Assert.Equal(InteractionCodes.InteractionOutOfReach, hall.Interaction.Use().Code);
         Assert.Null(hall.Interaction.AimAtReach(500));
+    }
+
+    [Fact]
+    public void An_action_preview_leaves_a_cycled_sticky_focus_where_the_player_put_it()
+    {
+        using Hall hall = Hall.Build(new TestRule(), Hall.Facing("door-0"), tuning: new InteractionTuning(Math.PI * 0.4, Math.PI * 0.5));
+        hall.Interaction.Update();
+        PlacementContentId first = hall.Interaction.FocusedTarget!.Content;
+        hall.Interaction.Update(1);
+        PlacementContentId cycled = hall.Interaction.FocusedTarget!.Content;
+        Assert.NotEqual(first, cycled);
+
+        // An action that addresses only what the player did not cycle to still finds its own target ...
+        Func<InteractionTargetDefinition, bool> other = definition => definition.Kind.Value == first.Kind;
+        InteractionTarget aimed = Assert.IsType<InteractionTarget>(hall.Interaction.AimAtReach(5000, other));
+        Assert.Equal(first.Kind, aimed.Content.Kind);
+
+        // ... and the player's sticky choice survives both the preview and the next ordinary refresh.
+        Assert.Equal(cycled, hall.Interaction.FocusedTarget!.Content);
+        hall.Interaction.Update();
+        Assert.Equal(cycled, hall.Interaction.FocusedTarget!.Content);
     }
 
     [Theory]
@@ -188,7 +220,9 @@ public sealed class InteractionTests
         InteractionTarget target = Assert.IsType<InteractionTarget>(hall.Interaction.AimAtReach(1200));
         if (revised) hall.World.Interactions.Record(HallPlace, target.Content, "changed");
         else hall.Move(new PlacePose(-900, 0, 0, 512, 0));
-        Assert.False(hall.World.InteractAtReach(target, 1200)!.IsApplied);
+        InteractionResult refused = hall.World.InteractAtReach(target, 1200)!;
+        Assert.False(refused.IsApplied);
+        Assert.Equal(InteractionCodes.InteractionTargetChanged, refused.Code);
         Assert.Equal(revised ? "changed" : "", hall.World.Interactions.StateOf(HallPlace, target.Content).State);
     }
 
@@ -201,7 +235,6 @@ public sealed class InteractionTests
         Assert.Equal("chest", hall.Interaction.AimAtReach(1200, definition => definition.Kind.Value == "chest")!.Definition.Kind.Value);
         using Hall blind = Hall.Build(new TestRule(only: "chest"), new PlacePose(-900, 0, 0, 1536, 0), mover: new BlindMover());
         Assert.Null(blind.Interaction.AimAtReach(1200));
-        Assert.Equal(InteractionReason.Occluded, blind.Interaction.FocusReason);
         Assert.Empty(blind.World.Interactions.StateOf(HallPlace, new("chest", "chest-0")).State);
     }
 

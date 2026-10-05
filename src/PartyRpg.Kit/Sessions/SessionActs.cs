@@ -49,29 +49,14 @@ internal sealed class SessionActs(SessionOwners owners, SessionControls controls
     /// front of it.
     /// </summary>
     /// <remarks>
-    /// A use that lands on somebody opens the conversation with them, which is the one way a person is reached:
-    /// what stands behind them — a counter, a household, an errand — is offered from inside that conversation.
-    /// What a use taught is handed to the knowledge owner, which decides whether it is news.
+    /// What the use taught and whom it lands on are settled by <see cref="SessionOwners.Settle"/>, the same
+    /// settlement a spell's use across the room takes.
     /// </remarks>
     public void Interact(ActionInbox input)
     {
         if (owners.World is not { } world) return;
         int cycleDirection = _use?.ReadCycle(input) ?? 0;
-        InteractionResult? result = world.Interact(_use is not null && _use.Read(input), cycleDirection);
-
-        if (result is { IsApplied: true, Learned.Count: > 0 } taught && owners.Knowledge is { } knowledge)
-        {
-            foreach (KnowledgeReport report in taught.Learned) knowledge.Record(report);
-        }
-
-        if (result is { IsApplied: true, Target: { } target } && owners.Conversations is { } conversations)
-        {
-            // A use that hands the party to somebody — a fixture whose event calls a person over — opens the
-            // conversation with them; a use that led the party away, or a door that kept it outside, opens none; every
-            // other use opens one only when somebody stands at the placement.
-            if (result.Speaks is { } subject) conversations.Open(target.Id.Place, target.Placement, subject);
-            else if (result.Travels is null && !result.KeptOut) conversations.OpenTarget(target.Id.Place, target.Placement);
-        }
+        owners.Settle(world.Interact(_use is not null && _use.Read(input), cycleDirection));
     }
 
     /// <summary>Applies the conversation commands this update carried while somebody is being spoken with.</summary>

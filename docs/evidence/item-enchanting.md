@@ -39,7 +39,7 @@ durations follow the stated policy. Permanent property selection is uniform over
 weapon/passive repertoire rather than original weighted tables; elemental and dragon damage magnitudes
 and trade premiums are ours. All original special-item powers and original enchantment numerical
 equivalence are not claimed. Selected fixed powers and ordinary Genie Lamp use are recorded in [special item powers](special-item-powers.md). World-targeted
-Telekinesis is receiver #9145; character Preservation is receiver #9146, correcting the old gear-protection
+Telekinesis is recorded in [its own reading](telekinesis.md); character Preservation is receiver #9146, correcting the old gear-protection
 reading against `Character.cpp:1310-1321`.
 
 ## Focused evidence

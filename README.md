@@ -361,3 +361,6 @@ potion drinker remains unconscious after otherwise lethal wounds, until the orig
 party save carries damage past zero; expiry neither heals nor resurrects. The spell keeps this game's
 caster-only carrier, approximating the donor's ally/party targeting. The [Preservation reading](docs/evidence/preservation.md)
 states the checks and live limits. Selected fixed artifact/relic powers and ordinary Genie Lamp permanent resistance use actual equipment and custody; unknown fixed powers are named. The [special-item reading](docs/evidence/special-item-powers.md) states the approximate repertoire.
+Telekinesis aims from the spellbook at the door or container the party faces across the room and uses it
+through the same interaction and use workflow, while ordinary Use keeps its own reach; the
+[Telekinesis reading](docs/evidence/telekinesis.md) states the approximation.

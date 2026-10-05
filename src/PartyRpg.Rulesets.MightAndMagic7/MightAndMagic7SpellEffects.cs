@@ -1,6 +1,5 @@
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Interaction;
-using PartyRpg.Kit.Knowledge;
 using PartyRpg.Kit;
 using System.Globalization;
 using PartyRpg.Kit.Combat;
@@ -43,7 +42,7 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
 {
     private readonly MightAndMagic7Spells _spells;
     private readonly double _worldUseReach;
-    private readonly Func<PartyKnowledge?> _knowledge;
+    private readonly Func<SessionOwners?> _owners;
     private readonly GameClock? _clock;
     private readonly Func<SessionWorld?> _world;
     private readonly Func<MightAndMagic7Combat?> _combat;
@@ -83,9 +82,9 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         Func<MightAndMagic7Followers?>? followers = null,
         Func<PartyProgression?>? progression = null,
         double? worldUseReach = null,
-        Func<PartyKnowledge?>? knowledge = null)
+        Func<SessionOwners?>? owners = null)
     {
-        _knowledge = knowledge ?? (() => null);
+        _owners = owners ?? (() => null);
         _worldUseReach = worldUseReach ?? MightAndMagic7Tuning.TelekinesisReach.Default;
         _items = items;
         _followers = followers ?? (() => null);
@@ -141,10 +140,7 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
                 : new Refusal("spell-follower-owner-absent", "This session supplies no companion and standing owners for Sacrifice.");
         if (reading.ItemMagic is { } itemShape)
             return _items is { } items ? items.Judge(application, itemShape) : new Refusal(MightAndMagic7Codes.ItemMagicTarget, "This composition supplies no item-table effect owner.");
-        if (reading.UsesWorld)
-            return WorldAim() is { } target && AimIdentity(target) == application.TargetName
-                ? null
-                : new Refusal(MightAndMagic7Codes.SpellWorldTargetUnavailable, "The earlier door or container aim is stale, unavailable, out of spell reach or out of sight; face an eligible target again.");
+        if (reading.UsesWorld) return JudgeWorldAim(application);
         if (reading.Unaimable)
         {
             return SpellRefusals.TargetUnavailable(application.Spell.Name, reading.Missing, reading.Receiver);
@@ -313,14 +309,34 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         return places;
     }
 
-    private InteractionTarget? WorldAim()
+    /// <summary>
+    /// Judges a world-aimed casting before it is paid for: the aim must still be the door or container the party's
+    /// own interaction would address at the spell's reach, in sight and available.
+    /// </summary>
+    private Refusal? JudgeWorldAim(SpellApplication application)
     {
-        InteractionTarget? target = _world()?.Interaction?.AimAtReach(_worldUseReach, EligibleWorldUse);
-        return target?.Definition.Kind.Value is "door" or "container" ? target : null;
+        if (_owners() is null || _world()?.Interaction is null)
+            return new Refusal(MightAndMagic7Codes.SpellWorldTargetUnavailable, $"{application.Spell.Name} needs a world to reach into, and the party stands in none.");
+        if (WorldAim() is not { } target)
+            return new Refusal(MightAndMagic7Codes.SpellWorldTargetUnavailable,
+                $"{application.Spell.Name} finds no door or container the party faces within its reach and in sight.");
+        if (AimIdentity(target) != application.TargetName)
+            return new Refusal(MightAndMagic7Codes.SpellWorldTargetUnavailable,
+                $"{application.Spell.Name} was aimed at something the party no longer faces as it was; {target.Definition.Name} is what it would reach now.");
+        return null;
     }
 
-    private static bool EligibleWorldUse(InteractionTargetDefinition target) => target.Kind.Value is "door" or "container";
+    /// <summary>
+    /// The door or container the party's one interaction would address at the spell's reach, read as a preview so
+    /// the ordinary reticle is not moved by a spellbook that is merely open.
+    /// </summary>
+    private InteractionTarget? WorldAim() => _world()?.Interaction?.AimAtReach(_worldUseReach, EligibleWorldUse);
 
+    /// <summary>What Telekinesis reaches: doors and containers, a body lying where it fell included.</summary>
+    private static bool EligibleWorldUse(InteractionTargetDefinition target) =>
+        target.Kind.Value is MightAndMagic7Interaction.DoorTargetKind or MightAndMagic7Containers.TargetKind;
+
+    /// <summary>The aim's durable name on the wire: place, placement, runtime number and revision.</summary>
     private static string AimIdentity(InteractionTarget target) => string.Join("|",
         "world-use", Uri.EscapeDataString(target.Id.Place.Value),
         Uri.EscapeDataString(target.Content.Kind), Uri.EscapeDataString(target.Content.Id),
@@ -1286,15 +1302,15 @@ internal sealed class MightAndMagic7SpellEffects : ISpellEffectRule, ISpellAimRu
         if (reading.ItemMagic is { } itemShape) return _items!.Apply(application, itemShape);
         if (reading.UsesWorld)
         {
+            // The aim was judged before payment; the use re-checks it once more through the Engine's admission, and
+            // what a lock, a trap or the target's own answer says is the use workflow's, reported as the casting's.
             InteractionTarget? target = WorldAim();
-            if (target is null || AimIdentity(target) != application.TargetName)
-                return Unexpressed(application, "the earlier world aim is no longer available");
-            InteractionResult? result = _world()!.InteractAtReach(target, _worldUseReach, EligibleWorldUse);
+            if (target is null || AimIdentity(target) != application.TargetName || _owners() is not { } owners)
+                return Unexpressed(application, "the door or container it was aimed at is no longer what the party faces");
+            InteractionResult? result = owners.UseAtReach(target, _worldUseReach, EligibleWorldUse);
             if (result is null || !result.IsApplied)
                 return SpellApplicationOutcome.Unexpressed(application.Spell.Effect,
                     $"{application.Spell.Name}: {result?.Message ?? "No world interaction is available."}");
-            if (_knowledge() is { } knowledge)
-                foreach (KnowledgeReport report in result.Learned) knowledge.Record(report);
             return SpellApplicationOutcome.Expressed(application.Spell.Effect,
                 $"{application.Spell.Name}: {result.Message}",
                 [new SpellEffectFact("world-use", target.Id.ToString()), new SpellEffectFact("state", result.State)]);

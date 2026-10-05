@@ -131,8 +131,8 @@ the shipped `POTION.TXT` states what each potion is for in words and no numbers 
 | light | 1 | 0 | 0 | 1 |
 | travel | 3 | 3 | 0 | 6 |
 | detection | 3 | 0 | 0 | 3 |
-| utility | 8 | 10 | 1 | 19 |
-| **all** | **80** | **18** | **1** | **99** |
+| utility | 8 | 11 | 0 | 19 |
+| **all** | **80** | **19** | **0** | **99** |
 
 ## Every spell
 
@@ -182,7 +182,7 @@ master, and four grand master.
 | 39 | damage | 2 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 40 | condition | 2 | ally | implemented | the named conditions lifted through the member's own condition state |  |
 | 41 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
-| 42 | utility | 3 | none | not yet | a door or a container across the room | world-targeted spell admission through the current interaction owner |
+| 42 | utility | 3 | none | approximated | doors and containers only, not the donor's item pickup or event decorations; a lock, a requirement or a trap answers as an ordinary use would, so a sprung trap harms the party where the donor's blast reaches only a party near the chest; ordinary Use keeps its own reach |  |
 | 43 | damage | 3 | foe | implemented | harm resolved through the fight's own path: the spell's own dice, the target's resistance, and the condition a landed hit leaves |  |
 | 44 | damage | 4 | foe | approximated | the donor takes a share of the target's current health; this rolls the row's base and dice |  |
 | 45 | detection | 1 | caster | implemented | a report read from the places and the population the world holds |  |
