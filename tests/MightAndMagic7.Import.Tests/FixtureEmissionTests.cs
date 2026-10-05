@@ -22,6 +22,39 @@ public sealed class FixtureEmissionTests
     private const uint PressurePlate = PlaceEntranceEmitter.PressurePlateAttribute;
 
     [Fact]
+    public void Departure_and_chest_side_effect_programs_retain_their_trigger_and_chest_identity()
+    {
+        byte[] program = [.. Record(2, 0, 53), .. Record(2, 1, EvtOpcodes.Exit),
+            .. Record(181, 0, EvtOpcodes.OpenChest, 4),
+            .. Record(181, 1, EvtOpcodes.Add, [.. U16(0x10), .. I32(242)]),
+            .. Record(181, 2, EvtOpcodes.Exit),
+            .. Record(195, 0, EvtOpcodes.OpenChest, 4),
+            .. Record(195, 1, EvtOpcodes.Add, [.. U16(0x10), .. I32(999)])];
+        var summary = PlaceFixtureEmitter.Emit(new Dictionary<int, DecodedMap> { [7] = Interior((181, Clickable)) },
+            [EvtProgram.Read("d01.evt", program)], new Dictionary<string, MapStrings>());
+        Assert.Equal("on-map-leave", summary.Events.Single(e => e.EventId == 2).Steps[0].Op);
+        Assert.False(summary.Events.Single(e => e.EventId == 2).Triggered);
+        var chest = summary.Events.Single(e => e.EventId == 181);
+        Assert.Equal(4, chest.Steps[0].Index);
+        Assert.Equal("add", chest.Steps[1].Op);
+        Assert.DoesNotContain(summary.Events, e => e.EventId == 195); // No face raises this unrelated chest program.
+        Assert.Empty(summary.Fixtures); // The existing container owns the clickable surface.
+    }
+
+    [Fact]
+    public void Map_entry_events_are_retained_without_a_clicked_face_or_timer()
+    {
+        byte[] program = [.. Record(1, 0, EvtOpcodes.OnMapReload), .. Record(1, 1, EvtOpcodes.Exit)];
+        var summary = PlaceFixtureEmitter.Emit(new Dictionary<int, DecodedMap> { [7] = Interior() },
+            [EvtProgram.Read("d01.evt", program)], new Dictionary<string, MapStrings>());
+        var entry = Assert.Single(summary.Events);
+        Assert.False(entry.Triggered);
+        Assert.False(entry.Raised);
+        Assert.Equal("on-map-reload", entry.Steps[0].Op);
+        Assert.Empty(summary.Fixtures);
+    }
+
+    [Fact]
     public void A_shared_event_does_not_make_a_pressure_plate_part_of_a_clicked_fixture_surface()
     {
         PlaceFixtureSummary summary = PlaceFixtureEmitter.Emit(

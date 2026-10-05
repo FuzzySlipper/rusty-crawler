@@ -149,6 +149,10 @@ internal sealed class MightAndMagic7Fixtures
     /// <summary>The prefix of the name a place keeps one of its map variables under.</summary>
     internal const string VariablePrefix = "map-variable:";
 
+    // OpenEnroth Character.cpp:3612-3613, 4012-4014: a separate 25-slot map-owned byte bank.
+    internal const string DecorationVariablePrefix = "decoration-variable:";
+    private const int DecorationVariableSlots = 25;
+
     /// <summary>The prefix of the name a place keeps when one of its timers last ran under.</summary>
     internal const string TimerPrefix = "timer:";
 
@@ -332,7 +336,7 @@ internal sealed class MightAndMagic7Fixtures
     /// <param name="reach">How far from it the party may stand.</param>
     internal InteractionTargetDefinition? Describe(InteractionTargetRequest request, double reach)
     {
-        PlacementDefinition placement = request.Placement;
+        if (request.Placement is not { } placement) return null;
         bool fixture = string.Equals(placement.Content.Kind, FixturePlacementKind, StringComparison.Ordinal);
         bool decoration = string.Equals(placement.Content.Kind, MightAndMagic7Interaction.DecorationPlacementKind, StringComparison.Ordinal);
         bool trigger = string.Equals(placement.Content.Kind, FloorTriggerPlacementKind, StringComparison.Ordinal);
@@ -378,7 +382,7 @@ internal sealed class MightAndMagic7Fixtures
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(context);
-        int eventId = context.Placement.Source.GetInt32(EventField) ?? 0;
+        int eventId = context.Placement?.Source.GetInt32(EventField) ?? 0;
         if (_events.Find(context.Place, eventId) is not { } mapEvent)
         {
             return InteractionOutcome.Refused(new Refusal(
@@ -420,7 +424,7 @@ internal sealed class MightAndMagic7Fixtures
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(houses);
-        if (context.Placement.Source.GetInt32(SourceEventField) is not { } eventId || _events.Find(context.Place, eventId) is not { Housed: true } mapEvent)
+        if (context.Placement?.Source.GetInt32(SourceEventField) is not { } eventId || _events.Find(context.Place, eventId) is not { Housed: true } mapEvent)
         {
             return null;
         }
@@ -465,6 +469,8 @@ internal sealed class MightAndMagic7Fixtures
     /// <param name="reach">How far from it the party may stand, which an answer does not consult.</param>
     internal InteractionTargetDefinition? Spoken(InteractionTargetRequest request, double reach)
     {
+        if (Entry(request.Place, request.Raised) is { } entry)
+            return new InteractionTargetDefinition(new(SpokenTargetKind), entry.Event.Name, InteractionVerb.Talk, reach, SpokenState);
         if (request.Raised.Length == 0 || _topics(request.Raised) is not { } topic || _events.Global(topic.Event) is null) return null;
         return new InteractionTargetDefinition(
             new InteractionTargetKind(SpokenTargetKind),
@@ -484,6 +490,13 @@ internal sealed class MightAndMagic7Fixtures
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(context);
+        if (Entry(context.Place, context.Raised) is { } entry)
+        {
+            Run arrival = new(this, entry.Event, target, context);
+            if (arrival.Execute(entry.Event, entry.Step + 1) is { } failed)
+                return InteractionOutcome.Refused(failed);
+            return arrival.Settle() with { ShowFeedback = arrival.HasWords };
+        }
         if (_topics(context.Raised) is not { } topic || _events.Global(topic.Event) is not { } spoken)
         {
             return InteractionOutcome.Refused(new Refusal(
@@ -502,6 +515,56 @@ internal sealed class MightAndMagic7Fixtures
         return run.Settle(topic.Words);
     }
 
+    /// <summary>Map entry programs retained by the importer, in source order.</summary>
+    internal IEnumerable<string> Entries(PlaceId place) =>
+        _events.Events.Where(e => e.Place == place).OrderBy(e => e.Id)
+            .SelectMany(e => e.Steps.Where(s => s.Op == "on-map-reload")
+                .Select(s => $"map-entry:{e.Id}:{s.Step}"));
+
+    internal IEnumerable<string> Departures(PlaceId place) =>
+        _events.Events.Where(e => e.Place == place).OrderBy(e => e.Id)
+            .SelectMany(e => e.Steps.Where(s => s.Op == "on-map-leave").Select(s => $"map-leave:{e.Id}:{s.Step}"));
+
+    private (MapEvent Event, int Step)? Entry(PlaceId place, string raised)
+    {
+        string[] parts = raised.Split(':');
+        if (parts.Length != 3 || parts[0] is not ("map-entry" or "map-leave") || !int.TryParse(parts[1], out int id)
+            || !int.TryParse(parts[2], out int step) || _events.Find(place, id) is not { } entry
+            || entry.At(step)?.Op != (parts[0] == "map-entry" ? "on-map-reload" : "on-map-leave")) return null;
+        return (entry, step);
+    }
+
+    /// <summary>Runs the program belonging to a searched chest, sharing its already-judged trap and contents.</summary>
+    internal InteractionOutcome AfterSearch(InteractionTargetDefinition target, InteractionContext context, InteractionOutcome search)
+    {
+        if (target.Verb != InteractionVerb.Search || !search.IsApplied || context.Placement is not { Content.Kind: "container" } placement
+            || placement.Source.GetInt32("sourceIndex") is not { } index) return search;
+        MapEvent[] programs = [.. _events.Events.Where(e => e.Place == context.Place && e.Steps.Any(s => s.Op == "open-chest" && s.Index == index))];
+        if (programs.Length > 1)
+            return InteractionOutcome.Refused(new Refusal("container-event-ambiguous", "Several events open this chest; this search cannot choose their side effects and changed nothing."));
+        foreach (MapEvent program in programs)
+        {
+            bool opened = false;
+            Run run = new(this, program, target, context)
+            {
+                OpenContainer = chest =>
+                {
+                    if (chest != index) return new Refusal("container-other-target", "This event asks for a different chest; this search changed nothing.");
+                    opened = true;
+                    return null;
+                },
+            };
+            if (run.Execute(program, 0) is { } refusal) return InteractionOutcome.Refused(refusal);
+            if (!opened) return InteractionOutcome.Refused(new Refusal("container-event-withheld", "The chest's event did not open it; nothing was changed."));
+            InteractionOutcome extra = run.Settle();
+            search = InteractionOutcome.Applied(search.State, search.Message + " " + extra.Message,
+                search.Residue + extra.Residue, [.. search.Items, .. extra.Items],
+                PartyCost.OfGold(search.Gain.Coins + extra.Gain.Coins), [.. search.Learned, .. extra.Learned],
+                extra.Kept, extra.Changes, extra.Speaks, extra.Travels, extra.Relocates);
+        }
+        return search;
+    }
+
     /// <summary>
     /// Whether a topic raising a global event is offered, by the event's own offer check, and why not when it is not.
     /// </summary>
@@ -517,9 +580,8 @@ internal sealed class MightAndMagic7Fixtures
     /// <param name="placement">The placement the person stands at.</param>
     /// <param name="party">The party, or null when the world holds none.</param>
     /// <param name="clock">The one clock, or null when the session keeps none.</param>
-    internal Verdict Offers(int eventId, PlaceId place, PlacementDefinition placement, PartyEntity? party, GameClock? clock)
+    internal Verdict Offers(int eventId, PlaceId place, PlacementDefinition? placement, PartyEntity? party, GameClock? clock)
     {
-        ArgumentNullException.ThrowIfNull(placement);
         if (_events.Global(eventId) is not { ChecksOffer: true } spoken) return Verdict.Met;
         InteractionTargetDefinition target = new(new InteractionTargetKind(SpokenTargetKind), spoken.Name, InteractionVerb.Talk, double.MaxValue, SpokenState);
         Run run = new(this, spoken, target, new InteractionContext(place, placement, target, party, clock));
@@ -558,16 +620,14 @@ internal sealed class MightAndMagic7Fixtures
     /// <param name="elapsed">The game time the save had reached, in milliseconds.</param>
     internal string? Judge(PlaceId place, string key, long value, long elapsed)
     {
-        if (key.StartsWith(VariablePrefix, StringComparison.Ordinal))
+        if (key.StartsWith(VariablePrefix, StringComparison.Ordinal) || key.StartsWith(DecorationVariablePrefix, StringComparison.Ordinal))
         {
-            if (!int.TryParse(key.AsSpan(VariablePrefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out int slot) || slot >= MapVariableSlots)
-            {
-                return string.Create(CultureInfo.InvariantCulture, $"a place has map variables 0 to {MapVariableSlots - 1} only");
-            }
-
-            return value is < 0 or > MapVariableLimit
-                ? string.Create(CultureInfo.InvariantCulture, $"a map variable holds 0 to {MapVariableLimit}")
-                : null;
+            bool decoration = key.StartsWith(DecorationVariablePrefix, StringComparison.Ordinal);
+            string prefix = decoration ? DecorationVariablePrefix : VariablePrefix;
+            int slots = decoration ? DecorationVariableSlots : MapVariableSlots;
+            if (!int.TryParse(key.AsSpan(prefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out int slot) || slot >= slots)
+                return $"a place has {prefix.TrimEnd(':')} slots 0 to {slots - 1} only";
+            return value is < 0 or > MapVariableLimit ? $"a place variable holds 0 to {MapVariableLimit}" : null;
         }
 
         if (key.StartsWith(TimerPrefix, StringComparison.Ordinal))
@@ -962,6 +1022,7 @@ internal sealed class MightAndMagic7Fixtures
 
         /// <summary>Who stands at the placement of a house of the place, by its number, when the run is a house's own event.</summary>
         internal Func<int, ConversationSubject?>? Houses { get; init; }
+        internal Func<int, Refusal?>? OpenContainer { get; init; }
 
         /// <summary>A value the place keeps as the run has left it so far, or null when nothing has written it.</summary>
         internal long? Kept(string key) =>
@@ -973,7 +1034,10 @@ internal sealed class MightAndMagic7Fixtures
         internal void Keep(string key, long value) => _kept[key] = value;
 
         /// <summary>A map variable as the run has left it; one nothing has written is zero, as the donor's are.</summary>
-        private int Variable(int slot) => (int)(Kept(VariableKey(slot)) ?? 0);
+        private static string VariableKey(MapEventStep step) =>
+            $"{(step.Variable == "decoration-variable" ? DecorationVariablePrefix : VariablePrefix)}{step.Index.ToString(CultureInfo.InvariantCulture)}";
+
+        private int Variable(MapEventStep step) => (int)(Kept(VariableKey(step)) ?? 0);
 
         private PartyEntity? Party => _context.Party;
 
@@ -1002,6 +1066,10 @@ internal sealed class MightAndMagic7Fixtures
                 {
                     case "exit":
                         return null;
+                    case "open-chest":
+                        if (OpenContainer is null) return NotInterpreted(_target, mapEvent, current, "a chest opening without a container owner");
+                        if (OpenContainer(current.Index) is { } chestRefusal) return chestRefusal;
+                        break;
                     case "move-to-map" when current.WithinPlace:
                         // A move within the place sets the party down elsewhere in it and the run goes on, as the
                         // donor's does (OpenEnroth src/Engine/Evt/EvtInterpreter.cpp:231-235); a move naming no position
@@ -1163,6 +1231,8 @@ internal sealed class MightAndMagic7Fixtures
 
             return null;
         }
+
+        internal bool HasWords => _said.Count > 0;
 
         /// <summary>What the run has had said so far, or the given words when it said nothing, or the event's name.</summary>
         /// <param name="words">What the topic's table says, or empty.</param>
@@ -1442,7 +1512,7 @@ internal sealed class MightAndMagic7Fixtures
         /// <summary>Whether a comparison holds, for any of the members chosen when it is theirs.</summary>
         private (bool Holds, Refusal? Refused) Compare(MapEvent mapEvent, MapEventStep step, List<int> who)
         {
-            if (step.Variable == MightAndMagic7MapEvents.MapVariable) return (Variable(step.Index) >= step.Value, null);
+            if (step.Variable is MightAndMagic7MapEvents.MapVariable or "decoration-variable") return (Variable(step) >= step.Value, null);
             if (Party is not { } party) return (false, NoParty(mapEvent, step));
             switch (step.Variable)
             {
@@ -1550,13 +1620,14 @@ internal sealed class MightAndMagic7Fixtures
         private Refusal? Write(MapEvent mapEvent, MapEventStep step, List<int> who)
         {
             string op = step.Op;
-            if (step.Variable == MightAndMagic7MapEvents.MapVariable)
+            if (step.Variable is MightAndMagic7MapEvents.MapVariable or "decoration-variable")
             {
                 // The donor's map variables are bytes: an addition stops at 255 and a subtraction at nothing
                 // (OpenEnroth src/Engine/Objects/Character.cpp:4606-4613).
-                if (step.Index is < 0 or >= MapVariableSlots) return VariableNotInterpreted(_target, mapEvent, step);
-                int now = Variable(step.Index);
-                Keep(VariableKey(step.Index), op switch
+                int slots = step.Variable == "decoration-variable" ? DecorationVariableSlots : MapVariableSlots;
+                if (step.Index < 0 || step.Index >= slots) return VariableNotInterpreted(_target, mapEvent, step);
+                int now = Variable(step);
+                Keep(VariableKey(step), op switch
                 {
                     "add" => Math.Min(MapVariableLimit, now + step.Value),
                     "subtract" => Math.Max(0, now - step.Value),

@@ -37,70 +37,14 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// </param>
 internal readonly record struct PromotionPath(string Choice, SkillId? Opens, SkillId? Closes);
 
-/// <summary>
-/// This game's ranks: every class's first promotion, and the two alternatives its second promotion splits
-/// into, with who gives each and what each asks for.
-/// </summary>
+/// <summary>Reads the authored promotion ladder and applies this game's eligibility policy.</summary>
 /// <remarks>
-/// <para>
-/// <b>The ladder's shape is the shipped class table's; the ranks' terms are ours.</b> The nine families and
-/// their thirty-six rank rows are the operator's own <c>CLASS.TXT</c>, four rows per family in the order
-/// base, first promotion, light second promotion, dark second promotion
-/// ([`docs/research/mm7-data-inventory.md`](../../../docs/research/mm7-data-inventory.md), <i>Classes</i>;
-/// the class table is emitted as content and this reads its names from there). What the shipped data does
-/// not carry is a promotion table: no row anywhere states that a rank is asked for, by whom, or on what
-/// terms — the design records that the promotion quests are ours
-/// ([`docs/gameplay-design.md`](../../../docs/gameplay-design.md) §3.8), and the tables below are that
-/// statement, written out and cited row by row rather than presented as extracted facts.
-/// </para>
-/// <para>
-/// <b>Who gives each rank is shipped, and the shipped data says it twice.</b> The NPC table's own notes
-/// column names every promoter by family and alignment — <c>npc.txt</c> row 46 is "Good Cleric promoter",
-/// row 47 "Evil Cleric promoter", row 40 "Good Archer promoter", row 41 "Evil Archer promoter", and so on
-/// through rows 15–51 — and the topic table names them again by the rank they give: <c>npctopic</c> row 92
-/// "Wizard" and row 94 "Archmage" belong to Thomas Grey, rows 96–97 "Lich" to Halfgild Wynac, rows 88–89
-/// "Priest" and 90–91 "Priest of Dark" to Daedalus Falk, rows 86–87 "Priest of Light" to Rebecca Devine,
-/// and the rest the same way. The identities below are the NPC table's own row numbers, which are what
-/// content carries its people under (<c>person:npc-48</c> is Thomas Grey), and the names beside them are
-/// the table's.
-/// </para>
-/// <para>
-/// <b>What each rank asks for is shipped too, and it is a quest.</b> The quest table states every
-/// promotion's errand and the promoter it is turned in to: bit 18 "Go to Lord Markham's estate in Tatalia,
-/// steal the vase there, and return it to William Lasker in the Erathian Sewers" (Thief → Rogue), bit 30
-/// "Retrieve the Perfect Bow from the Titans' Stronghold in Avlee and return it to Lawrence Mark in
-/// Harmondale" (Warrior Mage → Master Archer), bit 45 "Collect the six golem pieces and construct a
-/// complete golem, then return to Thomas Grey in the School of Sorcery" (Sorcerer → Wizard), bit 48
-/// "Retrieve the lich jars from the Proving Grounds in Celeste and bring them back to Halfgild Wynac in the
-/// Pit" (Wizard → Lich), and one row per promotion in between. Seventeen of the twenty-seven ranks state
-/// that errand as a quest: <see cref="MightAndMagic7Quests"/> reads the shipped words, gives each errand
-/// its giver from this ladder, and states what it asks, so a rank whose errand is a deed now asks for a
-/// record the party really carries — <c>errand:&lt;bit&gt;</c>, written when the errand is turned in and
-/// read by the same gate a shipped topic's own requirement column uses. Where the errand's own words name
-/// something the party brings back, and the shipped item table carries it, the rank asks for that item
-/// instead — holding it is state this build really has — and the quest bit it is the turn-in of is named in
-/// the row's own comment. Two errands are counts the original keeps as its own awards rather than as quests
-/// — five arena wins and ten thousand gold of bounties
-/// (<c>OpenEnroth/src/Engine/Data/AwardEnums.h:88-91</c>, <c>AWARD_ARENA_*_WINS</c>; <c>:86</c>,
-/// <c>AWARD_BOUNTIES_COLLECTED</c>, and <c>src/Engine/Evt/EvtEnums.h:67</c>,
-/// <c>EVENT_IsTotalBountyHuntingAwardInRange</c>) — so those two rank requirements are stated as records
-/// with a magnitude, which is what a party carries.
-/// </para>
-/// <para>
-/// <b>Every rank also leaves a record.</b> The original marks an earned promotion with an award bit
-/// (<c>src/Engine/Data/AwardEnums.h:10-79</c>, <c>AWARD_PROMOTION_ROGUE</c> through
-/// <c>AWARD_PROMOTION_LICH</c>) and reads those bits back when it asks whether somebody is of a class
-/// (<c>src/Engine/Objects/Character.cpp:6591-6617</c>, <c>Character::isClass</c>). This game keeps the same
-/// fact as a party-carried record under its own name — <c>promotion:&lt;rank&gt;</c> — written where the
-/// rank is granted, so what the party has become is readable state rather than something a later rank would
-/// have to infer.
-/// </para>
-/// <para>
-/// <b>Who is a giver is judged, not assumed.</b> Each rank states its giver as one of its requirements, so a
-/// rank offered by somebody the ladder does not name is refused by name instead of being quietly granted:
-/// the conversation offers a person only the ranks they give, and the owner judges the requirement again
-/// when the rank is actually taken.
-/// </para>
+/// Loaded promotion content names each previous/resulting class, giver, quest proof, and path.
+/// The ordinary world's imported topic events judge their quest and grant through the same ladder;
+/// the ladder's class edges make the second alternatives exclusive per character.
+/// The class family order is documented in OpenEnroth src/Engine/Objects/CharacterEnumFunctions.h,
+/// while NPC/topic/quest identities come from the operator's imported tables. The rank requirements
+/// and fallback offer wording are this product's adaptations, authored in the normal game pack.
 /// </remarks>
 internal sealed class MightAndMagic7Promotions : IPromotionRule
 {
@@ -181,17 +125,15 @@ internal sealed class MightAndMagic7Promotions : IPromotionRule
 
     /// <summary>Reads this game's ranks over the content the product loaded.</summary>
     /// <remarks>
-    /// The class names the ladder is written in are the shipped class table's own, and content carries them,
-    /// so this reports how many of them content declares rather than refusing to state a ladder a partial
-    /// import would not describe: a pack that declares no classes still gets the ceilings and the ranks this
-    /// game's table states, exactly as it gets the mastery rows.
+    /// Content without a promotion document declares no ranks. The normal bundle supplies all nine
+    /// ladders as authored data; a focused scenario may supply its own smaller ladder.
     /// </remarks>
     /// <param name="catalog">The validated content, or null when no bundle supplied any.</param>
     /// <returns>This game's ranks.</returns>
     internal static MightAndMagic7Promotions Read(ContentCatalog? catalog)
     {
-        PromotionRank[] ranks = Ranks();
-        Dictionary<string, PromotionPath> paths = PathTable();
+        Dictionary<string, PromotionPath> paths = new(StringComparer.Ordinal);
+        PromotionRank[] ranks = ReadRanks(catalog, paths);
         List<string> notes = [];
         HashSet<string> declared = catalog is null
             ? new HashSet<string>(StringComparer.Ordinal)
@@ -275,216 +217,51 @@ internal sealed class MightAndMagic7Promotions : IPromotionRule
                 $"{member.Profile.Name} is a {member.Profile.Class} of rank {member.Progression.ClassRank} and has taken neither alternative of the rank above: {string.Join(" or ", openings)} would take {closed}, and until one of them is taken a {member.Profile.Class} may hold none of it."));
     }
 
-    /// <summary>One rank row, with the giver, the errand, and the record it leaves stated together.</summary>
-    /// <remarks>
-    /// <para>
-    /// <b>A rank asks for what this build can judge, and states its errand either way.</b> Where the shipped
-    /// errand's own words name something the party brings back — "steal the vase and return it", "bring the
-    /// lich jars" — the rank asks for that item, because holding it is state a party really has, and the
-    /// shipped quest bit it is the turn-in of is named in the row's own comment. Where the errand is a deed
-    /// with a turn-in — "kill Wromthrax", "move the weight in Watchtower 6" — the rank asks for the
-    /// <c>errand:&lt;bit&gt;</c> record the quest owner writes when that errand is turned in. Two errands are counts the original keeps as its own
-    /// awards rather than as quests, and those are stated as records with a magnitude, which a party carries.
-    /// </para>
-    /// <para>
-    /// The giver's own words are this game's, written in the voice the shipped topic texts use; where the
-    /// shipped table carries a line for that rank, the row's own comment says so.
-    /// </para>
-    /// </remarks>
-    private static PromotionRank Rank(
-        string id,
-        string from,
-        string to,
-        int rank,
-        string giver,
-        string giverName,
-        int quest,
-        string errand,
-        string words,
-        string? choice = null,
-        (string Item, int Count, string Label)[]? items = null,
-        (string Award, int Amount, string Label)? award = null)
+    private static PromotionRank[] ReadRanks(ContentCatalog? catalog, Dictionary<string, PromotionPath> paths)
     {
-        List<PromotionRequirement> requirements = [PromotionRequirement.FromGiver(giver, giverName)];
-        bool proofInHand = award is not null || items is { Length: > 0 };
-        if (!proofInHand)
+        if (catalog is null) return [];
+        List<PromotionRank> ranks = [];
+        List<ContentValidationIssue> issues = [];
+        foreach (var (pack, document, entry) in catalog.Entries("promotion"))
         {
-            // A deed with a turn-in: the errand is the requirement, stated as the party-carried record the
-            // quest owner writes when the errand the shipped table states is turned in. The record's name is
-            // built from the shipped bit by the quest owner, so the rank and the town's own topic gate read
-            // one identity rather than two spellings of it.
-            requirements.Add(PromotionRequirement.ForAward(
-                MightAndMagic7Quests.ErrandRecord(quest.ToString(CultureInfo.InvariantCulture)),
-                1,
-                errand));
+            void Defect(string message) => issues.Add(new("promotion-content-invalid", message, pack.PackId, document.DocumentId));
+            string from = entry.GetString("from"), to = entry.GetString("to"), choice = entry.GetString("choice");
+            int rank = entry.GetInt32("rank") ?? 0;
+            if (from.Length == 0 || to.Length == 0 || rank < 2 || (choice.Length > 0 && choice is not ("light" or "dark")))
+            {
+                Defect($"Promotion '{entry.Id}' needs its previous class, resulting class, rank and valid path; otherwise the ladder would silently grant the wrong class.");
+                continue;
+            }
+            List<PromotionRequirement> requirements = [];
+            foreach (var row in entry.GetArray("requirements"))
+            {
+                string kind = ContentEntry.ReadString(row, "kind"), name = ContentEntry.ReadString(row, "name");
+                string label = ContentEntry.ReadString(row, "label");
+                double statedAmount = ContentEntry.ReadDouble(row, "amount") ?? 1;
+                int amount = double.IsFinite(statedAmount) && statedAmount >= 1 && statedAmount <= int.MaxValue && Math.Truncate(statedAmount) == statedAmount ? (int)statedAmount : 0;
+                if (name.Length == 0 || amount < 1 || kind is not ("giver" or "item" or "award"))
+                {
+                    Defect($"Promotion '{entry.Id}' has an invalid requirement; it would allow an unearned promotion.");
+                    continue;
+                }
+                requirements.Add(kind switch
+                {
+                    "giver" => PromotionRequirement.FromGiver(name, label),
+                    "item" => PromotionRequirement.ForItem(name, amount, label),
+                    _ => PromotionRequirement.ForAward(name, amount, label),
+                });
+            }
+            if (requirements.Count(r => r.Kind == PromotionRequirementKind.Giver) != 1 || requirements.Count < 2)
+                Defect($"Promotion '{entry.Id}' must name one giver and its quest proof; an unearned rank must not be offered.");
+            ranks.Add(new(entry.Id, new(from), new(to), rank, requirements, choice, entry.GetString("award"), entry.GetString("words")));
+            string opens = entry.GetString("opens"), closes = entry.GetString("closes");
+            if (opens.Length > 0 || closes.Length > 0)
+            {
+                if (opens.Length == 0 || closes.Length == 0 || choice.Length == 0 || !paths.TryAdd(to, new(choice, new(opens), new(closes))))
+                    Defect($"Promotion '{entry.Id}' has an incomplete or duplicate magic path; its skill eligibility would be ambiguous.");
+            }
         }
-
-        foreach ((string item, int count, string label) in items ?? [])
-        {
-            requirements.Add(PromotionRequirement.ForItem(item, count, label));
-        }
-
-        if (award is { } record)
-        {
-            requirements.Add(PromotionRequirement.ForAward(record.Award, record.Amount, record.Label));
-        }
-
-        return new PromotionRank(
-            id,
-            new ClassId(from),
-            new ClassId(to),
-            rank,
-            requirements,
-            choice ?? string.Empty,
-            // Every rank leaves the record the original keeps as an award bit, under this game's own name,
-            // so a later rank, a person, or a quest's turn-in can ask what the party has become.
-            $"{MightAndMagic7Identities.PromotionAwardPrefix}{id}",
-            words);
+        if (issues.Count > 0) throw new ContentValidationException("Promotion content cannot be read.", issues);
+        return [.. ranks];
     }
-
-    /// <summary>Every rank this game states, in the shipped class table's own family order.</summary>
-    private static PromotionRank[] Ranks() =>
-    [
-        // Knight → Cavalier → Champion (light) / Black Knight (dark). npc.txt row 43 "Evil Knight promoter"
-        // gives the first promotion and the dark one, row 42 "Good Knight promoter" the light one; npctopic
-        // rows 73-74 name Cavalier, 75-76 Black Knight, 71-72 Champion.
-        Rank("knight-cavalier", "Knight", "Cavalier", 2, "npc-43", "Frederick Org", 35,
-            "raid the Elven Treasury at Castle Navan", "Raid the Elven Treasury at Castle Navan and I will name you Cavalier."),
-        Rank("cavalier-champion", "Cavalier", "Champion", 3, "npc-42", "Leda Rowan", 33,
-            "win five arena challenges", "Win five challenges in the arena and the rank of Champion is yours.",
-            LightChoice, award: (MightAndMagic7Deeds.ArenaWins, 5, "arena victories")),
-        Rank("cavalier-black-knight", "Cavalier", "Black Knight", 3, "npc-43", "Frederick Org", 34,
-            "destroy the undead in the Haunted House", "Clear the undead out of the Haunted House in the Barrow Downs and you will be a Black Knight.",
-            DarkChoice),
-
-        // Thief → Rogue → Spy (light) / Assassin (dark). npc.txt row 15 "Good Thief promoter", row 16 "Evil
-        // Thief promoter"; npctopic 44-45 Rogue, 46-47 Spy and 49-50 Assassin, whose own lines are the
-        // shipped ones: "Bring me that lovely vase I saw on the mantle in Lord Markham's manor, and I shall
-        // call you Rogue", and "return with a trinket of hers to prove the job is done".
-        Rank("thief-rogue", "Thief", "Rogue", 2, "npc-15", "William Lasker", 18,
-            "steal the vase from Lord Markham's estate", "Bring me that lovely vase I saw on the mantle in Lord Markham's manor, and I shall call you Rogue.",
-            items: [("624", 1, "Vase")]),
-        Rank("rogue-spy", "Rogue", "Spy", 3, "npc-15", "William Lasker", 19,
-            "move the counterweight in Watchtower 6", "Move the weight from the top of Watchtower 6 to the bottom, and you will have proven yourself a Spy.",
-            LightChoice),
-        Rank("rogue-assassin", "Rogue", "Assassin", 3, "npc-16", "Seknit Undershadow", 21,
-            "silence Lady Eleanor Carmine and bring proof", "Silence Lady Carmine and return with a trinket of hers to prove the job is done.",
-            DarkChoice, items: [("620", 1, "Big Tapestry")]),
-
-        // Monk → Initiate → Master (light) / Ninja (dark). npc.txt row 38 "Good Monk promoter", row 39 "Evil
-        // Monk promoter"; npctopic 58-60 Initiate, 61-62 Master, 63-64 Ninja.
-        Rank("monk-initiate", "Monk", "Initiate", 2, "npc-38", "Bartholomew Hume", 27,
-            "find the lost meditation spot in the Dwarven Barrows", "Reach the barrow that was built on a site of great natural power and meditate by the water, and your promotion to Initiate is complete."),
-        Rank("initiate-master", "Initiate", "Master", 3, "npc-38", "Bartholomew Hume", 28,
-            "defeat the High Priest of Baa", "Extinguish the remnants of the Order of Baa and I shall complete your training.",
-            LightChoice),
-        Rank("initiate-ninja", "Initiate", "Ninja", 3, "npc-39", "Stephan Sand", 29,
-            "crack the code and enter the Tomb of Ashwar Nog'Nogoth", "Crack the code in the School of Sorcery, enter the tomb it names, and return to me.",
-            DarkChoice),
-
-        // Paladin → Crusader → Hero (light) / Villain (dark). npc.txt row 17 "Good Paladin promoter", row 18
-        // "Evil Paladin promoter"; npctopic 51-52 Crusader, 53-54 Hero, 56-57 Villain, whose lines are the
-        // shipped ones: "A dragon must be slain … Wromthrax the Heartless", "Alice Hargreaves … rescue
-        // sweet Alice", "Capture this woman from her residence in Castle Gryphonheart".
-        Rank("paladin-crusader", "Paladin", "Crusader", 2, "npc-17", "Sir Charles Quixote", 22,
-            "kill Wromthrax the Heartless in his cave in Tatalia", "The test is simple. A dragon must be slain: Wromthrax the Heartless, in his cave in Tatalia."),
-        Rank("crusader-hero", "Crusader", "Hero", 3, "npc-17", "Sir Charles Quixote", 24,
-            "rescue Alice Hargreaves from William's Tower", "A wicked villain has kidnapped a fair maiden by the name of Alice Hargreaves. Rescue sweet Alice and you will truly be Heroes of the Land.",
-            LightChoice),
-        Rank("crusader-villain", "Crusader", "Villain", 3, "npc-18", "William Setag", 26,
-            "capture Alice Hargreaves and imprison her in William's Tower", "Capture the noble Alice Hargreaves from Castle Gryphonheart, bring her to my tower, and I shall promote the Crusaders among you to Villains.",
-            DarkChoice),
-
-        // Archer → Warrior Mage → Master Archer (light) / Sniper (dark). npc.txt row 41 "Evil Archer
-        // promoter" gives the first promotion and the dark one, row 40 "Good Archer promoter" the light one;
-        // npctopic 67-68 Warrior Mage, 65-66 Master Archer ("You found the bow!"), 69-70 Sniper.
-        Rank("archer-warrior-mage", "Archer", "Warrior Mage", 2, "npc-41", "Steagal Snick", 31,
-            "sabotage the lift in the Red Dwarf Mines", "Sabotage the lift in the Red Dwarf Mines and return to me in Avlee, and you will be Warrior Mages."),
-        Rank("warrior-mage-master-archer", "Warrior Mage", "Master Archer", 3, "npc-40", "Lawrence Mark", 30,
-            "retrieve the Perfect Bow from the Titans' Stronghold", "You found the bow! Let me take some measurements and adjust it to your style, and I will promote the Warrior Mages among you to Master Archers.",
-            LightChoice, items: [("542", 1, "The Perfect Bow")]),
-        Rank("warrior-mage-sniper", "Warrior Mage", "Sniper", 3, "npc-41", "Steagal Snick", 32,
-            "retrieve the Perfect Bow from the Titans' Stronghold", "Bring me the Perfect Bow from the Titans' Stronghold in Avlee, and you will be Snipers.",
-            DarkChoice, items: [("542", 1, "The Perfect Bow")]),
-
-        // Ranger → Hunter → Ranger Lord (light) / Bounty Hunter (dark). npc.txt row 45 "Evil Ranger
-        // promoter", row 44 "Good Ranger promoter"; npctopic 79-80 Hunter, 77-78 Ranger Lord, 81-82 Bounty
-        // Hunter. The dark errand is the bounty hunt the original keeps as an award count rather than as a
-        // quest (AWARD_BOUNTIES_COLLECTED), so it is stated as a record with a magnitude.
-        Rank("ranger-hunter", "Ranger", "Hunter", 2, "npc-45", "Ebednezer Sower", 37,
-            "solve the secret of the Faerie Mound and speak to the Faerie King", "Solve the secret of the entrance to the Faerie Mound in Avlee, speak to the Faerie King, and return to me."),
-        Rank("hunter-ranger-lord", "Hunter", "Ranger Lord", 3, "npc-44", "Lysander Sweet", 36,
-            "calm the trees of the Tularean Forest by speaking to the Oldest Tree", "Calm the trees in the Tularean Forest by speaking to the Oldest Tree, and return to me.",
-            LightChoice),
-        Rank("hunter-bounty-hunter", "Hunter", "Bounty Hunter", 3, "npc-45", "Ebednezer Sower", 38,
-            "collect ten thousand gold worth of bounties", "Collect ten thousand gold worth of bounties from the town halls, and I will make Bounty Hunters of you.",
-            DarkChoice, award: (MightAndMagic7Deeds.Bounties, 10000, "gold of bounties")),
-
-        // Cleric → Priest → Priest of the Light (light) / Priest of the Dark (dark). npc.txt row 46 "Good
-        // Cleric promoter", row 47 "Evil Cleric promoter"; npctopic 88-89 Priest and 90-91 "Priest of Dark"
-        // belong to Daedalus Falk, 86-87 "Priest of Light" to Rebecca Devine. The topic table spells the two
-        // alternatives without the article the class table uses — "Priest of Light" against "Priest of the
-        // Light" — and the class table's own spelling is what the rank names.
-        Rank("cleric-priest", "Cleric", "Priest", 2, "npc-47", "Daedalus Falk", 43,
-            "find the lost pirate map in the Tidewater Caverns", "Find the lost pirate map in the Tidewater Caverns and return to me in the Deyja Moors."),
-        Rank("priest-priest-of-the-light", "Priest", "Priest of the Light", 3, "npc-46", "Rebecca Devine", 42,
-            "purify the Altar of Evil in the Temple of the Moon", "Purify the Altar of Evil in the Temple of the Moon on Evenmorn Isle, and the light will make you a Priest of the Light.",
-            LightChoice),
-        Rank("priest-priest-of-the-dark", "Priest", "Priest of the Dark", 3, "npc-47", "Daedalus Falk", 44,
-            "deface the Altar of Good in the Temple of the Sun", "Deface the Altar of Good in the Temple of the Sun on Evenmorn Isle, and the dark will make you a Priest of the Dark.",
-            DarkChoice),
-
-        // Druid → Great Druid → Arch Druid (light) / Warlock (dark). npc.txt row 50 "Good Druid promoter",
-        // row 51 "Evil Druid promoter"; npctopic 98-99 Great Druid, 100-101 Arch Druid, 102-103 Warlock.
-        Rank("druid-great-druid", "Druid", "Great Druid", 2, "npc-50", "Anthony Green", 49,
-            "visit the three stonehenge monoliths", "Visit the three stonehenge monoliths in Tatalia, the Evenmorn Islands, and Avlee, and return to me in the Tularean Forest."),
-        Rank("great-druid-arch-druid", "Great Druid", "Arch Druid", 3, "npc-50", "Anthony Green", 54,
-            "lay the Dwarf King's bones to rest in the Barrow Downs", "Retrieve the bones of the Dwarf King and place them in their proper resting place in the Barrow Downs.",
-            LightChoice),
-        Rank("great-druid-warlock", "Great Druid", "Warlock", 3, "npc-51", "Tor Anwyn", 55,
-            "retrieve the dragon egg from the Dragon Cave", "Retrieve the dragon egg from the Dragon Cave in the Land of the Giants and return it to me in Mount Nighon.",
-            DarkChoice, items: [("647", 1, "Dragon Egg")]),
-
-        // Sorcerer → Wizard → Arch Mage (light) / Lich (dark). npc.txt row 48 "Good Sorcerer promoter", row
-        // 49 "Evil Sorcerer promoter"; npctopic 92-93 Wizard and 94-95 Archmage belong to Thomas Grey, 96-97
-        // Lich to Halfgild Wynac. The two errands whose words name what the party brings back are the two
-        // this game can judge today: the six golem parts the shipped item table carries (639 chest, 641 head,
-        // 642-643 legs, 644-645 arms — the row 640 "Abbey Normal Golem Head" belongs to the Abbey's own
-        // quest), and the lich jars (601 "Lich Jar", 602 "Case of Soul Jars"). The light errand's Book of
-        // Divine Intervention is the Light school's own book in the item table (487).
-        Rank("sorcerer-wizard", "Sorcerer", "Wizard", 2, "npc-48", "Thomas Grey", 45,
-            "collect the six golem pieces and construct a complete golem",
-            "Collect the six golem pieces and construct a complete golem, then return to me, and you will be Wizards.",
-            items:
-            [
-                ("639", 1, "Golem chest"),
-                ("641", 1, "Golem head"),
-                ("642", 1, "Golem left leg"),
-                ("643", 1, "Golem right leg"),
-                ("644", 1, "Golem right arm"),
-                ("645", 1, "Golem left arm"),
-            ]),
-        Rank("wizard-arch-mage", "Wizard", "Arch Mage", 3, "npc-48", "Thomas Grey", 47,
-            "find the Book of Divine Intervention in the Breeding Zone", "Find the Book of Divine Intervention in the Breeding Zone in the Pit and return it to me, and you will be Arch Mages.",
-            LightChoice, items: [("487", 1, "Divine Intervention")]),
-        Rank("wizard-lich", "Wizard", "Lich", 3, "npc-49", "Halfgild Wynac", 48,
-            "retrieve the lich jars from the Proving Grounds", "Retrieve the lich jars from the Proving Grounds in Celeste and bring them back to me in the Pit, and you will be Liches.",
-            DarkChoice, items: [("601", 1, "Lich Jar"), ("602", 1, "Case of Soul Jars")]),
-    ];
-
-    /// <summary>Which school each alternative of the four magic-splitting families takes.</summary>
-    private static Dictionary<string, PromotionPath> PathTable() => new(StringComparer.Ordinal)
-    {
-        // The light alternatives take Light and leave Dark; the dark ones the other way round. The mastery
-        // table says the same thing from its side: Hero, Master Archer, Priest of the Light, and Arch Mage
-        // each reach grand master or basic in Light and nothing in Dark, and their opposites the reverse.
-        ["Hero"] = new PromotionPath(LightChoice, LightSchool, DarkSchool),
-        ["Villain"] = new PromotionPath(DarkChoice, DarkSchool, LightSchool),
-        ["Master Archer"] = new PromotionPath(LightChoice, LightSchool, DarkSchool),
-        ["Sniper"] = new PromotionPath(DarkChoice, DarkSchool, LightSchool),
-        ["Priest of the Light"] = new PromotionPath(LightChoice, LightSchool, DarkSchool),
-        ["Priest of the Dark"] = new PromotionPath(DarkChoice, DarkSchool, LightSchool),
-        ["Arch Mage"] = new PromotionPath(LightChoice, LightSchool, DarkSchool),
-        ["Lich"] = new PromotionPath(DarkChoice, DarkSchool, LightSchool),
-    };
 }

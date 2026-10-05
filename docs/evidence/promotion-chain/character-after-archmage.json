@@ -1,0 +1,323 @@
+{
+  "application_renderer": "unavailable",
+  "capture_id": "2382aa9b-5a81-4dd8-b8f0-a98d4369e10e",
+  "engine_presentation": {
+    "available": true,
+    "command": "engine.renderer.presentation",
+    "completed_at": "2026-10-05T14:10:45.030298439Z",
+    "evidence_path": "/home/agent/.local/state/crew-playtest-local/presentation-459978b7-9e6c-4f8c-ae96-39d42571cf70.json",
+    "facts": {
+      "available": true,
+      "captureCorrelation": "frame-sequence",
+      "observationAgeMs": 17,
+      "observationRuntime": {
+        "controlRevision": "1",
+        "generation": "1",
+        "instanceId": "852361"
+      },
+      "presentation": {
+        "captureCorrelation": "frame-sequence",
+        "gpuCompletion": "unavailable",
+        "pendingRealizations": 0,
+        "realizedPublicationFrontiers": [
+          {
+            "revision": 43,
+            "stream": "presentation-world"
+          }
+        ],
+        "realizedViewRevision": 55417,
+        "state": "submitted",
+        "submitted": {
+          "fallbackCamera": null,
+          "frameSequence": 55357,
+          "held": false,
+          "observer": null,
+          "publicationFrontiers": [
+            {
+              "revision": 43,
+              "stream": "presentation-world"
+            }
+          ],
+          "renderSequence": 55357,
+          "simulationStep": 55724,
+          "video": false,
+          "viewRevision": 55417,
+          "viewport": {
+            "backingHeight": 720,
+            "backingWidth": 1280,
+            "cssHeight": 720,
+            "cssWidth": 1280
+          },
+          "views": {
+            "cameras": [
+              {
+                "basis": {
+                  "forward": [
+                    0.9999999403953552,
+                    0.0,
+                    0.0
+                  ],
+                  "right": [
+                    0.0,
+                    0.0,
+                    0.9999999403953552
+                  ],
+                  "up": [
+                    0.0,
+                    0.9999999403953552,
+                    0.0
+                  ]
+                },
+                "id": "csharp-camera-1",
+                "observer": false,
+                "pose": {
+                  "pitchDegrees": 0.0,
+                  "position": [
+                    872.535400390625,
+                    0.000011444091796875,
+                    64.0
+                  ],
+                  "yawDegrees": 90.0
+                },
+                "projection": {
+                  "far": 96000.0,
+                  "fovYDegrees": 60.0,
+                  "kind": "perspective",
+                  "near": 8.0
+                }
+              }
+            ],
+            "presentations": [],
+            "revision": 55417,
+            "schemaVersion": 1,
+            "sourceCameras": [
+              {
+                "id": "csharp-camera-1",
+                "pose": {
+                  "pitchDegrees": 0.0,
+                  "position": [
+                    872.535400390625,
+                    0.000011444091796875,
+                    64.0
+                  ],
+                  "yawDegrees": 90.0
+                },
+                "projection": {
+                  "far": 96000.0,
+                  "fovYDegrees": 60.0,
+                  "kind": "perspective",
+                  "near": 8.0
+                }
+              }
+            ],
+            "targets": [],
+            "views": [
+              {
+                "cameraId": "csharp-camera-1",
+                "id": "csharp-view-0",
+                "order": 0,
+                "target": {
+                  "kind": "primary"
+                },
+                "viewport": {
+                  "height": 1.0,
+                  "width": 1.0,
+                  "x": 0.0,
+                  "y": 0.0
+                }
+              }
+            ]
+          }
+        },
+        "surfaceId": "runtime-stream-2"
+      },
+      "runtime": {
+        "controlRevision": "1",
+        "generation": "1",
+        "instanceId": "852361"
+      },
+      "schemaVersion": 1,
+      "worldReadiness": "unavailable"
+    },
+    "frame_correlation": "unavailable",
+    "http_status": 200,
+    "observation_completed_at": "2026-10-05T14:10:45.036507332Z",
+    "observation_requested_at": "2026-10-05T14:10:45.015479066Z",
+    "origin": "http://127.0.0.1:30300",
+    "query_id": "459978b7-9e6c-4f8c-ae96-39d42571cf70",
+    "raw_result": "{\n  \"available\": true,\n  \"captureCorrelation\": \"frame-sequence\",\n  \"observationAgeMs\": 17,\n  \"observationRuntime\": {\n    \"controlRevision\": \"1\",\n    \"generation\": \"1\",\n    \"instanceId\": \"852361\"\n  },\n  \"presentation\": {\n    \"captureCorrelation\": \"frame-sequence\",\n    \"gpuCompletion\": \"unavailable\",\n    \"pendingRealizations\": 0,\n    \"realizedPublicationFrontiers\": [\n      {\n        \"revision\": 43,\n        \"stream\": \"presentation-world\"\n      }\n    ],\n    \"realizedViewRevision\": 55417,\n    \"state\": \"submitted\",\n    \"submitted\": {\n      \"fallbackCamera\": null,\n      \"frameSequence\": 55357,\n      \"held\": false,\n      \"observer\": null,\n      \"publicationFrontiers\": [\n        {\n          \"revision\": 43,\n          \"stream\": \"presentation-world\"\n        }\n      ],\n      \"renderSequence\": 55357,\n      \"simulationStep\": 55724,\n      \"video\": false,\n      \"viewRevision\": 55417,\n      \"viewport\": {\n        \"backingHeight\": 720,\n        \"backingWidth\": 1280,\n        \"cssHeight\": 720,\n        \"cssWidth\": 1280\n      },\n      \"views\": {\n        \"cameras\": [\n          {\n            \"basis\": {\n              \"forward\": [\n                0.9999999403953552,\n                0.0,\n                0.0\n              ],\n              \"right\": [\n                0.0,\n                0.0,\n                0.9999999403953552\n              ],\n              \"up\": [\n                0.0,\n                0.9999999403953552,\n                0.0\n              ]\n            },\n            \"id\": \"csharp-camera-1\",\n            \"observer\": false,\n            \"pose\": {\n              \"pitchDegrees\": 0.0,\n              \"position\": [\n                872.535400390625,\n                0.000011444091796875,\n                64.0\n              ],\n              \"yawDegrees\": 90.0\n            },\n            \"projection\": {\n              \"far\": 96000.0,\n              \"fovYDegrees\": 60.0,\n              \"kind\": \"perspective\",\n              \"near\": 8.0\n            }\n          }\n        ],\n        \"presentations\": [],\n        \"revision\": 55417,\n        \"schemaVersion\": 1,\n        \"sourceCameras\": [\n          {\n            \"id\": \"csharp-camera-1\",\n            \"pose\": {\n              \"pitchDegrees\": 0.0,\n              \"position\": [\n                872.535400390625,\n                0.000011444091796875,\n                64.0\n              ],\n              \"yawDegrees\": 90.0\n            },\n            \"projection\": {\n              \"far\": 96000.0,\n              \"fovYDegrees\": 60.0,\n              \"kind\": \"perspective\",\n              \"near\": 8.0\n            }\n          }\n        ],\n        \"targets\": [],\n        \"views\": [\n          {\n            \"cameraId\": \"csharp-camera-1\",\n            \"id\": \"csharp-view-0\",\n            \"order\": 0,\n            \"target\": {\n              \"kind\": \"primary\"\n            },\n            \"viewport\": {\n              \"height\": 1.0,\n              \"width\": 1.0,\n              \"x\": 0.0,\n              \"y\": 0.0\n            }\n          }\n        ]\n      }\n    },\n    \"surfaceId\": \"runtime-stream-2\"\n  },\n  \"runtime\": {\n    \"controlRevision\": \"1\",\n    \"generation\": \"1\",\n    \"instanceId\": \"852361\"\n  },\n  \"schemaVersion\": 1,\n  \"worldReadiness\": \"unavailable\"\n}",
+    "requested_at": "2026-10-05T14:10:45.016492502Z",
+    "session_id": "5ad2a5b8-bba0-4e23-86db-cf727223c092",
+    "source": "Engine browser feedback; separate from screenshot"
+  },
+  "engine_presentation_state": "submitted",
+  "engine_readiness": "unavailable",
+  "frame": null,
+  "frame_correlation": "uncertain: frame changed during capture",
+  "gpu_completion": "unavailable",
+  "hardware_acceleration": "unavailable",
+  "label": "refreshed-character-after-archmage",
+  "metadata_path": "/home/agent/.local/state/crew-playtest-local/capture-2382aa9b-5a81-4dd8-b8f0-a98d4369e10e.json",
+  "observation": {
+    "artifact_id": "48c98836-7988-4cc7-9797-f65f91d5b38f",
+    "canvases": [
+      {
+        "backing": {
+          "height": 720,
+          "width": 1280
+        },
+        "css": {
+          "height": 720,
+          "width": 1280,
+          "x": 0,
+          "y": 0
+        }
+      }
+    ],
+    "capture_ended_at": "2026-10-05T14:10:45.127665215Z",
+    "capture_ended_at_ns": 1791209445127665215,
+    "capture_started_at": "2026-10-05T14:10:45.036523878Z",
+    "capture_started_at_ns": 1791209445036523878,
+    "console": [],
+    "cursor": {
+      "x": 0,
+      "y": 0
+    },
+    "dom_assistance": [],
+    "event": "observation",
+    "events_path": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092/events.jsonl",
+    "frame": null,
+    "frame_correlation": "uncertain: frame changed during capture",
+    "frame_freshness": "not measured",
+    "game_readiness": "unknown",
+    "height": 720,
+    "lease_id": "5ad2a5b8-bba0-4e23-86db-cf727223c092",
+    "metadata_path": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092/48c98836-7988-4cc7-9797-f65f91d5b38f.json",
+    "page_errors": [],
+    "path": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092/48c98836-7988-4cc7-9797-f65f91d5b38f.png",
+    "pointer_lock": false,
+    "renderer": "unknown",
+    "source": "headless Chromium screenshot through the private Playwright context",
+    "title": "Rusty Crawler",
+    "url": "http://127.0.0.1:30300/",
+    "viewport": {
+      "device_pixel_ratio": 1,
+      "height": 720,
+      "width": 1280
+    },
+    "width": 1280
+  },
+  "overlay_policy": "preserve",
+  "path": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092/48c98836-7988-4cc7-9797-f65f91d5b38f.png",
+  "pool_activity": {
+    "after": {
+      "active_count": 1,
+      "capacity": 10,
+      "observed_at": "2026-10-05T14:10:45.142034993Z",
+      "queued_starts": 0,
+      "slots": [
+        {
+          "game": "crawler-8512",
+          "occupied": true,
+          "phase": "connected",
+          "session_id": "5ad2a5b8-bba0-4e23-86db-cf727223c092",
+          "slot_id": "slot-1"
+        },
+        {
+          "occupied": false,
+          "slot_id": "slot-2"
+        },
+        {
+          "occupied": false,
+          "slot_id": "slot-3"
+        },
+        {
+          "occupied": false,
+          "slot_id": "slot-4"
+        },
+        {
+          "occupied": false,
+          "slot_id": "slot-5"
+        },
+        {
+          "occupied": false,
+          "slot_id": "slot-6"
+        },
+        {
+          "occupied": false,
+          "slot_id": "slot-7"
+        },
+        {
+          "occupied": false,
+          "slot_id": "slot-8"
+        },
+        {
+          "occupied": false,
+          "slot_id": "slot-9"
+        },
+        {
+          "occupied": false,
+          "slot_id": "slot-10"
+        }
+      ]
+    },
+    "before": {
+      "active_count": 1,
+      "capacity": 10,
+      "observed_at": "2026-10-05T14:10:45.015474569Z",
+      "queued_starts": 0,
+      "slots": [
+        {
+          "game": "crawler-8512",
+          "occupied": true,
+          "phase": "connected",
+          "session_id": "5ad2a5b8-bba0-4e23-86db-cf727223c092",
+          "slot_id": "slot-1"
+        },
+        {
+          "occupied": false,
+          "slot_id": "slot-2"
+        },
+        {
+          "occupied": false,
+          "slot_id": "slot-3"
+        },
+        {
+          "occupied": false,
+          "slot_id": "slot-4"
+        },
+        {
+          "occupied": false,
+          "slot_id": "slot-5"
+        },
+        {
+          "occupied": false,
+          "slot_id": "slot-6"
+        },
+        {
+          "occupied": false,
+          "slot_id": "slot-7"
+        },
+        {
+          "occupied": false,
+          "slot_id": "slot-8"
+        },
+        {
+          "occupied": false,
+          "slot_id": "slot-9"
+        },
+        {
+          "occupied": false,
+          "slot_id": "slot-10"
+        }
+      ]
+    },
+    "performance_isolated": false,
+    "slot_id": "slot-1"
+  },
+  "recorded_at": "2026-10-05T14:10:45.141919163Z",
+  "session_id": "5ad2a5b8-bba0-4e23-86db-cf727223c092",
+  "supplied_assistance": null,
+  "supplied_metadata_source": "caller; not independently verified",
+  "supplied_viewpoint": null
+}

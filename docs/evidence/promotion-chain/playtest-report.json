@@ -1,0 +1,185 @@
+{
+  "schema": "rusty-crawler-playtest-report/v1",
+  "task_id": "8512",
+  "mission": "One ordinary Sorcerer -> Wizard -> Arch Mage promotion replay, with journal, character/inventory effects, ordinary Save/Resume, and cleanup.",
+  "status": "pass_scoped_chain",
+  "operational_status": "completed",
+  "profile": "crawler-8512",
+  "session": {
+    "id": "5ad2a5b8-bba0-4e23-86db-cf727223c092",
+    "slot": "slot-1",
+    "host": "http://127.0.0.1:30300/",
+    "host_pid": 852360,
+    "repo": "/tmp/crawler-8512-live",
+    "repo_dirty": true,
+    "source_hash": "301af6f73aa50fac153182fab2eba5d10ea896586d12fa6b1a61eb7dd7fe037e",
+    "launch_fingerprint": "c429461a100060359e900dba959151498a76434c897a1e2027784fef2ae69d8f",
+    "events": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092/events.jsonl",
+    "artifacts": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092"
+  },
+  "neutral_initial_scene": {
+    "image": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092/6f78052e-3823-4562-aede-c3b30c91ff4b.png",
+    "metadata": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092/6f78052e-3823-4562-aede-c3b30c91ff4b.json",
+    "observation": "New Game/Continue modal over the dim School of Sorcery stone-door scene. Four staged Sorcerers are not yet visible because the modal covers the scene. A conspicuous toast already reads: Use: map event 9000 of place '29': nothing comes of it."
+  },
+  "staging": {
+    "party": "Four base Sorcerers near the School of Sorcery Thomas Grey door; high health/funds.",
+    "items": "Six golem pieces (IDs 639, 641-645) and Divine Intervention book (ID 487) were disclosed as initial staged inventory.",
+    "story": "Light99 was disclosed as staged map-entry state; this replay does not claim campaign acquisition or Pit/Breeding Zone travel."
+  },
+  "timeline": [
+    "New Game opened the School of Sorcery with the four staged Sorcerers, 100000 gold and 50 provisions.",
+    "Ordinary G at Thomas Grey offered Wizard promotion: collect six golem pieces, assemble the golem, and return. The Current Quests view showed the Wizard errand.",
+    "Opened the Golem companion conversation separately for each ordinary topic. The six visible choices assembled torso, left leg, right leg, left arm, right arm and head; the seventh choice visibly confirmed all parts together and instructed a return to Master Grey.",
+    "Returned to Thomas through ordinary interaction. Wizard promotion completed visibly; the dialogue said the Sorcerers became Wizards and the golem was animated.",
+    "Thomas then offered Arch Mage promotion: find Divine Intervention in the Breeding Zone in the Pit and return. Current Quests showed the Arch Mage errand.",
+    "Before handover, ordinary Inventory showed one staged Divine Intervention book in the party pack. Reopened Thomas and selected the Arch Mage topic with the book present.",
+    "Completion dialogue visibly recognized the book, created a copy and said 'You may keep the copy'. Character view showed Roderick \u00b7 Arch Mage; gold visibly increased to 110000. The Arch Mage errand cleared from Current Quests.",
+    "After completion, ordinary Inventory still visibly showed one Divine Intervention copy (Spellbook, Worth 10000 gold, Study). This is retained book behavior; no subtraction was visible and the completion text explicitly says to keep the copy.",
+    "Pressed ordinary F to save. Visible toast: Save: Saved the session to slot 'session' at 1168-01-01 16:48. Used Menu -> Load saved expedition -> Discard changes and load.",
+    "After Resume, Character still visibly showed Roderick \u00b7 Arch Mage and Inventory still visibly showed the Divine Intervention copy."
+  ],
+  "acceptance": {
+    "wizard_offer_and_journal": "pass",
+    "six_parts_and_assembly": "pass",
+    "wizard_rank": "pass",
+    "arch_mage_offer_and_journal": "pass",
+    "arch_mage_completion_and_rank": "pass",
+    "book_effect": "pass_visible_retained_copy; source-correct retention recorded, no claim that the item is subtracted",
+    "journal_clearance": "pass",
+    "save_resume_rank_retention": "pass",
+    "ordinary_controls": "pass; visible game UI, conversation, character, inventory, menu and save/load controls",
+    "diagnostic_proof": "not used as acceptance proof"
+  },
+  "key_captures": [
+    {
+      "label": "refreshed-new-game-school-of-sorcery",
+      "capture_id": "e817854b-7bff-4374-822f-1ec3b8bfd1a4",
+      "image": "new-game-school-of-sorcery.png",
+      "metadata": "new-game-school-of-sorcery.json",
+      "original_image": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092/39068ffa-2e20-4a13-8a42-278457ceac12.png",
+      "original_metadata": "/home/agent/.local/state/crew-playtest-local/capture-e817854b-7bff-4374-822f-1ec3b8bfd1a4.json"
+    },
+    {
+      "label": "refreshed-thomas-wizard-offer",
+      "capture_id": "57afc572-e3be-45c5-8a4b-02aed0db1028",
+      "image": "thomas-wizard-offer.png",
+      "metadata": "thomas-wizard-offer.json",
+      "original_image": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092/457f388a-c126-4535-8e71-2d26c569b4c4.png",
+      "original_metadata": "/home/agent/.local/state/crew-playtest-local/capture-57afc572-e3be-45c5-8a4b-02aed0db1028.json"
+    },
+    {
+      "label": "refreshed-wizard-current-journal",
+      "capture_id": "e76cd81c-71f2-42fb-abad-72c718f9eaaa",
+      "image": "wizard-current-journal.png",
+      "metadata": "wizard-current-journal.json",
+      "original_image": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092/aad475fb-5ca8-4bc2-9cf1-7d4118652480.png",
+      "original_metadata": "/home/agent/.local/state/crew-playtest-local/capture-e76cd81c-71f2-42fb-abad-72c718f9eaaa.json"
+    },
+    {
+      "label": "refreshed-golem-assembly-choice-7",
+      "capture_id": "8f3330a2-6b4f-46f2-8562-503bf948d489",
+      "image": "golem-assembly-choice-7.png",
+      "metadata": "golem-assembly-choice-7.json",
+      "original_image": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092/b4c3a1d9-2097-4e51-8b0d-9e65ee94c8bf.png",
+      "original_metadata": "/home/agent/.local/state/crew-playtest-local/capture-8f3330a2-6b4f-46f2-8562-503bf948d489.json"
+    },
+    {
+      "label": "refreshed-wizard-promotion",
+      "capture_id": "43f1258d-db64-412e-b482-6d09fb575e6c",
+      "image": "wizard-promotion.png",
+      "metadata": "wizard-promotion.json",
+      "original_image": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092/a7d71cb3-63ff-4df4-8d79-9c7731f22918.png",
+      "original_metadata": "/home/agent/.local/state/crew-playtest-local/capture-43f1258d-db64-412e-b482-6d09fb575e6c.json"
+    },
+    {
+      "label": "refreshed-archmage-current-journal",
+      "capture_id": "19500aec-53b6-4d5c-8aa9-0313d04b34b2",
+      "image": "archmage-current-journal.png",
+      "metadata": "archmage-current-journal.json",
+      "original_image": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092/f4ef9913-624f-42e6-a9a9-69a14670626a.png",
+      "original_metadata": "/home/agent/.local/state/crew-playtest-local/capture-19500aec-53b6-4d5c-8aa9-0313d04b34b2.json"
+    },
+    {
+      "label": "refreshed-thomas-archmage-handover",
+      "capture_id": "df2ebf55-dce1-41b5-b1de-a6bd978e252d",
+      "image": "thomas-archmage-handover.png",
+      "metadata": "thomas-archmage-handover.json",
+      "original_image": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092/0258b948-8a0b-4b01-9d16-dbfa932e07a1.png",
+      "original_metadata": "/home/agent/.local/state/crew-playtest-local/capture-df2ebf55-dce1-41b5-b1de-a6bd978e252d.json"
+    },
+    {
+      "label": "refreshed-character-after-archmage",
+      "capture_id": "2382aa9b-5a81-4dd8-b8f0-a98d4369e10e",
+      "image": "character-after-archmage.png",
+      "metadata": "character-after-archmage.json",
+      "original_image": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092/48c98836-7988-4cc7-9797-f65f91d5b38f.png",
+      "original_metadata": "/home/agent/.local/state/crew-playtest-local/capture-2382aa9b-5a81-4dd8-b8f0-a98d4369e10e.json"
+    },
+    {
+      "label": "refreshed-ordinary-save",
+      "capture_id": "f711ca3e-642a-4325-ac5e-b45259b15b06",
+      "image": "ordinary-save.png",
+      "metadata": "ordinary-save.json",
+      "original_image": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092/66eb7993-aa17-46ce-a74e-ae8e540dce4a.png",
+      "original_metadata": "/home/agent/.local/state/crew-playtest-local/capture-f711ca3e-642a-4325-ac5e-b45259b15b06.json"
+    },
+    {
+      "label": "refreshed-after-resume",
+      "capture_id": "cdd617e5-e48d-418c-808f-7b7711369ce0",
+      "image": "after-resume.png",
+      "metadata": "after-resume.json",
+      "original_image": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092/9833036f-054a-422f-b0ca-c6501b4da102.png",
+      "original_metadata": "/home/agent/.local/state/crew-playtest-local/capture-cdd617e5-e48d-418c-808f-7b7711369ce0.json"
+    },
+    {
+      "label": "refreshed-character-after-resume",
+      "capture_id": "269e0992-fbdd-4028-9da8-4b7a3cd2eadd",
+      "image": "character-after-resume.png",
+      "metadata": "character-after-resume.json",
+      "original_image": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092/ff99ce4a-299d-4acc-aa6c-a83297f7636c.png",
+      "original_metadata": "/home/agent/.local/state/crew-playtest-local/capture-269e0992-fbdd-4028-9da8-4b7a3cd2eadd.json"
+    },
+    {
+      "label": "refreshed-inventory-item-after-resume",
+      "capture_id": "87a3e23d-e378-4259-ba84-e9ce14efe541",
+      "image": "inventory-item-after-resume.png",
+      "metadata": "inventory-item-after-resume.json",
+      "original_image": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092/22124b4d-67cc-46ca-ba84-eb75860e871a.png",
+      "original_metadata": "/home/agent/.local/state/crew-playtest-local/capture-87a3e23d-e378-4259-ba84-e9ce14efe541.json"
+    },
+    {
+      "label": "refreshed-journal-after-archmage",
+      "capture_id": "eae7b3f7-b3f4-49c2-befc-4ce153ca8082",
+      "image": "journal-after-archmage.png",
+      "metadata": "journal-after-archmage.json",
+      "original_image": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092/b16d0885-4059-4d5b-906b-a355342b5993.png",
+      "original_metadata": "/home/agent/.local/state/crew-playtest-local/capture-eae7b3f7-b3f4-49c2-befc-4ce153ca8082.json"
+    }
+  ],
+  "evidence": {
+    "full_capture_directory": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092",
+    "event_log": "/home/agent/.local/state/crew-playtest-local/browser/5ad2a5b8-bba0-4e23-86db-cf727223c092/events.jsonl",
+    "prior_failed_report_preserved": "/tmp/crawler-8512-playtest-wizard-report.json"
+  },
+  "limitations": [
+    "Six golem parts, the Divine Intervention book and Light99 were disclosed staged state; this is a replay of the ordinary promotion chain, not evidence of acquiring them through the campaign or traveling to Pit/Breeding Zone.",
+    "The initial and later world views retained the visible 'Use: map event 9000 of place 29: nothing comes of it' toast. It was conspicuous but did not prevent the disclosed Light-path Wizard/Arch Mage chain.",
+    "This report scopes only the Wizard/Arch Mage chain; other quest hooks are out of scope.",
+    "The original capture sidecars record frame correlation as uncertain when the frame changed during capture; the listed PNGs are the original visible captures."
+  ],
+  "cleanup": {
+    "status": "pass",
+    "stopped": true,
+    "browser_closed": true,
+    "host_status": "stopped",
+    "host_stopped": true,
+    "released": true,
+    "slot": "slot-1",
+    "pid": 852360,
+    "port": 30300,
+    "message": "stopped broker-owned process group",
+    "session_artifacts_retained": true
+  },
+  "publication_note": "Original observer report preserved in the operator temporary evidence. This published copy uses local retained capture paths; Git review identity is recorded in Den. The observed chain predates the independent timer-accounting, chest and silent-lifecycle-feedback corrections, which have focused regressions."
+}

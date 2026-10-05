@@ -354,7 +354,10 @@ public sealed class JournalPolicyTests
               "documentId": "quests",
               "definitionKind": "quest",
               "entries": [
-                { "id": "35", "text": "Raid the Elven Treasury at Castle Navan and return to Frederick Org.", "owner": "authored" }
+                { "id": "35", "text": "Raid the Elven Treasury at Castle Navan and return to Frederick Org.", "owner": "authored", "name":"The Elven Treasury", "reading": {
+                  "giver":"npc-43","objectives":[{"id":"reach","kind":"reach","target":"Castle Navan","label":"Reach Castle Navan"}],
+                  "experience":4000,"coins":250,"record":"errand:34"
+                } }
               ]
             }
             """),

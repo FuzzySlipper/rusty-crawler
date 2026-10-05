@@ -625,8 +625,8 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
                 offers.Add(new ConversationOffer(new ConversationTopic("follower-dismiss", "Leave the party"), Verdict.Met));
             else if (context.Placement is not null && person.Follower?.CanHire == true)
                 offers.Add(new ConversationOffer(new ConversationTopic("follower-hire", $"Join the party ({MightAndMagic7Followers.HirePrice(person.Follower)?.ToString(CultureInfo.InvariantCulture) ?? "unknown"} gold)"), Followers.HireOffer(person.Id)));
-            // A companion's party presence permits conversation, not remote use of their old house or event.
-            if (context.Placement is null) return offers;
+            // Personal topics travel with a companion. Their old house and counter do not.
+            if (context.Placement is null && !Followers.Joined(person.Id)) return offers;
             foreach (TopicFacts topic in TopicsOf(person, context.Party))
             {
                 Verdict availability = Verdict.Met;
@@ -659,6 +659,7 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
             // for, and it waits for the party to be worth an opinion: the condition is an ordinary standing
             // condition, judged by the same answer every other topic's conditions are judged by, so the line
             // appears when the standing is there and is withheld with the number it wants when it is not.
+            if (context.Placement is null) return offers;
             offers.Add(StandingOffer(context));
         }
 
@@ -911,7 +912,8 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
     {
         if (topic.Id == "follower-hire") return Followers.Hire(context.Speaker);
         if (topic.Id == "follower-dismiss") return Followers.Dismiss(context.Speaker);
-        if (context.Placement is null) return new ConversationAnswer("That companion offers no such topic while travelling.");
+        if (context.Placement is null && (!Followers.Joined(context.Speaker) || !topic.Id.StartsWith(TopicIdPrefix, StringComparison.Ordinal)))
+            return new ConversationAnswer("That companion offers no such topic while travelling.");
         if (topic.Id.StartsWith("arena-return:", StringComparison.Ordinal) && context.Party is { } challenger && _quests?.Arena is { } arena)
             return arena.Return(new(topic.Id["arena-return:".Length..]), challenger);
         // What the town makes of the party is answered from the party's own standing rather than from a

@@ -145,7 +145,7 @@ export function mountQuests(host: Host): QuestsSection {
         block.dataset.giver = quest.giver;
         block.dataset.canTurnIn = String(quest.canTurnIn);
         const label = element('span', 'crawler-row-label');
-        label.textContent = `${quest.name} · ${quest.state} · given by ${quest.giverName}`;
+        label.textContent = `${quest.name} · ${quest.state}${quest.giverName === '' ? '' : ` · given by ${quest.giverName}`}`;
         block.append(label);
         if (quest.note !== '') {
           const note = element('div', 'crawler-quest-note');

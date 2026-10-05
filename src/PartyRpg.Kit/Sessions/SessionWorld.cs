@@ -200,6 +200,9 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// </remarks>
     public long Stamp => Math.Max(Party.Stamp, Math.Max(Places.Stamp, Interactions.Stamp));
 
+    /// <summary>Reports an admitted departure before travel time advances; the source population remains available.</summary>
+    public event Action<PlaceId>? Departed;
+
     /// <summary>Remembers a content placement's death; summoned creatures belong to the live fight instead.</summary>
     public void Died(CreatureDeath death)
     {
@@ -409,6 +412,36 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
         return Journey(interaction, result);
     }
 
+    /// <summary>Settles a joined companion's topic through the same interaction and journey owners.</summary>
+    public InteractionResult? AnswerFollower(FollowerDefinitionId follower, string raised)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (Interaction is not { } interaction) return null;
+        InteractionResult result = interaction.AnswerFollower(follower, raised);
+        Report(result);
+        return Journey(interaction, result);
+    }
+
+    /// <summary>Settles a ruleset-raised world event through the ordinary interaction and journey owners.</summary>
+    public InteractionResult? AnswerRaised(string raised)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (Interaction is not { } interaction) return null;
+        InteractionResult result = interaction.AnswerRaised(raised);
+        Report(result);
+        return Journey(interaction, result);
+    }
+
+    /// <summary>Settles a departure event in its old place after arrival is admitted. Departure cannot start another journey.</summary>
+    public InteractionResult? AnswerDeparture(PlaceId from, string raised)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (Interaction is not { } interaction) return null;
+        InteractionResult result = interaction.AnswerRaisedAt(from, raised, Population.PlacementsOf(from), []);
+        Report(result);
+        return result;
+    }
+
     /// <summary>
     /// Takes the journey a use leads to, through the one transition path, and records what came of it as the use's
     /// own result.
@@ -530,6 +563,7 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
                 $"The engine would not admit the ground of {result.Place}, so the party stayed where it stood: {error.Message}"));
         }
 
+        if (fromPlace != result.Place) Departed?.Invoke(fromPlace);
         _costRule.Arrived(request);
         Charge(result.ChargedCost);
         Places.MarkVisited(result.Place);

@@ -32,11 +32,10 @@ namespace PartyRpg.Rulesets.MightAndMagic7.Tests;
 /// its chosen path leaves open or shut.
 /// </para>
 /// <para>
-/// The ladder is read without content as well: a pack that declares no classes still gets the ceilings and
-/// the ranks this game's compiled table states, exactly as it gets the mastery rows. Where the operator's
-/// own import is present the ladder is checked against the class table it is written in — the shipped rows
-/// are what names every class a rank promotes from and to — and a machine without that data says so by
-/// reporting that case skipped.
+/// Focused fixtures explicitly supply the authored promotion pack. The ordinary imported bundle's
+/// event completion and world routes are covered by PromotionReachabilityTests; these cases also
+/// retain the native authored-requirement path for focused scenarios. Operator-data cases report
+/// skipped when no imported root was supplied.
 /// </para>
 /// </remarks>
 public sealed class PromotionPolicyTests
@@ -87,7 +86,7 @@ public sealed class PromotionPolicyTests
     {
         using Fixture fixture = Fixture.Build("Knight");
         PartyMember member = fixture.Party.Members[0];
-        fixture.Party.Records.Mark(MightAndMagic7Quests.ErrandRecord("35"));
+        fixture.Party.Records.Mark(MightAndMagic7Quests.ErrandRecord("34"));
         member.Conditions.Apply(new ActiveCondition(new ConditionId(condition)));
         Refusal? judged = fixture.Progression.JudgeGrant("knight-cavalier", member.Id);
         Assert.Contains(condition, judged!.Message, StringComparison.Ordinal);
@@ -107,7 +106,7 @@ public sealed class PromotionPolicyTests
     {
         // The ladder is this game's own table, so it is complete without content: 9 families, each with a
         // first promotion and two second-promotion alternatives, which is 27 ranks over 36 class rows.
-        MightAndMagic7Promotions ladder = MightAndMagic7Promotions.Read(null);
+        MightAndMagic7Promotions ladder = PromotionTestContent.Read(null);
         Assert.Equal(27, ladder.RankCount);
         Assert.Equal(18, ladder.GiverCount);
         Assert.Equal(27, ladder.Ladder.Ranks.Count(rank => rank.Requirements.Any(requirement => requirement.Kind == PromotionRequirementKind.Giver)));
@@ -131,7 +130,7 @@ public sealed class PromotionPolicyTests
     {
         string classes = ImportedContent.Table("classes.json");
         ContentCatalog catalog = ImportedContent.Load();
-        MightAndMagic7Promotions overContent = MightAndMagic7Promotions.Read(catalog);
+        MightAndMagic7Promotions overContent = PromotionTestContent.Read(catalog);
 
         // The shipped class table's own rows, in its own order: four per family, the base class, its first
         // promotion, and the two second promotions, which the notes column keys by base class
@@ -190,7 +189,7 @@ public sealed class PromotionPolicyTests
     [Fact]
     public void A_rank_asks_for_its_giver_its_errand_and_the_proof_the_errand_names()
     {
-        MightAndMagic7Promotions ladder = MightAndMagic7Promotions.Read(null);
+        MightAndMagic7Promotions ladder = PromotionTestContent.Read(null);
 
         // The giver is the person the shipped NPC table's notes column names and the topic table agrees
         // with: npc.txt row 48 is the good Sorcerer promoter and npctopic 92-93 "Wizard" are his; npc.txt
@@ -637,7 +636,7 @@ public sealed class PromotionPolicyTests
             Assert.True(bootstrap.IsValid, string.Join("; ", bootstrap.Issues.Select(issue => issue.ToString())));
             ContentCatalog catalog = bootstrap.Catalog!;
 
-            MightAndMagic7Promotions promotions = MightAndMagic7Promotions.Read(catalog);
+            MightAndMagic7Promotions promotions = PromotionTestContent.Read(catalog);
             MightAndMagic7Skills policy = MightAndMagic7Skills.Read(catalog, promotions)
                 ?? throw new InvalidOperationException("The test's content declares skills, so the policy is read.");
             List<MemberCreation> members =

@@ -27,3 +27,8 @@ pose and enter the existing `SessionWorld.Travel` path. Authored ruleset roads, 
 equipment gates and carried-item travel use that same path; the adventure feedback shows its answer.
 
 Item inspection carries optional readable prose from the ruleset through the Kit projection. The inventory inspector presents that text without interpreting it. The importer joins message text to item identities offline.
+
+The normal game pack owns promotion ladder data. The ruleset interprets its rank edges and imported
+quest events; Kit owns rank mutation, companion interaction settlement, and the quest-book projection.
+Optional `IQuestNotesRule` exposes event-owned quests by reading canonical party records, without
+parallel quest state. See the owning project READMEs for these contracts.

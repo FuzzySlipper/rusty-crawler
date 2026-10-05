@@ -50,6 +50,9 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 internal sealed class MightAndMagic7Session : IGameSession
 {
     private readonly PartyRpgSession _session;
+    private readonly MightAndMagic7Fixtures _fixtures;
+    private SessionWorld? _enteredWorld;
+    private PlaceId? _enteredPlace;
 
     internal MightAndMagic7Session(IGameRuleset ruleset, RulesetSessionContext context, SessionSave? resume = null)
     {
@@ -440,6 +443,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             View = MightAndMagic7Scene.View(MightAndMagic7Scene.Read(Declared(context.Content), () => owners.World, clock, MightAndMagic7Tuning.Read(Declared(context.Content)), corpses, () => composed, () => owners.Combat, () => owners.Director), context.Engine),
         };
 
+        _fixtures = fixtures;
         Owners = owners;
 
         // What a party plays — its accounts and the world it walks in, composed over that party with every answer
@@ -805,7 +809,25 @@ internal sealed class MightAndMagic7Session : IGameSession
     internal SessionWorld? World => _session.LiveWorld;
 
     /// <inheritdoc />
-    public ProductUpdateResult Update(ProductUpdate update) => _session.Update(update);
+    public ProductUpdateResult Update(ProductUpdate update)
+    {
+        // Entry is ruleset policy inside the one admitted update, not another scheduler. The population
+        // exists before its entry program asks about actors. Resuming a save is also a map load.
+        if (World is { } world && (world != _enteredWorld || world.Party.Place != _enteredPlace))
+        {
+            if (_enteredWorld != world)
+                world.Departed += from => { foreach (string departure in _fixtures.Departures(from)) world.AnswerDeparture(from, departure); };
+            _enteredWorld = world;
+            _enteredPlace = world.Party.Place;
+            world.Populate();
+            foreach (string entry in _fixtures.Entries(world.Party.Place))
+            {
+                world.AnswerRaised(entry);
+                if (world.Party.Place != _enteredPlace) break;
+            }
+        }
+        return _session.Update(update);
+    }
 
     /// <inheritdoc />
     public SessionSnapshot Inspect() => _session.Inspect();

@@ -129,7 +129,7 @@ internal sealed class MightAndMagic7Corpses : ICreatureDeathObserver, ICorpseSou
     /// <param name="request">The placement, its place, and what the party has already done to it.</param>
     /// <returns>The body as a container, or null when the placement is not a body.</returns>
     internal InteractionTargetDefinition? Describe(InteractionTargetRequest request) =>
-        _ground.At(request.Place, request.Placement.Content) is { } body
+        request.Placement is { } placement && _ground.At(request.Place, placement.Content) is { } body
             ? new InteractionTargetDefinition(
                 new InteractionTargetKind(MightAndMagic7Containers.TargetKind),
                 $"The body of {body.Name}",
@@ -144,7 +144,7 @@ internal sealed class MightAndMagic7Corpses : ICreatureDeathObserver, ICorpseSou
     /// <returns>What the search gave, or why it gave nothing.</returns>
     internal InteractionOutcome Search(InteractionTargetDefinition target, InteractionContext context)
     {
-        if (_ground.At(context.Place, context.Placement.Content) is not { } body)
+        if (context.Placement is not { } placement || _ground.At(context.Place, placement.Content) is not { } body)
         {
             // The mechanism re-validates what it faces before a use reaches here, so a body that is gone is a
             // creature standing up again between the two reads: a refusal, not a defect.

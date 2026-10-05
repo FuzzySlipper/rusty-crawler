@@ -462,36 +462,30 @@ the promotion that would raise it named. The keeper of a guild is that school's 
 guild stands at in its own ladder is the deepest rung of its skill the counter offers, bought through the
 conversation's counter handoff and the service mechanism's own lesson path, and `MightAndMagic7EquipmentUse`
 refuses a weapon or armour whose row names a skill the member has not learned while the manual's five
-exempt places need none. This game's ranks are landed with them: `MightAndMagic7Promotions` is the
-ladder — the shipped class table's 36 rows as 9 families of a base class, a first promotion, and two
-second-promotion alternatives — with the 27 ranks it states, the 18 people the shipped NPC and topic tables
-name as their givers, each rank's errand from the shipped quest table, the proof items the shipped item table
-carries where the errand's own words name one, the two counted deeds the original keeps as awards, the record
-each rank leaves on the party (`promotion:<rank>`, the original's own award bit under this game's name), and
-the eight classes whose pair of alternatives splits on the two schools. A rank asks for what this build can
-judge — its giver, what the party carries, what deeds it holds on record — and states an errand whose words
-name a deed as the record a finished quest leaves (`errand:<bit>`, the same identity a shipped topic's own
-requirement column already gates a person's line on), so seventeen ranks' errands are judged by real quest
-state rather than refused. What each errand asks is approximated: the deeds are the original's event programs,
-which this build does not run, so all but one are judged by standing in the place the shipped words name and
-one by a kill (`MightAndMagic7Quests`, each row stating why). `PartyProgression.Promote` is the one writer: it judges every
-requirement before anything moves, refuses with what is missing named, and moves the class and the rank
-together, so the ceiling, the growth table, and every class condition read one fact. **A promoter's rank is
-their topic** (#9058): the global program answers every one of the 27 ranks with the promoter's own events — an
-errand topic, then a turn-in whose event checks what the party brought, says the shipped words, and makes each
-member of the class the next one (`set class`, named by the class table's row) — so where the program makes a
-character the class a rank names (`MightAndMagic7MapEvents.Grants`), that topic is the one offer of the rank and
-the ladder's own is not made. The run gives the rank through `PartyProgression.Grant`, the ladder's rank from
-the member's class to the one named, judged before anything settles (`JudgeGrant`: of the class, at the rank it
-continues from, and recovered from any laid-out condition), so the class, the rank, the
-`promotion:<rank>` record and the light or dark alternative move as every promotion's do, and the ladder's
-requirements are not asked a second time. The ladder's own offer is what a promoter whose world carries no such
-program says: a person the ladder names as a giver offers the ranks they give through the conversation that
-already exists, and taking one hands the party to that owner through the promotion handoff; the ceiling a class and rank impose now answers with the
-path when a class's own choice closed a school, so a lesson, a book, and a casting are each refused with the
-alternative named (`skill-closed-by-path`); and `PromotionSnapshot` publishes the ladder and what each rank
-did, member by member, for the panel. What the shipped data carries, what this game authors, and the live
-promotion through both stages are recorded in [`docs/evidence/promotions.md`](../../docs/evidence/promotions.md).
+exempt places need none. The normal pack's `promotions.json` supplies the 27 edges over nine class families (36 ranks),
+givers, quest identities, alternatives and magic-school paths. `MightAndMagic7Promotions` validates and
+reads that data; a pack without a ladder declares no promotions. The imported global events own the
+ordinary quest offers, proof-item deliveries, prerequisites, rewards and class changes. There is one
+offer at each promoter, and the imported event grants through `PartyProgression.Grant` after the
+canonical member judgement. The authored previous-class edges make alternatives exclusive per member;
+imported story bits gate which side's quests the party may take. The party-wide story choice is retained,
+so per-character exclusivity does not imply that a single campaign offers both story branches.
+
+`MightAndMagic7Quests` reads active event-owned journal notes directly from the same party records
+through Kit `IQuestNotesRule`. It does not create parallel quest instances, rewards or reach-only
+substitutes for the imported deeds. Companion topics (including Golem assembly) use the same event
+interpreter and interaction settlement at the party's location, without a world placement or a remote
+house. Map-entry events run after population in the session's admitted update; admitted departures
+run the source leave hooks before travel time advances. The Haunted Mansion
+proof requires its exit-time defeated-actor check. Hidden Tomb proof follows its actual chest search;
+unlocking or disarming alone cannot grant it. Import retains their source trigger
+and instruction sequence. `OpenEnroth/src/Engine/Evt/Processor.cpp:201-231` documents execution
+starting at the step following the matching lifecycle trigger.
+
+The ladder's direct requirement offers remain available to authored scenarios without imported promotion
+programs. Both paths use the same progression owner, class, rank, skill ceilings and path refusal.
+The reachability audit and bounded ordinary promotion playthrough are published in
+[`docs/evidence/promotion-chain-validation.md`](../../docs/evidence/promotion-chain-validation.md).
 The owner chose recovery before promotion: `MightAndMagic7Promotions.Ineligible` names unconsciousness,
 death, petrification and eradication and the remedy, and the progression owner's shared member judgement
 applies it to `Promote`, `Grant` and `JudgeGrant`. This deliberately differs from OpenEnroth
@@ -593,16 +587,8 @@ donor with a note that it is an MM8 behaviour (`UIDialogue.cpp:70-95`). This gam
 party's effects are all durable state, and the ruleset suite turns an errand in, saves through the engine's
 store, resumes, and reads the same band and the same record back.
 
-This game's quests are landed beside them: `MightAndMagic7Quests` reads the operator's shipped quest
-table — 512 rows of a bit, the journal's own words, and an authoring column — and states the 17 promotion
-errands over it, taking each errand's giver from the ladder rather than stating it twice and leaving the
-shipped words as the note a player reads. What each errand asks is this game's own reading, resolved against
-the places and creatures the packs carry: a place the errand names is a reach objective, a creature it names
-is a kill objective, and where its words say *all* of a kind the count is every one the place's own
-placements hold. What the original performs with an event program — a weight moved, a code cracked, an altar
-defaced — is stated as the errand's residue rather than faked, so a player reads what this build judges beside
-what the original asked for. A finished errand leaves `errand:<bit>` on the party, which is what the topic
-table's own gate and a rank's requirement both read. A pack may state an errand of its own with a `reading`
+`MightAndMagic7Quests` reads the operator's quest table as journal notes keyed by canonical event records.
+A pack may state an errand of its own with a `reading`
 beside its words — giver, objectives, offer and completion conditions, and what a turn-in pays — and a town
 hall's board is the one errand nobody authors: the beast is the place's own encounter row by the month the
 clock stands in, what it pays is the donor's hundred times its level, and the keeper who offers it is the one
@@ -629,12 +615,7 @@ are untouched. The authored counts and labels leave each item's imported value i
 selling; the selected 3,000-coin purse is an authored opening adaptation. At Tor's 1.5 multiplier, four
 Bow/Leather Armor/Fire Bolt sets cost 2,700 coin from the imported values, and two bottles plus two berries
 cost 4 coin, leaving the opening party room for its quest and first service. The quest still travels through the ordinary
-conversation handoff and the Kit's journal, custody, ledger, and progression owners. What each of the 17 errands is read as is stated
-row by row in `MightAndMagic7Quests.Errands()`,
-with the shipped words it is written over, the place and creature names it resolves against content, and
-the residue that says what the original performs with an event program and this build does not judge; a
-test over the operator's own packs checks that every objective resolved and that a count taken from a
-place's placements is that place's own. What a party discovers is landed beside the journal: the knowledge
+conversation handoff and the Kit's journal, custody, ledger, and progression owners. What a party discovers is landed beside the journal: the knowledge
 owner keeps the facts it can look up again — a mixture the potion table states a discovery for, a find the
 shipped table marks an artifact or a relic, a fountain's effect, an obelisk's clue, and a sign's words — and
 `MightAndMagic7Knowledge` states the words a note about each kind reads with and what this game counts as
@@ -1164,3 +1145,9 @@ the group's `person-group-news:<group>:<news>` record. Row zero silences the gro
 Those records use the current party save schema and are validated against the loaded
 content on resume. A later refused event step discards the pending news and follower
 changes along with the rest of the existing fixture settlement.
+
+Fixture variables use the world's existing interaction ledger. Map slots and decoration slots
+are separate byte-valued banks; comparisons, writes and native saves preserve their identities
+(OpenEnroth `src/Engine/Objects/Character.cpp:3608-3613`, `4006-4014`). A conditional chest
+program that names a different container from the selected target is refused by name before
+its effects settle; opening one container cannot silently take another container's contents.

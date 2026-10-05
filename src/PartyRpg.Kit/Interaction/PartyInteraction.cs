@@ -386,6 +386,34 @@ public sealed class PartyInteraction : IWorldInteractionScene
         return _result;
     }
 
+    /// <summary>Runs a joined companion's personal topic at the party's current place, without a world placement.</summary>
+    public InteractionResult AnswerFollower(FollowerDefinitionId follower, string raised)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(raised);
+        if (_world.Party?.Followers.Find(follower) is null)
+            return _result = InteractionResult.Refused(null, new Refusal("interaction-follower-absent", "That companion is not travelling with the party."));
+        return AnswerRaised(raised);
+    }
+
+    /// <summary>Runs a ruleset-raised world event without inventing a placement or a target ledger row.</summary>
+    public InteractionResult AnswerRaised(string raised) =>
+        AnswerRaisedAt(_world.Place, raised, _world.Placements, [.. _world.Transitions, .. _world.WorldIssued]);
+
+    /// <summary>Runs a lifecycle event against its source place and its actual content.</summary>
+    public InteractionResult AnswerRaisedAt(PlaceId place, string raised, IReadOnlyList<PlacementDefinition> placements, IReadOnlyList<PlaceTransition> transitions)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(raised);
+        if (_rule.Describe(new InteractionTargetRequest(place, null, string.Empty) { Raised = raised }) is not { } definition)
+            return _result = InteractionResult.Refused(null, new Refusal(InteractionCodes.InteractionUnavailable, "This event has no answer in this world."));
+        InteractionContext context = new(place, null, definition, _world.Party, _world.Clock)
+        {
+            PlaceValues = _world.States.ValuesOf(place), PlaceTargets = placements,
+            TargetState = content => _world.States.StateOf(place, content).State,
+            PlaceTransitions = transitions, Raised = raised,
+        };
+        return _result = ApplyAndSettle(null, context, recordsState: false);
+    }
+
     /// <summary>Records what a use's journey came to as the last result, which is what the panel shows.</summary>
     /// <param name="result">The use, with the journey the world took for it.</param>
     internal void Conclude(InteractionResult result) => _result = result ?? throw new ArgumentNullException(nameof(result));
@@ -525,27 +553,32 @@ public sealed class PartyInteraction : IWorldInteractionScene
             Raised = raised,
         };
 
+        return ApplyAndSettle(target, context, recordsState);
+    }
+
+    private InteractionResult ApplyAndSettle(InteractionTarget? target, InteractionContext context, bool recordsState)
+    {
         // Requirements first, in the order the ruleset stated them: the first one the party does not meet is
         // the answer, and nothing at all is applied.
-        foreach (InteractionRequirement requirement in target.Definition.Requires)
+        foreach (InteractionRequirement requirement in context.Target.Requires)
         {
             Verdict verdict = _rule.Judge(requirement, context);
             if (verdict.IsMet) continue;
             return InteractionResult.Refused(
                 target,
-                new Refusal(InteractionCodes.InteractionRequirementUnmet, $"{target.Definition.Name} requires {requirement.Describe()}: {verdict.Explanation}"));
+                new Refusal(InteractionCodes.InteractionRequirementUnmet, $"{context.Target.Name} requires {requirement.Describe()}: {verdict.Explanation}"));
         }
 
         // What the target guards itself with comes next, and before anything it holds: a trap the party
         // cannot get past is answered here, never by handing over what it was guarding. The ruleset stated
         // every word and number of it, and the workflow — notice it before defeating it, spend it once, let
         // a failed attempt cost the party — is what this mechanism owns.
-        if (_rule.Trap(target.Definition, context) is { } trap)
+        if (target is not null && _rule.Trap(context.Target, context) is { } trap)
         {
             return Spring(target, trap, context);
         }
 
-        InteractionOutcome outcome = _rule.Apply(target.Definition, context);
+        InteractionOutcome outcome = _rule.Apply(context.Target, context);
         if (!outcome.IsApplied) return InteractionResult.Refused(target, outcome.Refusal!);
 
         // What the use gives needs a party to take it.
@@ -555,20 +588,20 @@ public sealed class PartyInteraction : IWorldInteractionScene
             {
                 return InteractionResult.Refused(
                     target,
-                    new Refusal(InteractionCodes.InteractionNoParty, $"{target.Definition.Name} gives what it holds and this world holds no party to take it."));
+                    new Refusal(InteractionCodes.InteractionNoParty, $"{context.Target.Name} gives what it holds and this world holds no party to take it."));
             }
         }
 
-        string taken = HandOver(target, outcome);
-        _world.States.Keep(_world.Place, outcome.Kept);
+        string taken = HandOver(outcome);
+        _world.States.Keep(context.Place, outcome.Kept);
         foreach (InteractionTargetChange change in outcome.Changes)
         {
             // Another target the use moved is recorded as its own use would record it, so its incarnation
             // advances too and a selection made before the lever was pulled cannot use the door it changed.
-            _world.States.Record(_world.Place, change.Target, change.State);
+            _world.States.Record(context.Place, change.Target, change.State);
         }
 
-        InteractionTarget used = recordsState ? target with { State = _world.States.Record(_world.Place, target.Id.Content, outcome.State) } : target;
+        InteractionTarget? used = recordsState && target is not null ? target with { State = _world.States.Record(context.Place, target.Id.Content, outcome.State) } : target;
         return InteractionResult.Applied(used, outcome, taken.Length == 0 ? outcome.Message : $"{outcome.Message} {taken}");
     }
 
@@ -642,7 +675,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
     }
 
     /// <summary>Moves what an outcome gives into the party's own owners, and reports it in one clause.</summary>
-    private string HandOver(InteractionTarget target, InteractionOutcome outcome)
+    private string HandOver(InteractionOutcome outcome)
     {
         List<string> taken = [];
         List<string> left = [];

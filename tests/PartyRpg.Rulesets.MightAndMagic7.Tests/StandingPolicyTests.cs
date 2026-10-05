@@ -390,7 +390,7 @@ public sealed class StandingPolicyTests
     public void The_shipped_data_gates_nothing_on_a_standing_and_the_standing_lines_are_this_game_s_own()
     {
         ContentCatalog catalog = ImportedContent.Load();
-        MightAndMagic7Promotions promotions = MightAndMagic7Promotions.Read(catalog);
+        MightAndMagic7Promotions promotions = PromotionTestContent.Read(catalog);
         MightAndMagic7Quests quests = MightAndMagic7Quests.Read(catalog, promotions, MightAndMagic7Spawns.Compose(catalog, new KeyedTestRandom()))!;
         MightAndMagic7Services services = MightAndMagic7Services.Read(catalog, quests: quests)!;
         MightAndMagic7Conversation conversation = MightAndMagic7Conversation.Read(catalog, services, promotions, quests)!;
@@ -431,7 +431,7 @@ public sealed class StandingPolicyTests
         // who gives them and what they ask for is the shipped table's business, and a standing is not part of
         // it. The one errand this game does gate on a standing is the town hall's notice, which nobody
         // authors — and it is gated in the vocabulary the conversation and the quests share.
-        Assert.Equal(17, quests.ErrandCount);
+        Assert.Equal(0, quests.ErrandCount);
         foreach (QuestDefinition definition in quests.Definitions)
         {
             if (definition.Id.Value.StartsWith(MightAndMagic7Identities.BountyPrefix, StringComparison.Ordinal)) continue;
@@ -481,7 +481,7 @@ public sealed class StandingPolicyTests
     public void The_awards_of_the_shipped_game_read_in_the_ladder_s_and_the_errands_own_words()
     {
         ContentCatalog catalog = ImportedContent.Load();
-        MightAndMagic7Promotions promotions = MightAndMagic7Promotions.Read(catalog);
+        MightAndMagic7Promotions promotions = PromotionTestContent.Read(catalog);
         MightAndMagic7Quests read = MightAndMagic7Quests.Read(catalog, promotions)!;
         MightAndMagic7Services services = MightAndMagic7Services.Read(catalog, quests: read)!;
         MightAndMagic7Standing standing = new(promotions, read, services);
@@ -497,14 +497,10 @@ public sealed class StandingPolicyTests
         Assert.Equal(rank.To.Value, promoted.Label);
         Assert.Contains(rank.From.Value, promoted.Detail, StringComparison.Ordinal);
 
-        // An errand the shipped table states reads as the words this game gives it, and its giver's own name
-        // comes from the ladder's requirement rather than from a second table.
-        QuestDefinition errand = read.Definitions.First(definition => definition.Record.StartsWith("errand:", StringComparison.Ordinal));
-        party.Records.Set(errand.Record, 1);
-        AwardReading finished = standing.Awards(party).Single(award => award.Id == errand.Record);
-        Assert.Equal(MightAndMagic7Standing.ErrandKind, finished.Kind);
-        Assert.Equal(errand.Name, finished.Label);
-        Assert.StartsWith("given by ", finished.Detail, StringComparison.Ordinal);
+        // An active imported quest is a journal note, not an award for completing a duplicate errand.
+        party.Records.Mark(MightAndMagic7Quests.ErrandRecord("45"));
+        Assert.Contains(read.NotesFor(party), note => note.Id == "45");
+        Assert.DoesNotContain(standing.Awards(party), award => award.Id == "errand:45");
 
         // A counted deed the ladder keeps as a record reads in the ladder's own words for it, with how much
         // of it the party holds: five arena victories are five, not a second number this game would keep.

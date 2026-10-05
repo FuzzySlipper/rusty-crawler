@@ -158,6 +158,10 @@ public sealed record QuestSnapshot(
             });
         }
 
+        foreach (QuestNote note in quests.Notes)
+            journal.Add(new QuestJournalSnapshot(note.Id, note.Name, "active", note.Giver, note.Text, string.Empty, [], false)
+            { GiverName = note.Giver.Length == 0 ? string.Empty : GameNames.Person(names, note.Giver) });
+
         QuestResult? last = quests.Last;
         if (last is null)
         {

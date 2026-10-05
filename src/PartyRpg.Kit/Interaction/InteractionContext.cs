@@ -13,12 +13,12 @@ namespace PartyRpg.Kit.Interaction;
 /// answer differently about a door it has already opened.
 /// </remarks>
 /// <param name="Place">The place the placement stands in.</param>
-/// <param name="Placement">The placement content declares.</param>
+/// <param name="Placement">The placement content declares, or null for a companion or ruleset-raised lifecycle event.</param>
 /// <param name="State">
 /// What the party has already done to this target, as the word the ruleset last recorded for it; empty when
 /// nothing has happened to it yet, which is also when content's own state is what the target is.
 /// </param>
-public readonly record struct InteractionTargetRequest(PlaceId Place, PlacementDefinition Placement, string State)
+public readonly record struct InteractionTargetRequest(PlaceId Place, PlacementDefinition? Placement, string State)
 {
     /// <summary>
     /// What a person's word raised at the placement, as the ruleset's own name for it, or empty for a use the party
@@ -49,7 +49,8 @@ public readonly record struct InteractionTargetRequest(PlaceId Place, PlacementD
 /// </remarks>
 /// <param name="Place">The place the target stands in.</param>
 /// <param name="Placement">
-/// The placement content declared. It travels with the definition because a definition restates only what
+/// The placement content declared, or null for a companion or ruleset-raised lifecycle event.
+/// It travels with the definition because a definition restates only what
 /// every target of its kind shares, while the fields a particular placement carries — a door's stored
 /// position, a fixture's event — are read from the entry rather than copied into a vocabulary here.
 /// </param>
@@ -61,7 +62,7 @@ public readonly record struct InteractionTargetRequest(PlaceId Place, PlacementD
 /// <param name="Clock">The session's one clock, or null when its ruleset composed none.</param>
 public sealed record InteractionContext(
     PlaceId Place,
-    PlacementDefinition Placement,
+    PlacementDefinition? Placement,
     InteractionTargetDefinition Target,
     PartyEntity? Party,
     GameClock? Clock)

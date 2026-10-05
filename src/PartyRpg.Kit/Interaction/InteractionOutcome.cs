@@ -99,6 +99,9 @@ public sealed record InteractionOutcome
         Refusal = refusal;
     }
 
+    /// <summary>Whether the completed effect supplies player-facing feedback; silent lifecycle bookkeeping remains diagnostic.</summary>
+    public bool ShowFeedback { get; init; } = true;
+
     /// <summary>The use happened: this is what it made of the target.</summary>
     /// <param name="state">The word the target's state becomes, which must not be blank.</param>
     /// <param name="message">What the use did, in the words a person reads.</param>

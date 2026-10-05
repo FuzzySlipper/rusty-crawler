@@ -143,7 +143,7 @@ public sealed record JournalSnapshot(bool Available, IReadOnlyList<JournalBookSn
     {
         if (quests is null) return new JournalBookSnapshot("quests", words.Title, false, words.Unavailable, []);
 
-        int errands = quests.Journal.Count;
+        int errands = quests.Journal.Count + quests.Notes.Count;
         string state = errands == 0
             ? words.Empty
             : string.Create(CultureInfo.InvariantCulture, $"{errands} errand{(errands == 1 ? string.Empty : "s")} in the journal");

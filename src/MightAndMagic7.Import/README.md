@@ -213,3 +213,9 @@ and `person-news` definitions. Opcode 47 preserves both unsigned operands as
 NPC table's unrelated descriptive group columns. Source semantics: `OpenEnroth/src/Engine/Tables/NPCTable.cpp:96-112`,
 `OpenEnroth/src/Engine/Evt/EvtInstruction.cpp:1149-1152` and
 `OpenEnroth/src/Engine/Graphics/Viewport.cpp:186-200`.
+
+Map lifecycle programs retain their entry and departure trigger steps even without a clicked
+face. Their normalized steps run through the existing event interpreter; see
+OpenEnroth `src/Engine/Evt/Processor.cpp:201-231` for dispatch after each trigger. Chest programs actually
+raised by a map surface retain the chest index and any steps beyond opening; the existing
+container placement continues to own the interaction surface.

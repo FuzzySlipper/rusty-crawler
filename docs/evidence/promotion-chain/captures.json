@@ -1,0 +1,154 @@
+{
+  "session": "5ad2a5b8-bba0-4e23-86db-cf727223c092",
+  "selected_original_captures": [
+    {
+      "label": "refreshed-after-resume",
+      "capture_id": "cdd617e5-e48d-418c-808f-7b7711369ce0",
+      "image": "after-resume.png",
+      "metadata": "after-resume.json",
+      "sha256": "419d8e5597c2eb59aedb358aa706a9dd81e5e145f813644adeaf93717d47d084",
+      "recorded_at": "2026-10-05T14:13:12.800036038Z",
+      "frame_correlation": "uncertain: frame changed during capture"
+    },
+    {
+      "label": "refreshed-archmage-completion",
+      "capture_id": "08281674-5888-4a38-af91-cb016bd638d1",
+      "image": "archmage-completion.png",
+      "metadata": "archmage-completion.json",
+      "sha256": "1c29074968bd15e3f6de0bb252a3e3c22587a7648eba4ec51f83a13af33b89f3",
+      "recorded_at": "2026-10-05T14:10:02.376305506Z",
+      "frame_correlation": "uncertain: frame changed during capture"
+    },
+    {
+      "label": "refreshed-archmage-current-journal",
+      "capture_id": "19500aec-53b6-4d5c-8aa9-0313d04b34b2",
+      "image": "archmage-current-journal.png",
+      "metadata": "archmage-current-journal.json",
+      "sha256": "a543fce52e1ab5b175c9dacd7535a42cbdb7586e1605bba139df58b405a1ca0c",
+      "recorded_at": "2026-10-05T14:07:43.724667891Z",
+      "frame_correlation": "uncertain: frame changed during capture"
+    },
+    {
+      "label": "refreshed-archmage-promotion",
+      "capture_id": "91cee2e7-fd85-4d15-855a-cf7544bb4363",
+      "image": "archmage-promotion.png",
+      "metadata": "archmage-promotion.json",
+      "sha256": "b5442d51498eb2337d77d28cd8dbd6312f0b9c8c58185c5242f92ae2164a5f92",
+      "recorded_at": "2026-10-05T14:06:53.919651347Z",
+      "frame_correlation": "uncertain: frame changed during capture"
+    },
+    {
+      "label": "refreshed-character-after-archmage",
+      "capture_id": "2382aa9b-5a81-4dd8-b8f0-a98d4369e10e",
+      "image": "character-after-archmage.png",
+      "metadata": "character-after-archmage.json",
+      "sha256": "87ddbbcf59e20f73fa6b24231cad480a3d240c62c19ab4c3dd1e02fe0a7cb261",
+      "recorded_at": "2026-10-05T14:10:45.141919163Z",
+      "frame_correlation": "uncertain: frame changed during capture"
+    },
+    {
+      "label": "refreshed-character-after-resume",
+      "capture_id": "269e0992-fbdd-4028-9da8-4b7a3cd2eadd",
+      "image": "character-after-resume.png",
+      "metadata": "character-after-resume.json",
+      "sha256": "f866e35d9094637ab9ac50b00324b7938f6c3b9150eaf321c9f6619bd81eb8f1",
+      "recorded_at": "2026-10-05T14:13:52.553555376Z",
+      "frame_correlation": "uncertain: frame changed during capture"
+    },
+    {
+      "label": "refreshed-golem-assembly-choice-7",
+      "capture_id": "8f3330a2-6b4f-46f2-8562-503bf948d489",
+      "image": "golem-assembly-choice-7.png",
+      "metadata": "golem-assembly-choice-7.json",
+      "sha256": "38a10ce41c73ffe0126a4783690302e4ef2c67175d78bef0267ecc1d3cece752",
+      "recorded_at": "2026-10-05T14:05:04.65275Z",
+      "frame_correlation": "uncertain: frame changed during capture"
+    },
+    {
+      "label": "refreshed-inventory-item-after-resume",
+      "capture_id": "87a3e23d-e378-4259-ba84-e9ce14efe541",
+      "image": "inventory-item-after-resume.png",
+      "metadata": "inventory-item-after-resume.json",
+      "sha256": "78e417f1777d7ce695099e33fc9b7db1f9355bda862d54bab1f92e577443437d",
+      "recorded_at": "2026-10-05T14:15:09.723849341Z",
+      "frame_correlation": "uncertain: frame changed during capture"
+    },
+    {
+      "label": "refreshed-journal-after-archmage",
+      "capture_id": "eae7b3f7-b3f4-49c2-befc-4ce153ca8082",
+      "image": "journal-after-archmage.png",
+      "metadata": "journal-after-archmage.json",
+      "sha256": "1ab8ab1a922a49e1199a4cf7681133c8b49ba8b55b3647b13bf8b370df935f07",
+      "recorded_at": "2026-10-05T14:15:55.993909975Z",
+      "frame_correlation": "uncertain: frame changed during capture"
+    },
+    {
+      "label": "refreshed-new-game-school-of-sorcery",
+      "capture_id": "e817854b-7bff-4374-822f-1ec3b8bfd1a4",
+      "image": "new-game-school-of-sorcery.png",
+      "metadata": "new-game-school-of-sorcery.json",
+      "sha256": "171300bdfee906ed1559c34bf45f898177c612defc7d2f8994d881a6c84e7072",
+      "recorded_at": "2026-10-05T13:55:54.586568208Z",
+      "frame_correlation": "uncertain: frame changed during capture"
+    },
+    {
+      "label": "refreshed-ordinary-save",
+      "capture_id": "f711ca3e-642a-4325-ac5e-b45259b15b06",
+      "image": "ordinary-save.png",
+      "metadata": "ordinary-save.json",
+      "sha256": "f11e2f8d73428bbb69cdec500b65eac495ed33a2a13ef5a677b92d3274991468",
+      "recorded_at": "2026-10-05T14:11:33.630600569Z",
+      "frame_correlation": "uncertain: frame changed during capture"
+    },
+    {
+      "label": "refreshed-thomas-archmage-handover",
+      "capture_id": "df2ebf55-dce1-41b5-b1de-a6bd978e252d",
+      "image": "thomas-archmage-handover.png",
+      "metadata": "thomas-archmage-handover.json",
+      "sha256": "d17fcaa49610f303b77535a21000df576495ed9d610d73aa1eee76ea899b0f3a",
+      "recorded_at": "2026-10-05T14:09:42.376431824Z",
+      "frame_correlation": "uncertain: frame changed during capture"
+    },
+    {
+      "label": "refreshed-thomas-wizard-offer",
+      "capture_id": "57afc572-e3be-45c5-8a4b-02aed0db1028",
+      "image": "thomas-wizard-offer.png",
+      "metadata": "thomas-wizard-offer.json",
+      "sha256": "a556e22ce0a8ae522fb525f4227bd8e0e3011a3e630aa98a72325253f7ce1853",
+      "recorded_at": "2026-10-05T13:57:22.418527729Z",
+      "frame_correlation": "uncertain: frame changed during capture"
+    },
+    {
+      "label": "refreshed-wizard-current-journal",
+      "capture_id": "e76cd81c-71f2-42fb-abad-72c718f9eaaa",
+      "image": "wizard-current-journal.png",
+      "metadata": "wizard-current-journal.json",
+      "sha256": "65f370028b0096c89fc8178f53b3375525136cd93a7375eb757cc5504e4c8b35",
+      "recorded_at": "2026-10-05T13:57:50.832137135Z",
+      "frame_correlation": "uncertain: frame changed during capture"
+    },
+    {
+      "label": "refreshed-wizard-promotion",
+      "capture_id": "43f1258d-db64-412e-b482-6d09fb575e6c",
+      "image": "wizard-promotion.png",
+      "metadata": "wizard-promotion.json",
+      "sha256": "e1f63ae2adf609127d2cfa4acabe6ea2844f4355da5a3b826f72c932635af7aa",
+      "recorded_at": "2026-10-05T14:06:19.750766162Z",
+      "frame_correlation": "uncertain: frame changed during capture"
+    }
+  ],
+  "cleanup": {
+    "status": "pass",
+    "stopped": true,
+    "browser_closed": true,
+    "host_status": "stopped",
+    "host_stopped": true,
+    "released": true,
+    "slot": "slot-1",
+    "pid": 852360,
+    "port": 30300,
+    "message": "stopped broker-owned process group",
+    "session_artifacts_retained": true
+  },
+  "note": "PNG bytes copied unchanged; complete sidecars retained. Broker paths in sidecars are provenance; image/metadata fields here identify published files."
+}

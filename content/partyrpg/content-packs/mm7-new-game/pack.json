@@ -47,6 +47,11 @@
       "path": "item-travel.json",
       "documentId": "item-travel",
       "definitionKind": "item-travel"
+    },
+    {
+      "path": "promotions.json",
+      "documentId": "promotion-ladders",
+      "definitionKind": "promotion"
     }
   ]
 }

@@ -1,0 +1,702 @@
+{
+  "task": 8512,
+  "scope": "36 rank routes, 27 imported completion programs, 18 initial givers; structural reachability plus focused execution, not 36 manually played expeditions",
+  "source": {
+    "game": "Might and Magic VII",
+    "release": "Update v. 1.1",
+    "build": "1207658916 English",
+    "container_fingerprint": "8633b4033a5a7353"
+  },
+  "counts": {
+    "ranks": 36,
+    "promotion_edges": 27,
+    "initial_givers": 18,
+    "first_promotion_edges": 9,
+    "second_alternatives": 18
+  },
+  "input_sha256": {
+    "global-events.json": "5d2a03a5a36eb403b3d71918fb94a0a1a8b919ea2f2510764d69cbd1d02fcbab",
+    "place-events.json": "5d306da0cb4222f9213eaddd160fab3c93e778b530bf453574a38c798d9bc101",
+    "places.json": "b876d9f4afea6553b26a204ae4d3896a0364cf79020fef7e579d7f6528012585",
+    "people.json": "007aac67ac3c94413db6b12cd47f84a49b65a1005c7ba8518de998486dc8a5d4",
+    "quests.json": "afcfd8c758d4f995a90b5619c693b1f2e2b3c4fa25665d108e4b6df05342b8d9"
+  },
+  "ranks": [
+    {
+      "rank": "Knight",
+      "tier": 1,
+      "entry": "party creation class choice"
+    },
+    {
+      "rank": "Cavalier",
+      "tier": 2,
+      "from": "Knight",
+      "choice": "",
+      "giver": "npc-43",
+      "giver_paths": [
+        "place:3/residence-304"
+      ],
+      "quest": 34,
+      "offer_event": 73,
+      "completion_event": 74,
+      "proof": {
+        "kind": "quest-bit",
+        "value": 140,
+        "producers": [
+          "map:19.2:4"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Champion",
+      "tier": 3,
+      "from": "Cavalier",
+      "choice": "light",
+      "giver": "npc-42",
+      "giver_paths": [
+        "place:6/residence-481"
+      ],
+      "quest": 33,
+      "offer_event": 71,
+      "completion_event": 72,
+      "proof": {
+        "kind": "arena-wins",
+        "value": 5,
+        "producers": [
+          "canonical Arena knight-tier victory counter (ArenaPolicyTests)"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Black Knight",
+      "tier": 3,
+      "from": "Cavalier",
+      "choice": "dark",
+      "giver": "npc-43",
+      "giver_paths": [
+        "place:3/residence-304"
+      ],
+      "quest": 35,
+      "offer_event": 75,
+      "completion_event": 76,
+      "proof": {
+        "kind": "quest-bit",
+        "value": 60,
+        "producers": [
+          "map:49.376:2"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Thief",
+      "tier": 1,
+      "entry": "party creation class choice"
+    },
+    {
+      "rank": "Rogue",
+      "tier": 2,
+      "from": "Thief",
+      "choice": "",
+      "giver": "npc-15",
+      "giver_paths": [
+        "place:23/residence-185"
+      ],
+      "quest": 18,
+      "offer_event": 44,
+      "completion_event": 45,
+      "proof": {
+        "kind": "item",
+        "value": 624,
+        "producers": [
+          "map:17.376:3"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Spy",
+      "tier": 3,
+      "from": "Rogue",
+      "choice": "light",
+      "giver": "npc-15",
+      "giver_paths": [
+        "place:23/residence-185"
+      ],
+      "quest": 19,
+      "offer_event": 46,
+      "completion_event": 47,
+      "proof": {
+        "kind": "quest-bit",
+        "value": 20,
+        "producers": [
+          "map:28.376:1"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Assassin",
+      "tier": 3,
+      "from": "Rogue",
+      "choice": "dark",
+      "giver": "npc-16",
+      "giver_paths": [
+        "place:5/residence-345"
+      ],
+      "quest": 21,
+      "offer_event": 49,
+      "completion_event": 50,
+      "proof": {
+        "kind": "item",
+        "value": 540,
+        "producers": [
+          "place:7/person-0"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Monk",
+      "tier": 1,
+      "entry": "party creation class choice"
+    },
+    {
+      "rank": "Initiate",
+      "tier": 2,
+      "from": "Monk",
+      "choice": "",
+      "giver": "npc-38",
+      "giver_paths": [
+        "place:2/residence-490"
+      ],
+      "quest": 27,
+      "offer_event": 58,
+      "completion_event": 60,
+      "proof": {
+        "kind": "quest-bit",
+        "value": 27,
+        "producers": [
+          "global:58:1"
+        ]
+      },
+      "remote_completion": "map:68.376 -> npc-55; requires quest 27",
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Master",
+      "tier": 3,
+      "from": "Initiate",
+      "choice": "light",
+      "giver": "npc-38",
+      "giver_paths": [
+        "place:2/residence-490"
+      ],
+      "quest": 28,
+      "offer_event": 61,
+      "completion_event": 62,
+      "proof": {
+        "kind": "quest-bit",
+        "value": 243,
+        "producers": [
+          "map:45.2:3"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Ninja",
+      "tier": 3,
+      "from": "Initiate",
+      "choice": "dark",
+      "giver": "npc-39",
+      "giver_paths": [
+        "place:8/residence-437"
+      ],
+      "quest": 29,
+      "offer_event": 63,
+      "completion_event": 64,
+      "proof": {
+        "kind": "quest-bit",
+        "value": 242,
+        "producers": [
+          "map:73.181:1"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Paladin",
+      "tier": 1,
+      "entry": "party creation class choice"
+    },
+    {
+      "rank": "Crusader",
+      "tier": 2,
+      "from": "Paladin",
+      "choice": "",
+      "giver": "npc-17",
+      "giver_paths": [
+        "map:72.376",
+        "place:3/residence-303"
+      ],
+      "quest": 22,
+      "offer_event": 51,
+      "completion_event": 52,
+      "proof": {
+        "kind": "quest-bit",
+        "value": 23,
+        "producers": [
+          "map:72.376:7"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Hero",
+      "tier": 3,
+      "from": "Crusader",
+      "choice": "light",
+      "giver": "npc-17",
+      "giver_paths": [
+        "map:72.376",
+        "place:3/residence-303"
+      ],
+      "quest": 24,
+      "offer_event": 53,
+      "completion_event": 54,
+      "proof": {
+        "kind": "hireling",
+        "value": 54,
+        "producers": [
+          "global:55:7",
+          "global:55:14"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Villain",
+      "tier": 3,
+      "from": "Crusader",
+      "choice": "dark",
+      "giver": "npc-18",
+      "giver_paths": [
+        "map:5.503"
+      ],
+      "quest": 26,
+      "offer_event": 56,
+      "completion_event": 57,
+      "proof": {
+        "kind": "hireling",
+        "value": 54,
+        "producers": [
+          "global:55:7",
+          "global:55:14"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Archer",
+      "tier": 1,
+      "entry": "party creation class choice"
+    },
+    {
+      "rank": "Warrior Mage",
+      "tier": 2,
+      "from": "Archer",
+      "choice": "",
+      "giver": "npc-41",
+      "giver_paths": [
+        "place:14/residence-382"
+      ],
+      "quest": 31,
+      "offer_event": 67,
+      "completion_event": 68,
+      "proof": {
+        "kind": "quest-bit",
+        "value": 58,
+        "producers": [
+          "map:30.383:7"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Master Archer",
+      "tier": 3,
+      "from": "Warrior Mage",
+      "choice": "light",
+      "giver": "npc-40",
+      "giver_paths": [
+        "place:2/residence-468"
+      ],
+      "quest": 30,
+      "offer_event": 65,
+      "completion_event": 66,
+      "proof": {
+        "kind": "item",
+        "value": 542,
+        "producers": [
+          "place:44/container-1"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Sniper",
+      "tier": 3,
+      "from": "Warrior Mage",
+      "choice": "dark",
+      "giver": "npc-41",
+      "giver_paths": [
+        "place:14/residence-382"
+      ],
+      "quest": 32,
+      "offer_event": 69,
+      "completion_event": 70,
+      "proof": {
+        "kind": "item",
+        "value": 542,
+        "producers": [
+          "place:44/container-1"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Ranger",
+      "tier": 1,
+      "entry": "party creation class choice"
+    },
+    {
+      "rank": "Hunter",
+      "tier": 2,
+      "from": "Ranger",
+      "choice": "",
+      "giver": "npc-45",
+      "giver_paths": [
+        "place:4/residence-330"
+      ],
+      "quest": 37,
+      "offer_event": 79,
+      "completion_event": 83,
+      "proof": {
+        "kind": "quest-bit",
+        "value": 37,
+        "producers": [
+          "global:79:1"
+        ]
+      },
+      "remote_completion": "map:46.316 -> npc-52; offer requires quest 37",
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Ranger Lord",
+      "tier": 3,
+      "from": "Hunter",
+      "choice": "light",
+      "giver": "npc-44",
+      "giver_paths": [
+        "place:6/residence-503"
+      ],
+      "quest": 36,
+      "offer_event": 77,
+      "completion_event": 78,
+      "proof": {
+        "kind": "quest-bit",
+        "value": 41,
+        "producers": [
+          "global:85:9"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Bounty Hunter",
+      "tier": 3,
+      "from": "Hunter",
+      "choice": "dark",
+      "giver": "npc-45",
+      "giver_paths": [
+        "place:4/residence-330"
+      ],
+      "quest": 38,
+      "offer_event": 81,
+      "completion_event": 82,
+      "proof": {
+        "kind": "bounty",
+        "value": 10000,
+        "producers": [
+          "canonical town-hall bounty reward total (BountyPolicyTests)"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Cleric",
+      "tier": 1,
+      "entry": "party creation class choice"
+    },
+    {
+      "rank": "Priest",
+      "tier": 2,
+      "from": "Cleric",
+      "choice": "",
+      "giver": "npc-47",
+      "giver_paths": [
+        "place:5/residence-347"
+      ],
+      "quest": 43,
+      "offer_event": 88,
+      "completion_event": 89,
+      "proof": {
+        "kind": "item",
+        "value": 683,
+        "producers": [
+          "place:42/container-1"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Priest of the Light",
+      "tier": 3,
+      "from": "Priest",
+      "choice": "light",
+      "giver": "npc-46",
+      "giver_paths": [
+        "place:7/residence-422"
+      ],
+      "quest": 42,
+      "offer_event": 86,
+      "completion_event": 87,
+      "proof": {
+        "kind": "quest-bit",
+        "value": 62,
+        "producers": [
+          "map:35.376:5"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Priest of the Dark",
+      "tier": 3,
+      "from": "Priest",
+      "choice": "dark",
+      "giver": "npc-47",
+      "giver_paths": [
+        "place:5/residence-347"
+      ],
+      "quest": 44,
+      "offer_event": 90,
+      "completion_event": 91,
+      "proof": {
+        "kind": "quest-bit",
+        "value": 63,
+        "producers": [
+          "map:36.376:4"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Druid",
+      "tier": 1,
+      "entry": "party creation class choice"
+    },
+    {
+      "rank": "Great Druid",
+      "tier": 2,
+      "from": "Druid",
+      "choice": "",
+      "giver": "npc-50",
+      "giver_paths": [
+        "place:4/residence-312"
+      ],
+      "quest": 49,
+      "offer_event": 98,
+      "completion_event": 99,
+      "proof": {
+        "kind": "quest-bit",
+        "value": 50,
+        "producers": [
+          "map:9.401:15",
+          "map:13.401:15",
+          "map:14.401:15"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Arch Druid",
+      "tier": 3,
+      "from": "Great Druid",
+      "choice": "light",
+      "giver": "npc-50",
+      "giver_paths": [
+        "place:4/residence-312"
+      ],
+      "quest": 54,
+      "offer_event": 100,
+      "completion_event": 101,
+      "proof": {
+        "kind": "quest-bit",
+        "value": 65,
+        "producers": [
+          "map:68.377:7"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Warlock",
+      "tier": 3,
+      "from": "Great Druid",
+      "choice": "dark",
+      "giver": "npc-51",
+      "giver_paths": [
+        "place:10/residence-358"
+      ],
+      "quest": 55,
+      "offer_event": 102,
+      "completion_event": 103,
+      "proof": {
+        "kind": "item",
+        "value": 647,
+        "producers": [
+          "place:16/sprite-0",
+          "place:16/sprite-1"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Sorcerer",
+      "tier": 1,
+      "entry": "party creation class choice"
+    },
+    {
+      "rank": "Wizard",
+      "tier": 2,
+      "from": "Sorcerer",
+      "choice": "",
+      "giver": "npc-48",
+      "giver_paths": [
+        "map:29.416"
+      ],
+      "quest": 45,
+      "offer_event": 92,
+      "completion_event": 93,
+      "proof": {
+        "kind": "quest-bit",
+        "value": 74,
+        "producers": [
+          "global:104:84"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Arch Mage",
+      "tier": 3,
+      "from": "Wizard",
+      "choice": "light",
+      "giver": "npc-48",
+      "giver_paths": [
+        "map:29.416"
+      ],
+      "quest": 47,
+      "offer_event": 94,
+      "completion_event": 95,
+      "proof": {
+        "kind": "item",
+        "value": 487,
+        "producers": [
+          "place:33/container-0"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    },
+    {
+      "rank": "Lich",
+      "tier": 3,
+      "from": "Wizard",
+      "choice": "dark",
+      "giver": "npc-49",
+      "giver_paths": [
+        "place:8/residence-436"
+      ],
+      "quest": 48,
+      "offer_event": 96,
+      "completion_event": 97,
+      "proof": {
+        "kind": "item",
+        "value": 615,
+        "producers": [
+          "place:31/container-0"
+        ]
+      },
+      "remote_completion": null,
+      "verification": "imported completion execution and sibling-refusal regression; source route audit"
+    }
+  ],
+  "secondary_dependencies": {
+    "golem_parts": {
+      "639": [
+        "place:11/container-0"
+      ],
+      "641": [
+        "global:105:20",
+        "place:6/container-19"
+      ],
+      "642": [
+        "place:5/container-0",
+        "place:21/person-0"
+      ],
+      "643": [
+        "place:5/container-19"
+      ],
+      "644": [
+        "place:13/container-0"
+      ],
+      "645": [
+        "place:14/container-0"
+      ]
+    },
+    "golem_assembly": "global:104 consumes six distinct parts, then writes quest 74 (good head) or 73 (bad head); global:93 reads either",
+    "alice": "map:71.376 opens npc-54 conversation; global:55 joins that canonical follower after the story path branch; Hero and Villain deliver her",
+    "story_path": "Light quest 99 and Dark quest 100 gate second-promotion offers in imported global programs; rank edges enforce per-member exclusivity",
+    "mansion": "map:19.2 runs on departure and tests all actors defeated before setting quest 140",
+    "tomb": "map:73.181 opens container index 6, then adds quest 242",
+    "soul_jars": "map:31.176 is raised by the chest surface; quest 48 selects chest index 0, yielding four item 615, quest 148 and decoration-variable 23 = 1"
+  }
+}

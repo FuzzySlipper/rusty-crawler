@@ -46,15 +46,17 @@ public sealed record InteractionResult
         Refusal = refusal;
     }
 
+    /// <summary>Whether this result supplies player-facing feedback; it remains available to diagnostics either way.</summary>
+    public bool ShowFeedback { get; init; } = true;
+
     /// <summary>The use happened: the target now holds this state, and this is what it did.</summary>
-    /// <param name="target">What was used, holding the state the use left it in.</param>
+    /// <param name="target">What was used, holding the state the use left it in, or null for a word without a world placement.</param>
     /// <param name="outcome">What the ruleset's outcome stated.</param>
     /// <param name="message">What the panel reports, which is the outcome's message plus what the kit moved.</param>
-    /// <exception cref="ArgumentNullException">The target or the outcome is null.</exception>
+    /// <exception cref="ArgumentNullException">The outcome is null.</exception>
     /// <exception cref="ArgumentException">The outcome is a refusal, which cannot be reported as applied.</exception>
-    public static InteractionResult Applied(InteractionTarget target, InteractionOutcome outcome, string message)
+    public static InteractionResult Applied(InteractionTarget? target, InteractionOutcome outcome, string message)
     {
-        ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(outcome);
         if (!outcome.IsApplied)
         {
@@ -63,9 +65,10 @@ public sealed record InteractionResult
                 nameof(outcome));
         }
 
-        return new InteractionResult(target, target.Definition.Verb, outcome.State, message, outcome.Residue, outcome.Learned, null, outcome.Speaks, outcome.Travels, null, outcome.Relocates)
+        return new InteractionResult(target, target?.Definition.Verb ?? InteractionVerb.Talk, outcome.State, message, outcome.Residue, outcome.Learned, null, outcome.Speaks, outcome.Travels, null, outcome.Relocates)
         {
             KeptOut = outcome.KeptOut,
+            ShowFeedback = outcome.ShowFeedback,
         };
     }
 
@@ -150,7 +153,11 @@ public sealed record InteractionResult
         string residue = journey.Arrived
             ? Residue
             : string.Join(" ", new[] { Residue, $"The way on was refused: {journey.Refusal?.Message}" }.Where(part => part.Length > 0));
-        return new InteractionResult(Target, Verb, State, message, residue, Learned, null, Speaks, Travels, journey, Relocates) { KeptOut = KeptOut };
+        return new InteractionResult(Target, Verb, State, message, residue, Learned, null, Speaks, Travels, journey, Relocates)
+        {
+            KeptOut = KeptOut,
+            ShowFeedback = ShowFeedback,
+        };
     }
 
     /// <summary>The refusal's code, or empty when the use happened.</summary>

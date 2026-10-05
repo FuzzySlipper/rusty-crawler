@@ -39,7 +39,7 @@ public sealed class KitVocabularyTests
         // Classes and their promotions.
         "Knight", "Paladin", "Archer", "Druid", "Cleric", "Sorcerer", "Monk", "Thief", "Ranger", "Cavalier", "Crusader",
         "Warrior Mage", "Master Archer", "Great Druid", "Arch Druid", "Warlock", "Archmage", "Lich", "Ninja", "Assassin",
-        "Ranger Lord", "Bounty Hunter", "Black Knight", "Priest of Light", "Priest of Dark", "Sniper",
+        "Ranger Lord", "Bounty Hunter", "Black Knight", "Priest of the Light", "Priest of the Dark", "Sniper",
         // Races.
         "Goblin", "Dwarf",
         // Skills.

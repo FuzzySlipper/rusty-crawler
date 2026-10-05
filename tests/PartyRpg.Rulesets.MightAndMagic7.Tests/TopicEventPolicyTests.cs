@@ -82,7 +82,7 @@ public sealed partial class FixturePolicyTests
         MightAndMagic7MapEvents events = MightAndMagic7MapEvents.Read(catalog);
         PlaceGraph graph = MightAndMagic7World.Graph(catalog);
         GameClock clock = TestClock.Create(scale: 1);
-        MightAndMagic7Promotions promotions = MightAndMagic7Promotions.Read(catalog);
+        MightAndMagic7Promotions promotions = PromotionTestContent.Read(catalog);
         MightAndMagic7Spells spells = MightAndMagic7Spells.Read(catalog, MightAndMagic7Skills.Read(catalog, promotions))!;
         KeyedTestRandom random = new();
         MightAndMagic7Loot loot = MightAndMagic7Loot.Compose(catalog, random);

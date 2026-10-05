@@ -27,48 +27,12 @@ internal readonly record struct BountyTerms(string Beast, int Reward, QuestDefin
 /// This game's quests: the errands the shipped quest table states, and the deeds they ask for.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>The shipped table states an errand's words; everything a player does about it is ours.</b> The
-/// operator's <c>QUESTS.TXT</c> is 512 rows of a quest bit, the note the journal shows, and an authoring
-/// column, and the 28 rows between bits 18 and 55 are the promotion errands this game's ranks ask for
-/// (<c>docs/research/mm7-data-inventory.md</c>, <i>Quests</i>; the bits are the ones
-/// <see cref="MightAndMagic7Promotions"/> names). What no row anywhere states is who gives an errand, what
-/// it asks the party to do, what it pays, or what finishing it leaves — the original keeps all of that in
-/// its map event programs, which this build does not run. Those four things are therefore authored here,
-/// row by row, over the shipped words, which are carried as the errand's own note.
-/// </para>
-/// <para>
-/// <b>An errand's giver is its rank's giver, not a second table.</b> Every one of the 17 promotion errands is
-/// turned in to the person the shipped topic table names as the rank's giver — bit 35 to Frederick Org
-/// (<c>npc-43</c>), bit 19 to William Lasker (<c>npc-15</c>), bit 48 to Halfgild Wynac (<c>npc-49</c>), and
-/// so on — so the giver is read from the ladder rather than written again here. One fact, one table.
-/// </para>
-/// <para>
-/// <b>What an errand asks is the strongest thing this build can judge, and what it cannot judge is stated
-/// rather than faked.</b> A shipped errand names a place — "Castle Navan", "Watchtower 6", "the three
-/// stonehenge monoliths in Tatalia, the Evenmorn Islands, and Avlee" — and the world knows that place, so
-/// standing in it is what the objective reads. Where the errand's words name a creature, the objective
-/// counts its deaths; where they say <em>all</em> of a kind, the count is every one the place's own
-/// placements hold. What no owner reports — a weight moved, a code cracked, an altar defaced — is stated as
-/// the errand's residue, so a player reads what the original asked for beside what this game judges, and no
-/// objective is invented that nothing could ever satisfy.
-/// </para>
-/// <para>
-/// <b>A finished errand leaves the record the conversation already reads.</b> The topic table's own
-/// requirement column gates a person's topic on a quest bit (<c>npctopic</c>'s <c>requires</c>), which this
-/// game reads as the party-carried flag <c>errand:&lt;bit&gt;</c>; a turn-in writes exactly that record, so
-/// the gate a topic waits on and the record an errand leaves are one identity rather than two.
-/// </para>
-/// <para>
-/// <b>The town hall's board is the one errand nobody has to author.</b> The donor draws a huntable beast
-/// from the place's own encounter row and pays a hundred times its level, refreshing monthly
-/// (OpenEnroth <c>src/GUI/UI/Houses/TownHall.cpp:135-176</c>). Nothing is drawn here: the beast is chosen by
-/// the month the clock stands in, so the same month at the same hall is the same contract, and the errand
-/// the keeper offers is resolved from its own identity — <c>bounty:&lt;placement&gt;:&lt;year&gt;-&lt;month&gt;</c> —
-/// rather than kept anywhere.
-/// </para>
+/// Imported promotion quests run their actual map and conversation events. Their quest-bit journal
+/// notes are not separate turn-in quests: merely reaching a place must never finish its event's deed.
+/// Authored packs may state complete readings with the existing objective and condition kinds.
+/// Town-hall bounties and arena bouts are composed by their owning policies.
 /// </remarks>
-internal sealed class MightAndMagic7Quests : IQuestRule, IQuestAcceptanceRule
+internal sealed class MightAndMagic7Quests : IQuestRule, IQuestAcceptanceRule, IQuestNotesRule
 {
     /// <summary>The definition kind a shipped quest row is declared under.</summary>
     internal const string QuestDefinitionKind = "quest";
@@ -79,6 +43,12 @@ internal sealed class MightAndMagic7Quests : IQuestRule, IQuestAcceptanceRule
 
 
 
+
+    private readonly Dictionary<string, QuestNote> _eventNotes = new(StringComparer.Ordinal);
+
+    /// <summary>Journal text whose imported event bit is active; the event remains its only writer.</summary>
+    public IReadOnlyList<QuestNote> NotesFor(PartyEntity party) =>
+        [.. _eventNotes.Where(pair => party.Records.Has(ErrandRecord(pair.Key))).Select(pair => pair.Value)];
 
     private readonly TuningProfile _tuning;
     private readonly Dictionary<string, QuestDefinition> _byId = new(StringComparer.Ordinal);
@@ -130,21 +100,6 @@ internal sealed class MightAndMagic7Quests : IQuestRule, IQuestAcceptanceRule
     /// <summary>How many people the errands are turned in to.</summary>
     internal int ErrandGiverCount { get; private set; }
 
-    /// <summary>The bits this game states an errand for, in the shipped table's own order.</summary>
-    internal IReadOnlyList<string> ErrandBits { get; private set; } = [];
-
-    /// <summary>
-    /// How many objectives this game reads for a ranked errand and could not state over the loaded world —
-    /// a place or a creature the content does not carry — each also named in <see cref="Notes"/>.
-    /// </summary>
-    internal int UnstatedObjectiveCount { get; private set; }
-
-    /// <summary>
-    /// How many ranked errands could not be stated at all because none of their objectives could, each also
-    /// named in <see cref="Notes"/>.
-    /// </summary>
-    internal int UnstatedErrandCount { get; private set; }
-
     /// <summary>Reads this game's quests over the content the product loaded.</summary>
     /// <remarks>
     /// The shipped words are read from the quest document the importer writes, and a bit the pack does not
@@ -178,8 +133,7 @@ internal sealed class MightAndMagic7Quests : IQuestRule, IQuestAcceptanceRule
 
             // A pack may state an errand of its own, and everything about it: what it asks, what it pays, who
             // gives it, and what a turn-in leaves. A shipped row carries only words, so a row without a
-            // reading is a note rather than an errand, and the errands this game compiles over the promotion
-            // bits are stated below.
+            // reading is a journal note rather than an independently offered errand.
             void Defect(string code, string message) =>
                 issues.Add(new ContentValidationIssue(code, message, pack.PackId, document.DocumentId));
             authored.Add((entry, Defect));
@@ -249,111 +203,18 @@ internal sealed class MightAndMagic7Quests : IQuestRule, IQuestAcceptanceRule
                 issues);
         }
 
-        List<string> bits = [];
-        foreach (ErrandReading reading in Errands())
+        foreach (var (id, text) in words)
         {
-            string bit = reading.Bit.ToString(CultureInfo.InvariantCulture);
-            PromotionRank? rank = promotions?.Ladder.Ranks.FirstOrDefault(
-                candidate => BitsOf(candidate).Contains(bit, StringComparer.Ordinal));
-            if (rank is null)
-            {
-                notes.Add($"the shipped errand {bit} belongs to no rank this game states, so it is not offered by anybody.");
-                continue;
-            }
-
-            List<QuestObjective> objectives = [];
-            foreach (ErrandObjective stated in reading.Objectives)
-            {
-                if (string.Equals(stated.Aim, "reach", StringComparison.Ordinal))
-                {
-                    if (!placesByName.TryGetValue(stated.Target, out string? place))
-                    {
-                        notes.Add($"the errand {bit} asks for '{stated.Target}', which no place this world carries is called, so that objective is not stated.");
-                        quests.UnstatedObjectiveCount++;
-                        continue;
-                    }
-
-                    objectives.Add(new QuestObjective(
-                        $"reach-{objectives.Count.ToString(CultureInfo.InvariantCulture)}",
-                        QuestObjectiveKind.Reach,
-                        place,
-                        label: $"Reach {stated.Target}"));
-                    continue;
-                }
-
-                if (!placesByName.TryGetValue(stated.Place, out string? where))
-                {
-                    notes.Add($"the errand {bit} counts '{stated.Target}' in '{stated.Place}', which no place this world carries is called, so that objective is not stated.");
-                    quests.UnstatedObjectiveCount++;
-                    continue;
-                }
-
-                if (!monstersByName.TryGetValue(stated.Target, out string? row))
-                {
-                    notes.Add($"the errand {bit} counts '{stated.Target}', which the monster table does not carry, so that objective is not stated.");
-                    quests.UnstatedObjectiveCount++;
-                    continue;
-                }
-
-                // A count of zero means "every one the place holds", which is what the shipped words say when
-                // they say all of a kind: the number is read from the place's own placements rather than
-                // written here, so the errand and the world cannot disagree about how many there are.
-                int count = stated.Count > 0
-                    ? stated.Count
-                    : placed.GetValueOrDefault(where, []).GetValueOrDefault(row);
-                if (count < 1)
-                {
-                    notes.Add($"the errand {bit} asks for every '{stated.Target}' in '{stated.Place}' and that place holds none, so that objective is not stated.");
-                    quests.UnstatedObjectiveCount++;
-                    continue;
-                }
-
-                objectives.Add(new QuestObjective(
-                    $"kill-{objectives.Count.ToString(CultureInfo.InvariantCulture)}",
-                    QuestObjectiveKind.Kill,
-                    row,
-                    count,
-                    stated.Count > 0
-                        ? $"Bring down {count.ToString(CultureInfo.InvariantCulture)} × {stated.Target}"
-                        : $"Bring down every {stated.Target} in {stated.Place}",
-                    place: where));
-            }
-
-            if (objectives.Count == 0)
-            {
-                notes.Add($"the errand {bit} cannot be stated: nothing it asks for is something this build can read.");
-                quests.UnstatedErrandCount++;
-                continue;
-            }
-
-            string note = words.TryGetValue(bit, out string? shipped) ? shipped : string.Empty;
-            if (note.Length == 0)
-            {
-                notes.Add($"the shipped quest table carries no words for bit {bit}, so the errand is stated with the objectives this game reads and no story.");
-            }
-
-            QuestDefinition definition = new(
-                new QuestId(bit),
-                reading.Name,
-                rank.Giver,
-                objectives,
-                new QuestRewards(quests._tuning.Whole(MightAndMagic7Tuning.ErrandExperience), quests._tuning.Whole(MightAndMagic7Tuning.ErrandCoins)),
-                record: ErrandRecord(bit),
-                note: note,
-                residue: reading.Residue);
-
-            quests._byId[definition.Id.Value] = definition;
-            if (!quests._byGiver.TryGetValue(rank.Giver, out List<QuestDefinition>? given)) quests._byGiver[rank.Giver] = given = [];
-            given.Add(definition);
-            bits.Add(bit);
+            if (quests._byId.ContainsKey(id)) continue;
+            var rank = catalog.Entries("promotion").Select(row => row.Entry).FirstOrDefault(entry => entry.GetString("quest") == id);
+            string to = rank.GetString("to");
+            string giver = rank.GetArray("requirements").Where(row => ContentEntry.ReadString(row, "kind") == "giver")
+                .Select(row => ContentEntry.ReadString(row, "name")).FirstOrDefault() ?? string.Empty;
+            quests._eventNotes[id] = new(id, to.Length > 0 ? $"{to} promotion" : "Quest", text, giver);
         }
-
-        quests.ErrandCount = bits.Count;
+        quests.ErrandCount = quests._byId.Count;
         quests.ErrandGiverCount = quests._byGiver.Count;
-        quests.ErrandBits = bits;
-        notes.Add(string.Create(
-            CultureInfo.InvariantCulture,
-            $"The shipped quest table carries {words.Count} rows with words; {bits.Count} of them are the promotion errands this game states, over {quests._byGiver.Count} people who give them."));
+        notes.Add($"{words.Count} journal notes and {quests.ErrandCount} authored quests over {quests.ErrandGiverCount} givers.");
         return quests;
     }
 
@@ -758,156 +619,4 @@ internal sealed class MightAndMagic7Quests : IQuestRule, IQuestAcceptanceRule
         return terms with { Quest = definition };
     }
 
-    /// <summary>The shipped bits one rank's errand names, which is what ties an errand row to its giver.</summary>
-    private static IReadOnlyList<string> BitsOf(PromotionRank rank)
-    {
-        List<string> bits = [];
-        foreach (PromotionRequirement requirement in rank.Requirements)
-        {
-            if (requirement.Kind == PromotionRequirementKind.Award &&
-                requirement.Name.StartsWith(MightAndMagic7Identities.ErrandFlagPrefix, StringComparison.Ordinal))
-            {
-                bits.Add(requirement.Name[MightAndMagic7Identities.ErrandFlagPrefix.Length..]);
-            }
-        }
-
-        return bits;
-    }
-
-    /// <summary>One authored errand objective, before the identities it names are resolved against content.</summary>
-    /// <param name="Aim">What kind of thing it is: <c>reach</c> for a place, <c>kill</c> for a creature.</param>
-    /// <param name="Target">The place's or the creature's own name, as the shipped errand and content state it.</param>
-    /// <param name="Place">For a kill, the place it must happen in.</param>
-    /// <param name="Count">How many, or zero for every one the place's own placements hold.</param>
-    private readonly record struct ErrandObjective(string Aim, string Target, string Place = "", int Count = 0);
-
-    /// <summary>One authored errand: the shipped bit it states, and what this game reads it as asking.</summary>
-    /// <param name="Bit">The shipped quest table's own bit.</param>
-    /// <param name="Name">What this game calls the errand.</param>
-    /// <param name="Objectives">What it asks, over names content carries.</param>
-    /// <param name="Residue">What the shipped words ask for that this game does not judge, or empty.</param>
-    private readonly record struct ErrandReading(int Bit, string Name, ErrandObjective[] Objectives, string Residue = "");
-
-    /// <summary>
-    /// Every errand this game states, in the shipped quest table's bit order.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The bits, the errands, and the givers are the shipped table's and the shipped topic table's; the
-    /// names and what each row asks for are ours, and every place and creature named here is content's own
-    /// name for it, resolved when the packs are read. The rows are ordered by bit, which is the order the
-    /// operator's table states them in, so a report of this table reads in one order rather than two.
-    /// </para>
-    /// <para>
-    /// <b>The residue is where the original's own deed is not this build's.</b> "Move the weight from the top
-    /// of the tower to the bottom", "crack the code", "purify the altar", "sabotage the lift", "rescue
-    /// Alice": each is an event program acting on a map this build does not run, so the errand states the
-    /// journey its words name — the place the deed happens in — and names what it cannot judge. Nothing here
-    /// invents an objective nothing could satisfy.
-    /// </para>
-    /// </remarks>
-    private static ErrandReading[] Errands() =>
-    [
-        // Thief → Rogue (npc-15, William Lasker). The vase half is the item the same rank asks for, so the
-        // errand states the journey the shipped words begin with and leaves the treasure to the rank.
-        new(18, "The vase of Lord Markham's Manor",
-            [new("reach", "Lord Markham's Manor")],
-            "the vase itself belongs to the promotion this errand is for, which asks the party to carry it."),
-
-        // Rogue → Spy (npc-15). "Move the weight from the top of Watchtower 6 to the bottom of the tower."
-        new(19, "The weight in Watchtower 6",
-            [new("reach", "Watchtower 6")],
-            "the weight is moved by the watchtower's own event program, which this build does not run: the errand is judged by standing in the tower the shipped words name."),
-
-        // Rogue → Assassin (npc-16). The trinket half is the item the rank asks for.
-        new(21, "Silence Lady Carmine",
-            [new("reach", "Celeste")],
-            "the deed itself is the rank's own proof item, which the promotion asks the party to bring back."),
-
-        // Paladin → Crusader (npc-17). A named dragon no placement carries.
-        new(22, "Wromthrax the Heartless",
-            [new("reach", "Tatalia")],
-            "Wromthrax is placed by the original's own map records rather than by a spawn record this build places, so the errand is judged by the region the shipped words name."),
-
-        // Crusader → Hero (npc-17). "Rescue Alice Hargreaves from William's Tower."
-        new(24, "Alice Hargreaves in William's Tower",
-            [new("reach", "William Setag's Tower")],
-            "rescuing Alice is the tower's own event program, which this build does not run: the errand is judged by standing in the tower the shipped words name."),
-
-        // Crusader → Villain (npc-18). "Capture Alice Hargreaves … and return her to William's Tower."
-        new(26, "Alice Hargreaves, taken and delivered",
-            [new("reach", "Castle Gryphonheart"), new("reach", "William Setag's Tower")],
-            "the capture and the delivery are the castle's and the tower's own event programs, which this build does not run: the errand is judged by standing where the shipped words say."),
-
-        // Monk → Initiate (npc-38). "Find the lost meditation spot in the Dwarven Barrows."
-        new(27, "The meditation spot",
-            [new("reach", "The Barrow Downs")],
-            "the barrow and the spot inside it are placed by the original's own records, so the errand is judged by the barrow downs the shipped words name."),
-
-        // Initiate → Master (npc-38). "Kill the High Priest of Baa."
-        new(28, "The High Priest of Baa",
-            [new("reach", "The Temple of Baa")],
-            "the High Priest is an actor the original's own map records place and this build does not, so the errand is judged by standing in the temple the shipped words name."),
-
-        // Initiate → Ninja (npc-39). "Crack the code … discover the tomb's location, enter it."
-        new(29, "The Tomb of Ashwar Nog'Nogoth",
-            [new("reach", "The School of Sorcery"), new("reach", "The Hidden Tomb")],
-            "cracking the code is the school's own event program, which this build does not run: the errand is judged by standing where the code is read and in the tomb it names."),
-
-        // Archer → Warrior Mage (npc-41). "Sabotage the lift in the Red Dwarf Mines."
-        new(31, "The lift in the Red Dwarf Mines",
-            [new("reach", "The Red Dwarf Mines")],
-            "the lift is the mine's own event program, which this build does not run: the errand is judged by standing in the mine the shipped words name."),
-
-        // Cavalier → Champion (npc-42) is the arena count the ladder keeps as a record, so no errand here.
-        // Cavalier → Black Knight (npc-43). "Destroy all the undead in the Haunted House."
-        new(34, "The undead of the Haunted Mansion",
-            [
-                new("kill", "Ghast", "The Haunted Mansion"),
-                new("kill", "Shade", "The Haunted Mansion"),
-                new("kill", "Wight", "The Haunted Mansion"),
-            ],
-            "the count is every one of each kind the house's own placements hold, because the shipped words say all of them."),
-
-        // Knight → Cavalier (npc-43). "Raid the Elven Treasury at Castle Navan."
-        new(35, "The Elven Treasury at Castle Navan",
-            [new("reach", "Castle Navan")],
-            "the treasury is the castle's own event program, which this build does not run: the errand is judged by standing in the castle the shipped words name."),
-
-        // Hunter → Ranger Lord (npc-44). "Calm the trees … by speaking to the Oldest Tree."
-        new(36, "The trees of the Tularean Forest",
-            [new("reach", "The Tularean Forest")],
-            "the Oldest Tree is a person the original places by its own map records and this build does not, so the errand is judged by standing in the forest the shipped words name."),
-
-        // Ranger → Hunter (npc-45). "Solve the secret of the Faerie Mound in Avlee and speak to the Faerie King."
-        new(37, "The secret of the Faerie Mound",
-            [new("reach", "Avlee")],
-            "the mound and its king are placed by the original's own records rather than by any this build places, so the errand is judged by the region the shipped words name."),
-
-        // Cleric → Priest (npc-47). "Find the lost pirate map in the Tidewater Caverns."
-        new(43, "The lost pirate map",
-            [new("reach", "The Tidewater Caverns")],
-            "the map is the caverns' own event program, which this build does not run: the errand is judged by standing in the caverns the shipped words name."),
-
-        // Priest → Priest of the Light (npc-46). "Purify the Altar of Evil in the Temple of the Moon."
-        new(42, "The Altar of Evil",
-            [new("reach", "The Temple of the Moon")],
-            "purifying the altar is the temple's own event program, which this build does not run: the errand is judged by standing in the temple the shipped words name."),
-
-        // Priest → Priest of the Dark (npc-47). "Deface the Altar of Good in the Temple of the Sun."
-        new(44, "The Altar of Good",
-            [new("reach", "Grand Temple of the Sun")],
-            "defacing the altar is the temple's own event program, which this build does not run: the errand is judged by standing in the temple the shipped words name."),
-
-        // Druid → Great Druid (npc-50). "Visit the three stonehenge monoliths in Tatalia, the Evenmorn
-        // Islands, and Avlee." Three places, which the shipped words name as three and the world carries.
-        new(49, "The three stonehenge monoliths",
-            [new("reach", "Tatalia"), new("reach", "Evenmorn Island"), new("reach", "Avlee")],
-            "a monolith is a decoration rather than a place, so each is judged by the region the shipped words put it in."),
-
-        // Great Druid → Arch Druid (npc-50). "Retrieve the bones … and place them in the Barrow Downs."
-        new(54, "The Dwarf King's bones",
-            [new("reach", "The Barrow Downs")],
-            "the bones are an item the shipped item table does not carry under that name, so the errand is judged by the place the shipped words say to lay them in."),
-    ];
 }

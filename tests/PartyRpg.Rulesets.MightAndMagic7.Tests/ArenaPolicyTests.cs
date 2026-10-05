@@ -103,7 +103,7 @@ public sealed class ArenaPolicyTests
     {
         using Mission mission = new();
         var party = mission.Live.Party!;
-        party.Records.Mark(MightAndMagic7Quests.ErrandRecord("35"));
+        party.Records.Mark(MightAndMagic7Quests.ErrandRecord("34"));
         Assert.True(mission.Live.Owners.Progression!.Promote("knight-cavalier", "npc-43").IsGranted);
         party.Records.Mark(MightAndMagic7Quests.ErrandRecord("33"));
         for (int count = 1; count <= 5; count++)

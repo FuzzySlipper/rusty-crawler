@@ -275,7 +275,7 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
         // run where the person stands, and the placement is only where.
         if (request.Raised.Length > 0) return _fixtures.Spoken(request, Reach);
 
-        PlacementDefinition placement = request.Placement;
+        if (request.Placement is not { } placement) return null;
         IReadOnlyList<InteractionRequirement> requires = ReadRequirements(placement);
 
         // What is lying at a placement is asked first, because a creature's own placement is where its body
@@ -340,6 +340,7 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
                 ? _corpses.Search(target, context)
                 : MightAndMagic7Containers.Search(target, context, _loot);
 
+            search = _fixtures.AfterSearch(target, context, search);
             // What a search yielded is reported to the party's journal from here, because this is the one
             // place both a chest's contents and a body's are answered: the rule that decided what the thing
             // held is the owner of the find, and the journal is the owner of whether it is worth a line. The

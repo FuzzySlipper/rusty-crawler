@@ -34,3 +34,8 @@ product starts: pack ids must match their directories, entry ids must be unique 
 definition kind, and every declared reference must resolve.
 
 A new pack must be named by a bundle in [`../bundles`](../bundles), or nothing loads it.
+
+`mm7-new-game/promotions.json` declares the normal bundle's 27 promotion edges: previous/resulting class,
+rank, quest identity, giver, proof requirements, alternative, award and optional opened/closed schools.
+The imported conversation/map programs own ordinary quest execution and delivery. Loaded edges enforce
+per-character exclusivity; content without a promotion document has no implicit fallback ladder.

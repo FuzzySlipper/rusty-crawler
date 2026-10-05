@@ -152,7 +152,7 @@ internal static class RulesetTestContext
         return new RulesetSessionContext(
             channel,
             new BundleSelection(bootstrap.Selection.Bundle.BundleId, bootstrap.Selection.Packs.Count),
-            bootstrap.Catalog,
+            PromotionTestContent.With(bootstrap.Catalog),
             Engine: engine ? context.Engine : null,
             Creation: creation
                 ? new CreationIntentNames(Declared.CreationAdvanceIntent, Declared.CreationAcceptIntent, Declared.UiActionContract)

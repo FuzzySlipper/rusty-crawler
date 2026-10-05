@@ -1,0 +1,706 @@
+{
+  "documentId": "promotion-ladders",
+  "definitionKind": "promotion",
+  "entries": [
+    {
+      "id": "knight-cavalier",
+      "from": "Knight",
+      "to": "Cavalier",
+      "rank": 2,
+      "quest": "34",
+      "choice": "",
+      "award": "promotion:knight-cavalier",
+      "words": "Explore the Haunted Mansion and return to Frederick Org for the rank of Cavalier.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-43",
+          "label": "Frederick Org",
+          "amount": 1
+        },
+        {
+          "kind": "award",
+          "name": "errand:34",
+          "amount": 1,
+          "label": "explore the Haunted Mansion"
+        }
+      ]
+    },
+    {
+      "id": "cavalier-champion",
+      "from": "Cavalier",
+      "to": "Champion",
+      "rank": 3,
+      "quest": "33",
+      "choice": "light",
+      "award": "promotion:cavalier-champion",
+      "words": "Win five challenges in the arena and the rank of Champion is yours.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-42",
+          "label": "Leda Rowan",
+          "amount": 1
+        },
+        {
+          "kind": "award",
+          "name": "award:arena-wins",
+          "amount": 5,
+          "label": "arena victories"
+        }
+      ]
+    },
+    {
+      "id": "cavalier-black-knight",
+      "from": "Cavalier",
+      "to": "Black Knight",
+      "rank": 3,
+      "quest": "35",
+      "choice": "dark",
+      "award": "promotion:cavalier-black-knight",
+      "words": "Raid the Elven Treasury at Castle Navan and return to Frederick Org for the rank of Black Knight.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-43",
+          "label": "Frederick Org",
+          "amount": 1
+        },
+        {
+          "kind": "award",
+          "name": "errand:35",
+          "amount": 1,
+          "label": "raid the Elven Treasury at Castle Navan"
+        }
+      ]
+    },
+    {
+      "id": "thief-rogue",
+      "from": "Thief",
+      "to": "Rogue",
+      "rank": 2,
+      "quest": "18",
+      "choice": "",
+      "award": "promotion:thief-rogue",
+      "words": "Bring me that lovely vase I saw on the mantle in Lord Markham's manor, and I shall call you Rogue.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-15",
+          "label": "William Lasker",
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "name": "624",
+          "amount": 1,
+          "label": "Vase"
+        }
+      ]
+    },
+    {
+      "id": "rogue-spy",
+      "from": "Rogue",
+      "to": "Spy",
+      "rank": 3,
+      "quest": "19",
+      "choice": "light",
+      "award": "promotion:rogue-spy",
+      "words": "Move the weight from the top of Watchtower 6 to the bottom, and you will have proven yourself a Spy.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-15",
+          "label": "William Lasker",
+          "amount": 1
+        },
+        {
+          "kind": "award",
+          "name": "errand:19",
+          "amount": 1,
+          "label": "move the counterweight in Watchtower 6"
+        }
+      ]
+    },
+    {
+      "id": "rogue-assassin",
+      "from": "Rogue",
+      "to": "Assassin",
+      "rank": 3,
+      "quest": "21",
+      "choice": "dark",
+      "award": "promotion:rogue-assassin",
+      "words": "Silence Lady Carmine and return with a trinket of hers to prove the job is done.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-16",
+          "label": "Seknit Undershadow",
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "name": "620",
+          "amount": 1,
+          "label": "Big Tapestry"
+        }
+      ]
+    },
+    {
+      "id": "monk-initiate",
+      "from": "Monk",
+      "to": "Initiate",
+      "rank": 2,
+      "quest": "27",
+      "choice": "",
+      "award": "promotion:monk-initiate",
+      "words": "Reach the barrow that was built on a site of great natural power and meditate by the water, and your promotion to Initiate is complete.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-38",
+          "label": "Bartholomew Hume",
+          "amount": 1
+        },
+        {
+          "kind": "award",
+          "name": "errand:27",
+          "amount": 1,
+          "label": "find the lost meditation spot in the Dwarven Barrows"
+        }
+      ]
+    },
+    {
+      "id": "initiate-master",
+      "from": "Initiate",
+      "to": "Master",
+      "rank": 3,
+      "quest": "28",
+      "choice": "light",
+      "award": "promotion:initiate-master",
+      "words": "Extinguish the remnants of the Order of Baa and I shall complete your training.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-38",
+          "label": "Bartholomew Hume",
+          "amount": 1
+        },
+        {
+          "kind": "award",
+          "name": "errand:28",
+          "amount": 1,
+          "label": "defeat the High Priest of Baa"
+        }
+      ]
+    },
+    {
+      "id": "initiate-ninja",
+      "from": "Initiate",
+      "to": "Ninja",
+      "rank": 3,
+      "quest": "29",
+      "choice": "dark",
+      "award": "promotion:initiate-ninja",
+      "words": "Crack the code in the School of Sorcery, enter the tomb it names, and return to me.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-39",
+          "label": "Stephan Sand",
+          "amount": 1
+        },
+        {
+          "kind": "award",
+          "name": "errand:29",
+          "amount": 1,
+          "label": "crack the code and enter the Tomb of Ashwar Nog'Nogoth"
+        }
+      ]
+    },
+    {
+      "id": "paladin-crusader",
+      "from": "Paladin",
+      "to": "Crusader",
+      "rank": 2,
+      "quest": "22",
+      "choice": "",
+      "award": "promotion:paladin-crusader",
+      "words": "The test is simple. A dragon must be slain: Wromthrax the Heartless, in his cave in Tatalia.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-17",
+          "label": "Sir Charles Quixote",
+          "amount": 1
+        },
+        {
+          "kind": "award",
+          "name": "errand:22",
+          "amount": 1,
+          "label": "kill Wromthrax the Heartless in his cave in Tatalia"
+        }
+      ]
+    },
+    {
+      "id": "crusader-hero",
+      "from": "Crusader",
+      "to": "Hero",
+      "rank": 3,
+      "quest": "24",
+      "choice": "light",
+      "award": "promotion:crusader-hero",
+      "words": "A wicked villain has kidnapped a fair maiden by the name of Alice Hargreaves. Rescue sweet Alice and you will truly be Heroes of the Land.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-17",
+          "label": "Sir Charles Quixote",
+          "amount": 1
+        },
+        {
+          "kind": "award",
+          "name": "errand:24",
+          "amount": 1,
+          "label": "rescue Alice Hargreaves from William's Tower"
+        }
+      ],
+      "opens": "Light",
+      "closes": "Dark"
+    },
+    {
+      "id": "crusader-villain",
+      "from": "Crusader",
+      "to": "Villain",
+      "rank": 3,
+      "quest": "26",
+      "choice": "dark",
+      "award": "promotion:crusader-villain",
+      "words": "Capture the noble Alice Hargreaves from Castle Gryphonheart, bring her to my tower, and I shall promote the Crusaders among you to Villains.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-18",
+          "label": "William Setag",
+          "amount": 1
+        },
+        {
+          "kind": "award",
+          "name": "errand:26",
+          "amount": 1,
+          "label": "capture Alice Hargreaves and imprison her in William's Tower"
+        }
+      ],
+      "opens": "Dark",
+      "closes": "Light"
+    },
+    {
+      "id": "archer-warrior-mage",
+      "from": "Archer",
+      "to": "Warrior Mage",
+      "rank": 2,
+      "quest": "31",
+      "choice": "",
+      "award": "promotion:archer-warrior-mage",
+      "words": "Sabotage the lift in the Red Dwarf Mines and return to me in Avlee, and you will be Warrior Mages.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-41",
+          "label": "Steagal Snick",
+          "amount": 1
+        },
+        {
+          "kind": "award",
+          "name": "errand:31",
+          "amount": 1,
+          "label": "sabotage the lift in the Red Dwarf Mines"
+        }
+      ]
+    },
+    {
+      "id": "warrior-mage-master-archer",
+      "from": "Warrior Mage",
+      "to": "Master Archer",
+      "rank": 3,
+      "quest": "30",
+      "choice": "light",
+      "award": "promotion:warrior-mage-master-archer",
+      "words": "You found the bow! Let me take some measurements and adjust it to your style, and I will promote the Warrior Mages among you to Master Archers.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-40",
+          "label": "Lawrence Mark",
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "name": "542",
+          "amount": 1,
+          "label": "The Perfect Bow"
+        }
+      ],
+      "opens": "Light",
+      "closes": "Dark"
+    },
+    {
+      "id": "warrior-mage-sniper",
+      "from": "Warrior Mage",
+      "to": "Sniper",
+      "rank": 3,
+      "quest": "32",
+      "choice": "dark",
+      "award": "promotion:warrior-mage-sniper",
+      "words": "Bring me the Perfect Bow from the Titans' Stronghold in Avlee, and you will be Snipers.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-41",
+          "label": "Steagal Snick",
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "name": "542",
+          "amount": 1,
+          "label": "The Perfect Bow"
+        }
+      ],
+      "opens": "Dark",
+      "closes": "Light"
+    },
+    {
+      "id": "ranger-hunter",
+      "from": "Ranger",
+      "to": "Hunter",
+      "rank": 2,
+      "quest": "37",
+      "choice": "",
+      "award": "promotion:ranger-hunter",
+      "words": "Solve the secret of the entrance to the Faerie Mound in Avlee, speak to the Faerie King, and return to me.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-45",
+          "label": "Ebednezer Sower",
+          "amount": 1
+        },
+        {
+          "kind": "award",
+          "name": "errand:37",
+          "amount": 1,
+          "label": "solve the secret of the Faerie Mound and speak to the Faerie King"
+        }
+      ]
+    },
+    {
+      "id": "hunter-ranger-lord",
+      "from": "Hunter",
+      "to": "Ranger Lord",
+      "rank": 3,
+      "quest": "36",
+      "choice": "light",
+      "award": "promotion:hunter-ranger-lord",
+      "words": "Calm the trees in the Tularean Forest by speaking to the Oldest Tree, and return to me.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-44",
+          "label": "Lysander Sweet",
+          "amount": 1
+        },
+        {
+          "kind": "award",
+          "name": "errand:36",
+          "amount": 1,
+          "label": "calm the trees of the Tularean Forest by speaking to the Oldest Tree"
+        }
+      ]
+    },
+    {
+      "id": "hunter-bounty-hunter",
+      "from": "Hunter",
+      "to": "Bounty Hunter",
+      "rank": 3,
+      "quest": "38",
+      "choice": "dark",
+      "award": "promotion:hunter-bounty-hunter",
+      "words": "Collect ten thousand gold worth of bounties from the town halls, and I will make Bounty Hunters of you.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-45",
+          "label": "Ebednezer Sower",
+          "amount": 1
+        },
+        {
+          "kind": "award",
+          "name": "award:bounties",
+          "amount": 10000,
+          "label": "gold of bounties"
+        }
+      ]
+    },
+    {
+      "id": "cleric-priest",
+      "from": "Cleric",
+      "to": "Priest",
+      "rank": 2,
+      "quest": "43",
+      "choice": "",
+      "award": "promotion:cleric-priest",
+      "words": "Find the lost pirate map in the Tidewater Caverns and return to me in the Deyja Moors.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-47",
+          "label": "Daedalus Falk",
+          "amount": 1
+        },
+        {
+          "kind": "award",
+          "name": "errand:43",
+          "amount": 1,
+          "label": "find the lost pirate map in the Tidewater Caverns"
+        }
+      ]
+    },
+    {
+      "id": "priest-priest-of-the-light",
+      "from": "Priest",
+      "to": "Priest of the Light",
+      "rank": 3,
+      "quest": "42",
+      "choice": "light",
+      "award": "promotion:priest-priest-of-the-light",
+      "words": "Purify the Altar of Evil in the Temple of the Moon on Evenmorn Isle, and the light will make you a Priest of the Light.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-46",
+          "label": "Rebecca Devine",
+          "amount": 1
+        },
+        {
+          "kind": "award",
+          "name": "errand:42",
+          "amount": 1,
+          "label": "purify the Altar of Evil in the Temple of the Moon"
+        }
+      ],
+      "opens": "Light",
+      "closes": "Dark"
+    },
+    {
+      "id": "priest-priest-of-the-dark",
+      "from": "Priest",
+      "to": "Priest of the Dark",
+      "rank": 3,
+      "quest": "44",
+      "choice": "dark",
+      "award": "promotion:priest-priest-of-the-dark",
+      "words": "Deface the Altar of Good in the Temple of the Sun on Evenmorn Isle, and the dark will make you a Priest of the Dark.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-47",
+          "label": "Daedalus Falk",
+          "amount": 1
+        },
+        {
+          "kind": "award",
+          "name": "errand:44",
+          "amount": 1,
+          "label": "deface the Altar of Good in the Temple of the Sun"
+        }
+      ],
+      "opens": "Dark",
+      "closes": "Light"
+    },
+    {
+      "id": "druid-great-druid",
+      "from": "Druid",
+      "to": "Great Druid",
+      "rank": 2,
+      "quest": "49",
+      "choice": "",
+      "award": "promotion:druid-great-druid",
+      "words": "Visit the three stonehenge monoliths in Tatalia, the Evenmorn Islands, and Avlee, and return to me in the Tularean Forest.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-50",
+          "label": "Anthony Green",
+          "amount": 1
+        },
+        {
+          "kind": "award",
+          "name": "errand:49",
+          "amount": 1,
+          "label": "visit the three stonehenge monoliths"
+        }
+      ]
+    },
+    {
+      "id": "great-druid-arch-druid",
+      "from": "Great Druid",
+      "to": "Arch Druid",
+      "rank": 3,
+      "quest": "54",
+      "choice": "light",
+      "award": "promotion:great-druid-arch-druid",
+      "words": "Retrieve the bones of the Dwarf King and place them in their proper resting place in the Barrow Downs.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-50",
+          "label": "Anthony Green",
+          "amount": 1
+        },
+        {
+          "kind": "award",
+          "name": "errand:54",
+          "amount": 1,
+          "label": "lay the Dwarf King's bones to rest in the Barrow Downs"
+        }
+      ]
+    },
+    {
+      "id": "great-druid-warlock",
+      "from": "Great Druid",
+      "to": "Warlock",
+      "rank": 3,
+      "quest": "55",
+      "choice": "dark",
+      "award": "promotion:great-druid-warlock",
+      "words": "Retrieve the dragon egg from the Dragon Cave in the Land of the Giants and return it to me in Mount Nighon.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-51",
+          "label": "Tor Anwyn",
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "name": "647",
+          "amount": 1,
+          "label": "Dragon Egg"
+        }
+      ]
+    },
+    {
+      "id": "sorcerer-wizard",
+      "from": "Sorcerer",
+      "to": "Wizard",
+      "rank": 2,
+      "quest": "45",
+      "choice": "",
+      "award": "promotion:sorcerer-wizard",
+      "words": "Collect the six golem pieces and construct a complete golem, then return to me, and you will be Wizards.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-48",
+          "label": "Thomas Grey",
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "name": "639",
+          "amount": 1,
+          "label": "Golem chest"
+        },
+        {
+          "kind": "item",
+          "name": "641",
+          "amount": 1,
+          "label": "Golem head"
+        },
+        {
+          "kind": "item",
+          "name": "642",
+          "amount": 1,
+          "label": "Golem left leg"
+        },
+        {
+          "kind": "item",
+          "name": "643",
+          "amount": 1,
+          "label": "Golem right leg"
+        },
+        {
+          "kind": "item",
+          "name": "644",
+          "amount": 1,
+          "label": "Golem right arm"
+        },
+        {
+          "kind": "item",
+          "name": "645",
+          "amount": 1,
+          "label": "Golem left arm"
+        }
+      ]
+    },
+    {
+      "id": "wizard-arch-mage",
+      "from": "Wizard",
+      "to": "Arch Mage",
+      "rank": 3,
+      "quest": "47",
+      "choice": "light",
+      "award": "promotion:wizard-arch-mage",
+      "words": "Find the Book of Divine Intervention in the Breeding Zone in the Pit and return it to me, and you will be Arch Mages.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-48",
+          "label": "Thomas Grey",
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "name": "487",
+          "amount": 1,
+          "label": "Divine Intervention"
+        }
+      ],
+      "opens": "Light",
+      "closes": "Dark"
+    },
+    {
+      "id": "wizard-lich",
+      "from": "Wizard",
+      "to": "Lich",
+      "rank": 3,
+      "quest": "48",
+      "choice": "dark",
+      "award": "promotion:wizard-lich",
+      "words": "Retrieve the lich jars from the Proving Grounds in Celeste and bring them back to me in the Pit, and you will be Liches.",
+      "requirements": [
+        {
+          "kind": "giver",
+          "name": "npc-49",
+          "label": "Halfgild Wynac",
+          "amount": 1
+        },
+        {
+          "kind": "item",
+          "name": "601",
+          "amount": 1,
+          "label": "Lich Jar"
+        },
+        {
+          "kind": "item",
+          "name": "602",
+          "amount": 1,
+          "label": "Case of Soul Jars"
+        }
+      ],
+      "opens": "Dark",
+      "closes": "Light"
+    }
+  ]
+}

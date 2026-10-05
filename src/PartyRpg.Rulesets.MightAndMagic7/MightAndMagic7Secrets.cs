@@ -21,7 +21,7 @@ internal static class MightAndMagic7Secrets
 
     internal static InteractionOutcome? Discover(InteractionTargetDefinition target, InteractionContext context, MightAndMagic7Followers? followers = null)
     {
-        if (context.Raised.Length > 0 || context.Placement.Source.GetBoolean(SecretField) != true) return null;
+        if (context.Raised.Length > 0 || context.Placement is null || context.Placement.Source.GetBoolean(SecretField) != true) return null;
         string key = DiscoveryPrefix + context.Placement.Content;
         if (context.PlaceValues.GetValueOrDefault(key) != 0) return null;
         int required = checked(2 * context.Placement.Source.GetInt32(DifficultyField)!.Value);

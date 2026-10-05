@@ -106,7 +106,7 @@ public sealed class PromoterTopicTests
             """);
         MightAndMagic7MapEvents events = MightAndMagic7MapEvents.Read(catalog);
         using PartyEntity party = Party(("Lasse", "Thief", 1));
-        PartyProgression progression = new(MightAndMagic7Progression.Instance, party, promotions: MightAndMagic7Promotions.Read(catalog));
+        PartyProgression progression = new(MightAndMagic7Progression.Instance, party, promotions: PromotionTestContent.Read(catalog));
         MightAndMagic7Interaction rule = new(fixtures: new MightAndMagic7Fixtures(
             events,
             progression: () => progression,
@@ -140,7 +140,7 @@ public sealed class PromoterTopicTests
     {
         ContentCatalog catalog = ImportedContent.Load();
         MightAndMagic7MapEvents events = MightAndMagic7MapEvents.Read(catalog);
-        MightAndMagic7Promotions promotions = MightAndMagic7Promotions.Read(catalog);
+        MightAndMagic7Promotions promotions = PromotionTestContent.Read(catalog);
         MightAndMagic7Fixtures? fixtures = null;
         PartyProgression? progression = null;
         MightAndMagic7Conversation conversation = MightAndMagic7Conversation.Read(catalog, MightAndMagic7Services.Read(catalog), promotions, events: () => fixtures)!;

@@ -637,3 +637,18 @@ keeps the fight's last applied orders, each with a growing serial, for a present
 nothing saves it. The view's notes are also published as `scene-note` diagnostics.
 
 `ItemReading.Text` carries optional readable prose. Equipment projections expose it for both worn and shared-pack items, and inspecting it changes no item custody or gameplay state.
+
+Companion personal topics have no world placement. `PartyInteraction.AnswerFollower` verifies current
+party membership and shares event settlement with placed conversations and ruleset-raised world events
+(`AnswerRaised`). Those answers create no world target or placement-ledger row. A companion's old counter
+is not an interaction context. Nullable placement in an interaction request/context represents this case;
+world-only rules refuse or decline when no placement is present.
+
+`IQuestNotesRule` optionally reads active quest notes from canonical party state. `PartyQuests.Notes`
+and the normal quest-book projection expose them without creating another quest instance, progress
+record, reward path or save format. Authored objective quests continue through `PartyQuests` as before.
+
+`SessionWorld.Departed` reports an admitted cross-place transition before its time cost.
+A ruleset may answer source-place lifecycle events through `AnswerDeparture`; the existing
+interaction settlement writes that source place, without inventing a placement or taking
+a second journey.

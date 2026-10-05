@@ -15,25 +15,10 @@ using Xunit;
 namespace PartyRpg.Rulesets.MightAndMagic7.Tests;
 
 /// <summary>
-/// This game's quests against the real composition: the errands the shipped quest table states over the
-/// ranks that ask for them, an errand offered in a conversation and finished with the person who gave it,
-/// what a turn-in pays, and the errand a promotion rank reads before it is given.
+/// Authored objective quests through the real session composition, plus imported event-note ownership.
+/// The focused scenario explicitly authors its objective, reward and completion record; it is not
+/// evidence of the ordinary imported promotion program, which PromotionReachabilityTests exercises.
 /// </summary>
-/// <remarks>
-/// <para>
-/// The kit's own suite proves the owner with quests it states itself. What only this suite can prove is that
-/// this game's readings reach it: the shipped quest table's own words become the note a player reads, the
-/// ladder's givers become the people an errand is taken from and handed back to, the places and creatures
-/// content carries resolve the objectives, and a finished errand is the record a rank's requirement and a
-/// shipped topic's own gate both read.
-/// </para>
-/// <para>
-/// The composed case is written the way the importer writes a world — a place, the person standing in it,
-/// the tables around them — so the same suite proves the shipped policy rather than a fixture invented for
-/// it. The readings are checked against the operator's own imported packs where they are staged, and a
-/// machine without that data reports those cases skipped.
-/// </para>
-/// </remarks>
 public sealed class QuestPolicyTests
 {
     private static readonly UseIntentNames UseControls = new(
@@ -52,58 +37,15 @@ public sealed class QuestPolicyTests
     public void The_shipped_quest_table_states_the_words_and_this_game_states_the_errand()
     {
         ContentCatalog catalog = ImportedContent.Load();
-        MightAndMagic7Promotions ladder = MightAndMagic7Promotions.Read(catalog);
+        MightAndMagic7Promotions ladder = PromotionTestContent.Read(catalog);
         MightAndMagic7Spawns spawns = MightAndMagic7Spawns.Compose(catalog, new KeyedTestRandom());
         MightAndMagic7Quests questsRead = MightAndMagic7Quests.Read(catalog, ladder, spawns)!;
 
-        // Seventeen errands, one per rank whose errand its own words state as a deed rather than as something
-        // carried: the bits are the ones the ladder names, so what a rank asks for and what this reads as an
-        // errand are the same rows.
-        Assert.Equal(17, questsRead.ErrandCount);
-        Assert.Equal(17, questsRead.ErrandBits.Count);
-        Assert.Equal(17, ladder.QuestRequirementCount);
-        Assert.Equal(
-            ladder.Ladder.Ranks.SelectMany(rank => rank.Requirements)
-                .Where(requirement => requirement.Name.StartsWith("errand:", StringComparison.Ordinal))
-                .Select(requirement => requirement.Name["errand:".Length..])
-                .Order(StringComparer.Ordinal),
-            questsRead.ErrandBits.Order(StringComparer.Ordinal));
-
-        // Nothing this game reads is left unstaged: every objective resolved against the places and the
-        // monster table the packs carry, so no errand is stated with an objective nothing could satisfy.
-        Assert.Equal(0, questsRead.UnstatedErrandCount);
-        Assert.Equal(0, questsRead.UnstatedObjectiveCount);
-
-        // The words are the shipped table's own, and the giver is the ladder's: bit 35 is Frederick Org's,
-        // named in the shipped row's own text ("return to Frederick Org in Erathia").
-        QuestDefinition treasury = questsRead.Definition(new QuestId("35"))!;
-        Assert.Equal("npc-43", treasury.Giver);
-        Assert.Contains("Elven Treasury", treasury.Note, StringComparison.Ordinal);
-        Assert.Contains("Frederick Org", treasury.Note, StringComparison.Ordinal);
-        QuestObjective reach = Assert.Single(treasury.Objectives);
-        Assert.Equal(QuestObjectiveKind.Reach, reach.Kind);
-        Assert.Equal("Reach Castle Navan", reach.Label);
-
-        // An errand whose words say "all" of something counts every one the place holds: the Haunted Mansion's
-        // undead, as the population resolves the house's own encounters — the same keyed resolution the errand
-        // was counted from, so the errand and the house the party walks into agree.
-        QuestDefinition house = questsRead.Definition(new QuestId("34"))!;
-        Assert.All(house.Objectives, objective => Assert.Equal(QuestObjectiveKind.Kill, objective.Kind));
-        PlaceGraph graph = PlaceGraphLoader.Load(catalog, MightAndMagic7FareDays.Read(catalog));
-        PlaceDefinition mansion = graph.Places.Single(place => place.Name == "The Haunted Mansion");
-        Dictionary<string, int> placed = [];
-        foreach (PlacementDefinition placement in PlacePopulationContent.Read(graph, spawns).PlacementsOf(mansion.Id))
-        {
-            if (!string.Equals(placement.Content.Kind, "monster", StringComparison.Ordinal)) continue;
-            string row = placement.Source.GetId("monster");
-            placed[row] = placed.GetValueOrDefault(row) + 1;
-        }
-
-        Assert.NotEmpty(placed);
-        foreach (QuestObjective objective in house.Objectives)
-        {
-            Assert.Equal(placed[objective.Target], objective.Count);
-        }
+        // Imported event quests own their actual deed and reward; there is no parallel reach-only
+        // turn-in that can complete a promotion by entering its map.
+        Assert.Equal(0, questsRead.ErrandCount);
+        Assert.Null(questsRead.Definition(new QuestId("35")));
+        Assert.Null(questsRead.Definition(new QuestId("34")));
 
         // One errand nobody authors: the town hall's board. The beast is the place's own encounter row by the
         // month the clock stands in, what it pays is the donor's hundred times its level, and the keeper who
@@ -242,7 +184,7 @@ public sealed class QuestPolicyTests
         // What the member met reads in the ladder's own words for the errand it asked for, which is the
         // shipped row's deed rather than a second sentence this game would have to keep in step.
         Assert.Contains(
-            "Elven Treasury",
+            "Haunted Mansion",
             promotion.Field("granted").Item(0).Field("met").Item(1).AsString(),
             StringComparison.Ordinal);
     }
@@ -364,7 +306,10 @@ public sealed class QuestPolicyTests
               "documentId": "quests",
               "definitionKind": "quest",
               "entries": [
-                { "id": "35", "text": "Raid the Elven Treasury at Castle Navan and return to Frederick Org.", "owner": "authored" }
+                { "id": "35", "text": "Raid the Elven Treasury at Castle Navan and return to Frederick Org.", "owner": "authored", "reading": {
+                  "giver": "npc-43", "objectives": [{"id":"reach","kind":"reach","target":"Castle Navan","label":"Reach Castle Navan"}],
+                  "experience":4000,"coins":250,"record":"errand:34"
+                } }
               ]
             }
             """),

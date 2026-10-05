@@ -133,7 +133,7 @@ internal sealed class ConversationHandoffRouter(SessionOwners owners)
     /// </remarks>
     private void Use(ConversationHandoff handoff, PartyConversations conversations)
     {
-        if (owners.World is not { } world || conversations.Placement is not { } placement)
+        if (owners.World is not { } world)
         {
             conversations.Hear(
                 "There is nothing more to it.",
@@ -142,7 +142,10 @@ internal sealed class ConversationHandoffRouter(SessionOwners owners)
         }
 
         PlaceId spokenIn = conversations.Place;
-        if (world.Answer(placement, handoff.Target) is not { } result)
+        PlacementDefinition? placement = conversations.Placement;
+        InteractionResult? answered = placement is not null ? world.Answer(placement, handoff.Target)
+            : conversations.Speaker is { } companion ? world.AnswerFollower(new(companion.Id), handoff.Target) : null;
+        if (answered is not { } result)
         {
             conversations.Hear(
                 "There is nothing more to it.",
@@ -162,7 +165,7 @@ internal sealed class ConversationHandoffRouter(SessionOwners owners)
             return;
         }
 
-        if (result is { IsApplied: true, Speaks: { } subject }) conversations.Open(spokenIn, placement, subject);
+        if (placement is not null && result is { IsApplied: true, Speaks: { } subject }) conversations.Open(spokenIn, placement, subject);
     }
 
     /// <summary>

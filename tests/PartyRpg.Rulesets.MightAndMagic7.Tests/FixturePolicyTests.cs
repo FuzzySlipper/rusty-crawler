@@ -694,7 +694,7 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
     {
         ContentCatalog catalog = ImportedContent.Load();
         MightAndMagic7MapEvents events = MightAndMagic7MapEvents.Read(catalog);
-        MightAndMagic7Spells spells = MightAndMagic7Spells.Read(catalog, MightAndMagic7Skills.Read(catalog, MightAndMagic7Promotions.Read(catalog)))!;
+        MightAndMagic7Spells spells = MightAndMagic7Spells.Read(catalog, MightAndMagic7Skills.Read(catalog, PromotionTestContent.Read(catalog)))!;
         KeyedTestRandom random = new();
         MightAndMagic7Loot loot = MightAndMagic7Loot.Compose(catalog, random);
         MightAndMagic7Interaction rule = new(fixtures: new MightAndMagic7Fixtures(events, random: random, loot: loot, spells: spells));
@@ -825,7 +825,7 @@ public sealed partial class FixturePolicyTests(ITestOutputHelper output)
 
         // The running effects a temporary resistance is left in are composed as a session composes them, over
         // the shipped spell table, so the wells that give one are counted as a session plays them.
-        MightAndMagic7Spells spells = MightAndMagic7Spells.Read(catalog, MightAndMagic7Skills.Read(catalog, MightAndMagic7Promotions.Read(catalog)))!;
+        MightAndMagic7Spells spells = MightAndMagic7Spells.Read(catalog, MightAndMagic7Skills.Read(catalog, PromotionTestContent.Read(catalog)))!;
         KeyedTestRandom random = new();
         MightAndMagic7Loot loot = MightAndMagic7Loot.Compose(catalog, random);
         MightAndMagic7Conversation? conversation = MightAndMagic7Conversation.Read(catalog, MightAndMagic7Services.Read(catalog));

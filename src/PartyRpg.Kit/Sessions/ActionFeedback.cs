@@ -83,7 +83,7 @@ internal sealed class ActionFeedback
     {
         Magic.SpellCastResult cast => Of(serial, FeedbackSources.Cast, cast.Caster, cast.SpellName, cast.Code, cast.Message),
         CombatResult attack => Of(serial, FeedbackSources.Attack, attack.ActorName, attack.Initiated?.TargetName ?? string.Empty, attack.Code, attack.Message),
-        Interaction.InteractionResult use => Of(serial, FeedbackSources.Use, string.Empty, use.TargetName, use.Code, use.Message),
+        Interaction.InteractionResult { ShowFeedback: true } use => Of(serial, FeedbackSources.Use, string.Empty, use.TargetName, use.Code, use.Message),
         Time.RestResult stop => Of(serial, FeedbackSources.Stop, string.Empty, SessionProjection.WireName(stop.Kind), stop.Code, stop.Message),
         SaveSnapshot saved => Of(serial, FeedbackSources.Save, string.Empty, saved.Slot, saved.Code, saved.Message, refused: saved.IsFailed),
         Services.ServiceResult counter => Of(serial, FeedbackSources.Counter, string.Empty, counter.Subject, counter.Code, counter.Message),

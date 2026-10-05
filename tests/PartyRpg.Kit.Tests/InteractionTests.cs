@@ -28,6 +28,30 @@ namespace PartyRpg.Kit.Tests;
 /// </remarks>
 public sealed class InteractionTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void Journey_settlement_preserves_the_interactions_feedback_policy(bool showFeedback, bool arrived)
+    {
+        PlaceId destination = new("destination");
+        PlacePose pose = new(0, 0, 0, 0, 0);
+        PlaceTransition transition = new(null, destination, PlaceArrival.AtPose(pose), "world event");
+        InteractionOutcome outcome = InteractionOutcome.Applied("settled", "World event settled.",
+            travels: new InteractionTravel(transition, TransitionKind.Scripted)) with { ShowFeedback = showFeedback };
+        InteractionResult result = InteractionResult.Applied(null, outcome, outcome.Message);
+        TransitionResult journey = arrived
+            ? TransitionResult.Arrival(TransitionKind.Scripted, destination, pose, TravelCost.Free)
+            : TransitionResult.Refused(TransitionKind.Scripted, new PlaceId("source"), pose, new Refusal("closed", "The way is closed."));
+
+        InteractionResult settled = result.Travelled(journey, "The party arrived.");
+
+        Assert.Equal(showFeedback, settled.ShowFeedback);
+        Assert.Same(journey, settled.Journey);
+        Assert.Equal(!arrived, settled.Residue.Contains("The way is closed.", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void A_moved_population_target_is_reached_at_its_live_pose_with_its_original_event_context()
     {

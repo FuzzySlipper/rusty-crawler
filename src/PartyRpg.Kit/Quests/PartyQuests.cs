@@ -112,6 +112,9 @@ public sealed class PartyQuests : IItemRetentionRule
     /// <summary>What the last operation did, or null before any has been asked for.</summary>
     public QuestResult? Last { get; private set; }
 
+    /// <summary>Active event-owned quests, read directly from canonical party state.</summary>
+    public IReadOnlyList<QuestNote> Notes => _rule is IQuestNotesRule notes ? notes.NotesFor(_party) : [];
+
     /// <summary>Every instance this party holds, in the order they were first recorded.</summary>
     public IReadOnlyList<QuestInstance> Instances => _instances;
 

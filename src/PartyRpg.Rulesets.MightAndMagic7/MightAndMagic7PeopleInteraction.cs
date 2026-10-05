@@ -77,7 +77,7 @@ internal sealed class MightAndMagic7PeopleInteraction : IInteractionRule
         // What a person's word raised is run by the answers about events, wherever the person stands.
         if (request.Raised.Length > 0) return _inner.Describe(request);
 
-        if (_conversation.Describe(new ConversationTargetRequest(request.Place, request.Placement)) is not { } subject)
+        if (request.Placement is null || _conversation.Describe(new ConversationTargetRequest(request.Place, request.Placement)) is not { } subject)
         {
             return _inner.Describe(request);
         }
@@ -98,7 +98,7 @@ internal sealed class MightAndMagic7PeopleInteraction : IInteractionRule
     {
         if (requirement.Kind != InteractionRequirementKind.TimeOfDay || requirement.Name != HouseOpenRequirement)
             return _inner.Judge(requirement, context);
-        if (_conversation.HouseHours(new ConversationTargetRequest(context.Place, context.Placement)) is not { } hours)
+        if (context.Placement is null || _conversation.HouseHours(new ConversationTargetRequest(context.Place, context.Placement)) is not { } hours)
             return Verdict.Met;
         if (context.Clock is not { } clock) return Verdict.Unmet($"it keeps {hours} and this world keeps no clock");
         return hours.IsOpenAt(clock.Now) ? Verdict.Met

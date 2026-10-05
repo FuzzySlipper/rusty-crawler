@@ -195,7 +195,7 @@ internal static class MightAndMagic7Containers
     internal static InteractionTrap? Trap(InteractionTargetDefinition target, InteractionContext context, MightAndMagic7Followers? followers = null)
     {
         if (!string.Equals(target.Kind.Value, TargetKind, StringComparison.Ordinal)) return null;
-        if (context.Placement.Source.GetInt32(FlagsField) is not { } flags || (flags & TrappedFlag) == 0) return null;
+        if (context.Placement?.Source.GetInt32(FlagsField) is not { } flags || (flags & TrappedFlag) == 0) return null;
         // Searching is only reached after the guard is spent. The terminal word therefore carries both
         // facts: its contents were taken and its trap can no longer fire, including on a later visit.
         if (string.Equals(target.State, SearchedState, StringComparison.Ordinal) ||
@@ -252,7 +252,9 @@ internal static class MightAndMagic7Containers
             return InteractionOutcome.Refused(new Refusal(MightAndMagic7Codes.ContainerEmptied, $"{target.Name} has already been emptied."));
         }
 
-        IReadOnlyList<int> contents = References(context.Placement);
+        if (context.Placement is not { } placement)
+            return InteractionOutcome.Refused(new Refusal("container-absent", "There is no container here to search."));
+        IReadOnlyList<int> contents = References(placement);
         if (contents.Count == 0)
         {
             return InteractionOutcome.Applied(SearchedState, $"{target.Name} is empty.");
@@ -359,7 +361,7 @@ internal static class MightAndMagic7Containers
     private static string Key(InteractionContext context, int slot) =>
         string.Create(
             CultureInfo.InvariantCulture,
-            $"container/{context.Place}/{context.Placement.Content}/{slot}");
+            $"container/{context.Place}/{context.Placement?.Content}/{slot}");
 
     /// <summary>
     /// Everything a container placement's contents are read as: the item references, in slot order.
