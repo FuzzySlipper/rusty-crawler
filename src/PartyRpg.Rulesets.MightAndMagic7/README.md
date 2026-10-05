@@ -1056,8 +1056,8 @@ reading](../../docs/evidence/world-interaction.md) records a lever pulled, a cre
 
 `MightAndMagic7Followers` reads the party's canonical joined identities (`PartyFollowers`) against the same conversation
 person catalog on every question and holds this game's passive profession terms beside the readers that grant them
-(OpenEnroth `src/Engine/Objects/NPCEnums.h:26-87`; the readers in `src/Engine/Objects/Character.cpp`). Each
-profession counts once however many joined people share it (`src/Engine/Objects/NPC.cpp:53-65`). No derived modifier,
+(OpenEnroth `src/Engine/Objects/NPCEnums.h:26-87`; the readers in OpenEnroth `src/Engine/Objects/Character.cpp`). Each
+profession counts once however many joined people share it (OpenEnroth `src/Engine/Objects/NPC.cpp:53-65`). No derived modifier,
 NPC registry, Engine effect or save field exists: dismissal, a story departure and Sacrifice remove a contribution with
 the presence, and a resumed save derives it again from the saved identity and the authored profession.
 
@@ -1083,13 +1083,13 @@ Read, faithfully in amount:
 The character page names the companions behind a changed Luck or resistance row
 (`MightAndMagic7CharacterSheet`); the skills page shows purchased levels only.
 
-Accounted without effect: the donor's foot-travel reductions (Guide, Tracker, Pathfinder, Explorer; OpenEnroth
-`src/Engine/Party.cpp:1003-1013`) floor a crossing at one day, which is already this game's crossing
+Accounted without effect: the donor's foot-travel reductions (Guide, Tracker, Pathfinder, Explorer; OpenEnroth `src/Engine/Party.cpp:1003-1013`) floor a
+crossing at one day, which is already this game's crossing
 (`MightAndMagic7TravelCostRule.DaysPerCrossing`); Porter, Quartermaster, Gypsy food and Sailor/Navigator sea terms are
 declared in `NPCEnums.h` but read by no donor rule.
 
 Not read: Identify Monster (Hunter, Sage; no monster identification owner exists), Scholar identification and
 Smith/Armorer/Alchemist repair (`Character.cpp:567-585`), the shady professions' reputation penalty
 (`Party.cpp:824-834`), the daily active abilities of healers, cooks and the travel masters (`NPC.cpp:84-230`), the
-Cartographer's wizard eye and the donor's two places that suspend every profession (`src/Engine/MapEnumFunctions.h:29-31`).
+Cartographer's wizard eye and the donor's two places that suspend every profession (OpenEnroth `src/Engine/MapEnumFunctions.h:29-31`).
 These professions still join, cost and share found gold as authored.

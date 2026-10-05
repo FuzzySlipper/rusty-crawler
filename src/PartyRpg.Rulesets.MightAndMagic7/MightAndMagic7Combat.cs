@@ -1834,7 +1834,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
         }
 
         // An unpurchased skill still reads what joined companions add (a Monk's unarmed and dodging).
-        return _followers()?.Actual(member, new SkillId(word)) is { Level: > 0 } lent ? lent : default;
+        return !string.IsNullOrWhiteSpace(word) && _followers()?.Actual(member, new SkillId(word)) is { Level: > 0 } lent ? lent : default;
     }
 
     /// <summary>What an actor's armor class is, from its body or its row.</summary>
