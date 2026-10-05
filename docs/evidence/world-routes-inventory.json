@@ -1,0 +1,1007 @@
+{
+  "structuralValidation": "passed",
+  "reachabilityMethod": "Optimistic upper bound: canonical ruleset graph including fare network; all world-issued arrivals admitted; conditional gates ignored; unreachable source events excluded. Does not prove physical reach or successful event execution.",
+  "allPlacesReachableEvenOptimistically": true,
+  "places": 76,
+  "transitions": 305,
+  "fareTransitions": 85,
+  "entrances": 1049,
+  "entryPoints": 92,
+  "optimisticReachable": 76,
+  "unresolvedPlacementReferences": 0,
+  "danglingTransitions": 0,
+  "placesWithoutEntryPoints": 0,
+  "documents": [
+    {
+      "pack": "mm7-tables",
+      "document": "places"
+    },
+    {
+      "pack": "mm7-tables",
+      "document": "place-events"
+    },
+    {
+      "pack": "mm7-tables",
+      "document": "global-events"
+    },
+    {
+      "pack": "mm7-tables",
+      "document": "discoveries"
+    },
+    {
+      "pack": "mm7-tables",
+      "document": "history"
+    },
+    {
+      "pack": "mm7-tables",
+      "document": "people"
+    },
+    {
+      "pack": "mm7-tables",
+      "document": "topics"
+    },
+    {
+      "pack": "mm7-tables",
+      "document": "greetings"
+    },
+    {
+      "pack": "mm7-tables",
+      "document": "services"
+    },
+    {
+      "pack": "mm7-tables",
+      "document": "classes"
+    },
+    {
+      "pack": "mm7-tables",
+      "document": "skills"
+    },
+    {
+      "pack": "mm7-tables",
+      "document": "spells"
+    },
+    {
+      "pack": "mm7-tables",
+      "document": "monsters"
+    },
+    {
+      "pack": "mm7-tables",
+      "document": "hostility"
+    },
+    {
+      "pack": "mm7-tables",
+      "document": "items"
+    },
+    {
+      "pack": "mm7-tables",
+      "document": "potions"
+    },
+    {
+      "pack": "mm7-tables",
+      "document": "quests"
+    },
+    {
+      "pack": "mm7-world",
+      "document": "place-graph"
+    },
+    {
+      "pack": "mm7-world",
+      "document": "place-geometry"
+    },
+    {
+      "pack": "mm7-world",
+      "document": "place-entrances"
+    },
+    {
+      "pack": "mm7-world",
+      "document": "place-map"
+    },
+    {
+      "pack": "mm7-world",
+      "document": "place-render"
+    },
+    {
+      "pack": "mm7-media",
+      "document": "textures"
+    },
+    {
+      "pack": "mm7-media",
+      "document": "icons"
+    },
+    {
+      "pack": "mm7-media",
+      "document": "sprites"
+    },
+    {
+      "pack": "mm7-media",
+      "document": "looks"
+    },
+    {
+      "pack": "mm7-new-game",
+      "document": "new-game-start"
+    },
+    {
+      "pack": "mm7-new-game",
+      "document": "new-game-creation-policy"
+    },
+    {
+      "pack": "mm7-new-game",
+      "document": "new-game-service-stock"
+    },
+    {
+      "pack": "mm7-new-game",
+      "document": "opening-errand"
+    },
+    {
+      "pack": "mm7-new-game",
+      "document": "world-roads"
+    },
+    {
+      "pack": "mm7-new-game",
+      "document": "world-boundaries"
+    },
+    {
+      "pack": "mm7-new-game",
+      "document": "service-destinations"
+    },
+    {
+      "pack": "mm7-new-game",
+      "document": "item-travel"
+    }
+  ],
+  "tablesSha256": "b876d9f4afea6553b26a204ae4d3896a0364cf79020fef7e579d7f6528012585",
+  "inventory": [
+    {
+      "id": "1",
+      "Name": "Emerald Island",
+      "kind": "Region",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 285,
+      "optimisticReachable": true,
+      "via": null
+    },
+    {
+      "id": "2",
+      "Name": "Harmondale",
+      "kind": "Region",
+      "entryPoints": [
+        "Party Start",
+        "West Start",
+        "South Start",
+        "North Start"
+      ],
+      "placements": 964,
+      "optimisticReachable": true,
+      "via": "68"
+    },
+    {
+      "id": "3",
+      "Name": "Erathia",
+      "kind": "Region",
+      "entryPoints": [
+        "North Start",
+        "South Start",
+        "East Start",
+        "West Start"
+      ],
+      "placements": 867,
+      "optimisticReachable": true,
+      "via": "road-2-west"
+    },
+    {
+      "id": "4",
+      "Name": "The Tularean Forest",
+      "kind": "Region",
+      "entryPoints": [
+        "North Start",
+        "West Start",
+        "South Start"
+      ],
+      "placements": 794,
+      "optimisticReachable": true,
+      "via": "road-2-north"
+    },
+    {
+      "id": "5",
+      "Name": "Deyja",
+      "kind": "Region",
+      "entryPoints": [
+        "East Start",
+        "South Start"
+      ],
+      "placements": 527,
+      "optimisticReachable": true,
+      "via": "road-3-north"
+    },
+    {
+      "id": "6",
+      "Name": "The Bracada Desert",
+      "kind": "Region",
+      "entryPoints": [
+        "East Start",
+        "North Start"
+      ],
+      "placements": 508,
+      "optimisticReachable": true,
+      "via": "road-3-south"
+    },
+    {
+      "id": "7",
+      "Name": "Celeste",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 171,
+      "optimisticReachable": true,
+      "via": "188"
+    },
+    {
+      "id": "8",
+      "Name": "The Pit",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 586,
+      "optimisticReachable": true,
+      "via": "189"
+    },
+    {
+      "id": "9",
+      "Name": "Evenmorn Island",
+      "kind": "Region",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 530,
+      "optimisticReachable": true,
+      "via": "fare-boat-1-9"
+    },
+    {
+      "id": "10",
+      "Name": "Mount Nighon",
+      "kind": "Region",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 537,
+      "optimisticReachable": true,
+      "via": "9"
+    },
+    {
+      "id": "11",
+      "Name": "The Barrow Downs",
+      "kind": "Region",
+      "entryPoints": [
+        "North Start",
+        "West Start"
+      ],
+      "placements": 1044,
+      "optimisticReachable": true,
+      "via": "road-2-south"
+    },
+    {
+      "id": "12",
+      "Name": "The Land of the Giants",
+      "kind": "Region",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 610,
+      "optimisticReachable": true,
+      "via": "139"
+    },
+    {
+      "id": "13",
+      "Name": "Tatalia",
+      "kind": "Region",
+      "entryPoints": [
+        "East Start"
+      ],
+      "placements": 677,
+      "optimisticReachable": true,
+      "via": "road-3-west"
+    },
+    {
+      "id": "14",
+      "Name": "Avlee",
+      "kind": "Region",
+      "entryPoints": [
+        "West Start",
+        "East Start"
+      ],
+      "placements": 473,
+      "optimisticReachable": true,
+      "via": "road-4-north"
+    },
+    {
+      "id": "15",
+      "Name": "Shoals",
+      "kind": "Region",
+      "entryPoints": [
+        "East Start"
+      ],
+      "placements": 96,
+      "optimisticReachable": true,
+      "via": "road-14-west"
+    },
+    {
+      "id": "16",
+      "Name": "The Dragon Caves",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 62,
+      "optimisticReachable": true,
+      "via": "177"
+    },
+    {
+      "id": "17",
+      "Name": "Lord Markham\u0027s Manor",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 31,
+      "optimisticReachable": true,
+      "via": "182"
+    },
+    {
+      "id": "18",
+      "Name": "The Bandit Caves",
+      "kind": "Interior",
+      "entryPoints": [
+        "arrival-151"
+      ],
+      "placements": 39,
+      "optimisticReachable": true,
+      "via": "151"
+    },
+    {
+      "id": "19",
+      "Name": "The Haunted Mansion",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 150,
+      "optimisticReachable": true,
+      "via": "170"
+    },
+    {
+      "id": "20",
+      "Name": "The Temple of the Moon",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 102,
+      "optimisticReachable": true,
+      "via": "137"
+    },
+    {
+      "id": "21",
+      "Name": "Castle Harmondale",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 489,
+      "optimisticReachable": true,
+      "via": "140"
+    },
+    {
+      "id": "22",
+      "Name": "White Cliff Cave",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 158,
+      "optimisticReachable": true,
+      "via": "142"
+    },
+    {
+      "id": "23",
+      "Name": "The Erathian Sewers",
+      "kind": "Interior",
+      "entryPoints": [
+        "arrival-143",
+        "arrival-148",
+        "arrival-149"
+      ],
+      "placements": 268,
+      "optimisticReachable": true,
+      "via": "143"
+    },
+    {
+      "id": "24",
+      "Name": "Fort Riverstride",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 175,
+      "optimisticReachable": true,
+      "via": "144"
+    },
+    {
+      "id": "25",
+      "Name": "The Tularean Caves",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 372,
+      "optimisticReachable": true,
+      "via": "153"
+    },
+    {
+      "id": "26",
+      "Name": "Clanker\u0027s Laboratory",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 284,
+      "optimisticReachable": true,
+      "via": "154"
+    },
+    {
+      "id": "27",
+      "Name": "The Hall of the Pit",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 103,
+      "optimisticReachable": true,
+      "via": "48"
+    },
+    {
+      "id": "28",
+      "Name": "Watchtower 6",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 191,
+      "optimisticReachable": true,
+      "via": "156"
+    },
+    {
+      "id": "29",
+      "Name": "The School of Sorcery",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 110,
+      "optimisticReachable": true,
+      "via": "159"
+    },
+    {
+      "id": "30",
+      "Name": "The Red Dwarf Mines",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 613,
+      "optimisticReachable": true,
+      "via": "160"
+    },
+    {
+      "id": "31",
+      "Name": "The Walls of Mist",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 409,
+      "optimisticReachable": true,
+      "via": "45"
+    },
+    {
+      "id": "32",
+      "Name": "Temple of the Light",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 413,
+      "optimisticReachable": true,
+      "via": "69"
+    },
+    {
+      "id": "33",
+      "Name": "The Breeding Zone",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 235,
+      "optimisticReachable": true,
+      "via": "49"
+    },
+    {
+      "id": "34",
+      "Name": "Temple of the Dark",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 290,
+      "optimisticReachable": true,
+      "via": "70"
+    },
+    {
+      "id": "35",
+      "Name": "Grand Temple of the Moon",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 163,
+      "optimisticReachable": true,
+      "via": "162"
+    },
+    {
+      "id": "36",
+      "Name": "Grand Temple of the Sun",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 194,
+      "optimisticReachable": true,
+      "via": "163"
+    },
+    {
+      "id": "37",
+      "Name": "Thunderfist Mountain",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 249,
+      "optimisticReachable": true,
+      "via": "66"
+    },
+    {
+      "id": "38",
+      "Name": "The Maze",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 286,
+      "optimisticReachable": true,
+      "via": "165"
+    },
+    {
+      "id": "39",
+      "Name": "Stone City",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 402,
+      "optimisticReachable": true,
+      "via": "169"
+    },
+    {
+      "id": "40",
+      "Name": "Colony Zod",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 252,
+      "optimisticReachable": true,
+      "via": "175"
+    },
+    {
+      "id": "41",
+      "Name": "The Mercenary Guild",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 138,
+      "optimisticReachable": true,
+      "via": "180"
+    },
+    {
+      "id": "42",
+      "Name": "The Tidewater Caverns",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 175,
+      "optimisticReachable": true,
+      "via": "181"
+    },
+    {
+      "id": "43",
+      "Name": "The Wine Cellar",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 60,
+      "optimisticReachable": true,
+      "via": "179"
+    },
+    {
+      "id": "44",
+      "Name": "The Titans\u0027 Stronghold",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 374,
+      "optimisticReachable": true,
+      "via": "184"
+    },
+    {
+      "id": "45",
+      "Name": "The Temple of Baa",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 218,
+      "optimisticReachable": true,
+      "via": "185"
+    },
+    {
+      "id": "46",
+      "Name": "The Hall under the Hill",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 170,
+      "optimisticReachable": true,
+      "via": "186"
+    },
+    {
+      "id": "47",
+      "Name": "The Lincoln",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 535,
+      "optimisticReachable": true,
+      "via": "187"
+    },
+    {
+      "id": "48",
+      "Name": "Castle Gryphonheart",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 272,
+      "optimisticReachable": true,
+      "via": "145"
+    },
+    {
+      "id": "49",
+      "Name": "Castle Navan",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 407,
+      "optimisticReachable": true,
+      "via": "152"
+    },
+    {
+      "id": "50",
+      "Name": "Castle Lambent",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 268,
+      "optimisticReachable": true,
+      "via": "46"
+    },
+    {
+      "id": "51",
+      "Name": "Castle Gloaming",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 363,
+      "optimisticReachable": true,
+      "via": "50"
+    },
+    {
+      "id": "52",
+      "Name": "The Dragon\u0027s Lair",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 62,
+      "optimisticReachable": true,
+      "via": "138"
+    },
+    {
+      "id": "53",
+      "Name": "Barrow VII",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 74,
+      "optimisticReachable": true,
+      "via": "173"
+    },
+    {
+      "id": "54",
+      "Name": "Barrow IV",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 110,
+      "optimisticReachable": true,
+      "via": "87"
+    },
+    {
+      "id": "55",
+      "Name": "Barrow II",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 88,
+      "optimisticReachable": true,
+      "via": "99"
+    },
+    {
+      "id": "56",
+      "Name": "Barrow XIV",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 68,
+      "optimisticReachable": true,
+      "via": "95"
+    },
+    {
+      "id": "57",
+      "Name": "Barrow III",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 52,
+      "optimisticReachable": true,
+      "via": "92"
+    },
+    {
+      "id": "58",
+      "Name": "Barrow IX",
+      "kind": "Interior",
+      "entryPoints": [
+        "arrival-72",
+        "arrival-97",
+        "arrival-171"
+      ],
+      "placements": 38,
+      "optimisticReachable": true,
+      "via": "171"
+    },
+    {
+      "id": "59",
+      "Name": "Barrow VI",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 48,
+      "optimisticReachable": true,
+      "via": "119"
+    },
+    {
+      "id": "60",
+      "Name": "Barrow I",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 93,
+      "optimisticReachable": true,
+      "via": "100"
+    },
+    {
+      "id": "61",
+      "Name": "Barrow VIII",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 88,
+      "optimisticReachable": true,
+      "via": "89"
+    },
+    {
+      "id": "62",
+      "Name": "Barrow XIII",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 67,
+      "optimisticReachable": true,
+      "via": "121"
+    },
+    {
+      "id": "63",
+      "Name": "Barrow X",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 52,
+      "optimisticReachable": true,
+      "via": "172"
+    },
+    {
+      "id": "64",
+      "Name": "Barrow XII",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 99,
+      "optimisticReachable": true,
+      "via": "88"
+    },
+    {
+      "id": "65",
+      "Name": "Barrow V",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 94,
+      "optimisticReachable": true,
+      "via": "110"
+    },
+    {
+      "id": "66",
+      "Name": "Barrow XI",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 83,
+      "optimisticReachable": true,
+      "via": "118"
+    },
+    {
+      "id": "67",
+      "Name": "Barrow XV",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 59,
+      "optimisticReachable": true,
+      "via": "117"
+    },
+    {
+      "id": "68",
+      "Name": "Zokarr\u0027s Tomb",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 78,
+      "optimisticReachable": true,
+      "via": "76"
+    },
+    {
+      "id": "69",
+      "Name": "Nighon Tunnels",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 600,
+      "optimisticReachable": true,
+      "via": "13"
+    },
+    {
+      "id": "70",
+      "Name": "Tunnels to Eeofol",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 643,
+      "optimisticReachable": true,
+      "via": "176"
+    },
+    {
+      "id": "71",
+      "Name": "William Setag\u0027s Tower",
+      "kind": "Interior",
+      "entryPoints": [
+        "arrival-157"
+      ],
+      "placements": 49,
+      "optimisticReachable": true,
+      "via": "157"
+    },
+    {
+      "id": "72",
+      "Name": "Wromthrax\u0027s Cave",
+      "kind": "Interior",
+      "entryPoints": [
+        "arrival-183"
+      ],
+      "placements": 12,
+      "optimisticReachable": true,
+      "via": "183"
+    },
+    {
+      "id": "73",
+      "Name": "The Hidden Tomb",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 66,
+      "optimisticReachable": true,
+      "via": "150"
+    },
+    {
+      "id": "74",
+      "Name": "The Strange Temple",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 195,
+      "optimisticReachable": true,
+      "via": "temple-bottle"
+    },
+    {
+      "id": "75",
+      "Name": "The Small House",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 67,
+      "optimisticReachable": true,
+      "via": "38"
+    },
+    {
+      "id": "76",
+      "Name": "The Arena",
+      "kind": "Interior",
+      "entryPoints": [
+        "Party Start"
+      ],
+      "placements": 41,
+      "optimisticReachable": true,
+      "via": "fare-coach-2-76"
+    }
+  ]
+}

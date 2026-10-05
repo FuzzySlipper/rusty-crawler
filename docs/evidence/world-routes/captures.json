@@ -1,0 +1,120 @@
+[
+  {
+    "file": "avlee-return.png",
+    "sha256": "531f78fac77342a23baa11ab2b10659438630e305ab34abe2bec473153603454",
+    "originals": [
+      {
+        "session": "b4a5b454-206e-4ba9-9edd-5948466db136",
+        "capture": "action-189ba35f-771a-49dd-8fb9-1c7120b83552.png"
+      },
+      {
+        "session": "b4a5b454-206e-4ba9-9edd-5948466db136",
+        "capture": "93d890dc-f273-430b-857a-fe1ac7eb5dcb.png"
+      }
+    ]
+  },
+  {
+    "file": "bottle-arrival.png",
+    "sha256": "81f74ec0d67ec43bccef502fae5f1062229460ca290dbc92c8f40d3dae6098f8",
+    "originals": [
+      {
+        "session": "18e4b1cd-56b1-4b4b-9c7c-aa466d6633f7",
+        "capture": "fd33c5e9-17f7-40a4-8c85-a0ecbf35164d.png"
+      }
+    ]
+  },
+  {
+    "file": "bottle-retained.png",
+    "sha256": "09152ca58ca34165706ed478b289f76afdbd5575e7f99a85373dbabf9ad1e3d0",
+    "originals": [
+      {
+        "session": "18e4b1cd-56b1-4b4b-9c7c-aa466d6633f7",
+        "capture": "c97bcf9b-0e46-4d6b-9846-e4a32587c4f7.png"
+      }
+    ]
+  },
+  {
+    "file": "bottle-return.png",
+    "sha256": "58117b819f9d83ebdac78373f465c3f4a0765e62de69f59b5ac6c4c77b6d34e4",
+    "originals": [
+      {
+        "session": "18e4b1cd-56b1-4b4b-9c7c-aa466d6633f7",
+        "capture": "871c6a39-0bc8-4a19-88a8-7b55967b01da.png"
+      }
+    ]
+  },
+  {
+    "file": "lincoln-arrival.png",
+    "sha256": "33d12c33fd6963cd4955937d04ac4c6f931f4a33016f184c9c71393ecc2a3fc1",
+    "originals": [
+      {
+        "session": "befeae70-1a2e-43dc-8185-2d86bcabec91",
+        "capture": "action-a5d92bd2-7a6e-4a81-a659-6ff9065941ee.png"
+      }
+    ]
+  },
+  {
+    "file": "lincoln-return.png",
+    "sha256": "8da809336bc5bf884f183975cb0f7387c2538d96bd60f4f6d56694502804e89e",
+    "originals": [
+      {
+        "session": "befeae70-1a2e-43dc-8185-2d86bcabec91",
+        "capture": "action-15b2bc75-4894-479a-8521-cc256b00ee42.png"
+      }
+    ]
+  },
+  {
+    "file": "shoals-arrival.png",
+    "sha256": "5efb22944cf2d56c4730589928d3f3c2096af2da10eb40846df0888bdfd0bfd7",
+    "originals": [
+      {
+        "session": "15a721fb-23b5-4104-9ba0-6ad3bff20dd8",
+        "capture": "action-ec4c6052-dccb-4647-893d-daec9a99c05f.png"
+      }
+    ]
+  },
+  {
+    "file": "suit-refusal.png",
+    "sha256": "b32908cae5670b54994546876e5998c7d5b87779e525683f5e91d66b255d692d",
+    "originals": [
+      {
+        "session": "15a721fb-23b5-4104-9ba0-6ad3bff20dd8",
+        "capture": "action-08be8c5b-f973-4d86-8b23-3ffa9982fe2c.png"
+      },
+      {
+        "session": "15a721fb-23b5-4104-9ba0-6ad3bff20dd8",
+        "capture": "action-b9cab25e-e20f-47f3-9e83-3cf06dfdee52.png"
+      }
+    ]
+  },
+  {
+    "file": "arena-fares.png",
+    "sha256": "37fc61eaa904ff2aaf3665d534323b1e18d5967a1f696089572763ff35656ec0",
+    "originals": [
+      {
+        "session": "7759efff-7a04-484f-91ed-ddb625d44b62",
+        "capture": "f19c5001-589f-4c87-b719-ffb7132af0fa.png"
+      }
+    ]
+  },
+  {
+    "file": "arena-arrival.png",
+    "sha256": "a0f70970af5d3dd9e193f3971dbc91c6796ece3ae592d1e79f45995979cf7192",
+    "originals": [
+      {
+        "session": "7759efff-7a04-484f-91ed-ddb625d44b62",
+        "capture": "d62e5645-9bcd-41ab-8944-9891c2dbe16c.png"
+      }
+    ]
+  },
+  {
+    "file": "arena-return.png",
+    "sha256": "aef586533d641d57e056104475baf510654099af42a436d5b85d30febd0ba22c",
+    "originals": [
+      {
+        "session": "7759efff-7a04-484f-91ed-ddb625d44b62",
+        "capture": "d3736fb7-679b-4e4b-afc8-640394031aac.png"
+      }
+    ]
+  }
+]

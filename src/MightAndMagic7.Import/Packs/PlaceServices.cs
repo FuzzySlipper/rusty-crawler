@@ -69,8 +69,8 @@ public sealed record PlaceServiceDefinition(
 /// <b>The point is chosen and said so.</b> The original needs no point — the player clicks the model — and
 /// this product reaches a counter by standing near it, so a point has to be picked. A shop's hanging sign
 /// is what a player of the original walks up to and clicks, so a face of the model the map calls a sign
-/// wins; failing that the face textured as the building's door; failing that the lowest face the event
-/// stands on. Which one it was, and how many faces the event covers, travel with the placement, so a
+/// wins; failing that one face textured as the building's door (ahead of generic trim); failing that
+/// the lowest face the event stands on. Which one it was, and how many faces the event covers, travel with the placement, so a
 /// reader can see that the position is the map's geometry and which part of it was taken.
 /// </para>
 /// <para>
@@ -94,8 +94,8 @@ public sealed record PlaceServiceDefinition(
 /// <param name="SourceTexture">The chosen face's texture name, so a reader can see what was picked.</param>
 /// <param name="PositionSource">Where the point came from: <c>sign-face-centroid</c>, <c>door-face-centroid</c>, or <c>lowest-face-centroid</c>.</param>
 /// <param name="HeightSource">
-/// Where its height came from: the map's own ground at the point, or the chosen face's lowest corner when
-/// the map states no ground under it — an interior.
+/// Where its height came from: the map's own ground at the point, or the chosen face's lowest corner
+/// for a raised door or an interior.
 /// </param>
 /// <param name="FaceCount">How many faces of the place raise this building's event.</param>
 public sealed record PlaceServicePlacement(
@@ -407,8 +407,8 @@ public static class PlaceServiceEmitter
     /// </summary>
     /// <remarks>
     /// A region carries a height map, and the point's own cell of it is the ground the party stands on
-    /// there; that is the same ground the mover and the collision are built from, so a counter and the
-    /// party that walks up to it agree about where the street is. An interior holds no such map: its
+    /// there; a doorway above that terrain retains its own sill as its landing. A hanging sign still
+    /// belongs to the street below it. An interior holds no such map: its
     /// geometry is its ground, and the lowest corner of the face the point was read from is the closest
     /// statement of it that needs no search through the level.
     /// </remarks>
