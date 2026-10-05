@@ -926,11 +926,11 @@ door. A lock, a requirement or a trap met there is the use's answer, and the cas
 spends a cast that reached its target. Ordinary Use keeps its own reach.
 
 The `spell.telekinesis-reach` tuning defaults to 5120, the donor's ranged-target depth
-(`src/Application/GameConfig.h:196`, read in `src/Engine/Engine.cpp:457-460`). The donor dispatches a
-Telekinesis target's pickup, loot or event (`src/Engine/Spells/CastSpellInfo.cpp:2161-2207`) and refuses an
+(OpenEnroth `src/Application/GameConfig.h:196`, read in OpenEnroth `src/Engine/Engine.cpp:457-460`). The donor dispatches a
+Telekinesis target's pickup, loot or event (OpenEnroth `src/Engine/Spells/CastSpellInfo.cpp:2161-2207`) and refuses an
 untargeted cast without spending (a change it notes from the original, which spent); this repertoire is narrower — no item pickup and no event decorations —
 and a sprung trap harms the party as an ordinary use's does, where the donor's blast reaches only a party
-within 768 units (`src/Engine/Objects/SpriteObject.cpp:512-517`). The
+within 768 units (OpenEnroth `src/Engine/Objects/SpriteObject.cpp:512-517`). The
 [Telekinesis reading](../../docs/evidence/telekinesis.md) records focused checks and the bounded live cast.
 
 ## Preservation

@@ -342,14 +342,14 @@ public sealed class KnowledgeTests
     {
         // A note is reported by the owner of the moment that taught it — the mixing workflow for a recipe, and, outside
         // the kit, this game's own answers for what a use taught — and the session is the one caller that hands a
-        // use's discoveries to the owner: its acts for a use the party made, and its handoff router for a use a
-        // person's topic set going. A kit mechanism that reported its own facts would be a second writer of what
+        // use's discoveries to the owner: its owners' one settlement for a use the party made — with its own use control
+        // or with a spell that reaches across the room — and its handoff router for a use a person's topic set going. A kit mechanism that reported its own facts would be a second writer of what
         // the party knows. The law finds every call to the knowledge owner's one write, bound to the member itself, so
         // a source that reads the knowledge is not an offender.
         SourceCode kit = ProductSource.Kit;
         ProductSource.OnlyIn(
             kit.Uses([.. kit.Members(typeof(PartyKnowledge), nameof(PartyKnowledge.Record))]),
-            file => file is "src/PartyRpg.Kit/Alchemy/PotionMixing.cs" or "src/PartyRpg.Kit/Sessions/SessionActs.cs"
+            file => file is "src/PartyRpg.Kit/Alchemy/PotionMixing.cs" or "src/PartyRpg.Kit/Sessions/SessionOwners.cs"
                 or "src/PartyRpg.Kit/Sessions/ConversationHandoffRouter.cs"
                 || file.StartsWith("src/PartyRpg.Kit/Knowledge/", StringComparison.Ordinal),
             "What the party knows is written by the owner of the discovery and the session that hands a use's discoveries over.");
