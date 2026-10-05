@@ -33,7 +33,9 @@ public sealed class QuestSnapshotTests
             new PartyProgression(new NoEligibleMembers(), party));
 
         Assert.True(quests.Offer(definition.Id, "receiver").IsApplied);
+        Assert.Equal("The errand 'Deliver the parcel' was offered and is in the party's journal.", QuestSnapshot.From(quests).Message);
         Assert.True(quests.Accept(definition.Id).IsApplied);
+        Assert.Equal("The errand 'Deliver the parcel' was taken.", QuestSnapshot.From(quests).Message);
         party.Records.Set("met:receiver", 1);
         ItemInstance parcel = party.AcquireItem(Parcel).Item!;
 
@@ -62,6 +64,7 @@ public sealed class QuestSnapshotTests
         Assert.Equal(["1 × parcel"], snapshot.Delivered);
         Assert.Equal(string.Empty, snapshot.Code);
         Assert.Equal("turned-in", Assert.Single(snapshot.Journal).State);
+        Assert.Equal("The errand 'Deliver the parcel' was finished.", snapshot.Message);
 
         QuestResult repeated = quests.TurnIn(definition.Id, "receiver");
         Assert.Equal(QuestCodes.QuestAlreadyFinished, repeated.Refusal!.Code);

@@ -18,7 +18,7 @@ namespace PartyRpg.Kit.Interaction;
 /// </remarks>
 /// <param name="Id">The target's content identity: the place it stands in and the placement it is.</param>
 /// <param name="Number">The identity the engine's selection addresses it by, which is its index in the place's content.</param>
-/// <param name="Placement">The placement content declared, which is where it stands and what it carries.</param>
+/// <param name="Placement">The original placement content and event context; targeting reads its live pose separately.</param>
 /// <param name="Definition">What the ruleset made of that placement.</param>
 /// <param name="State">What the party has already done to it.</param>
 public sealed record InteractionTarget(

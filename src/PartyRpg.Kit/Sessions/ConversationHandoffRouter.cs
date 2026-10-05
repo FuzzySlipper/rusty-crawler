@@ -98,7 +98,7 @@ internal sealed class ConversationHandoffRouter(SessionOwners owners)
             result.IsApplied,
             "quest",
             result.IsApplied ? $"quest-{result.Action.ToString().ToLowerInvariant()}" : result.Refusal!.Code,
-            result.Describe());
+            result.Describe(quests.Read(quest)?.Name));
 
         // What the owner did is written down where its own answer arrives, named in the owner's own words; a
         // refusal writes nothing, because nothing happened.

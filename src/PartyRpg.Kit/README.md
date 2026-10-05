@@ -90,14 +90,16 @@ Owns:
   quests (`Quests/` — one owner of what a party has been
   offered, taken, and finished, with definitions a game states, objectives that read the owners already
   reporting them, and one turn-in that pays each reward to its own owner; the quests block names each giver through
-  `IGameNames.PersonName`. An optional `IQuestAcceptanceRule`
+  `IGameNames.PersonName`, and result prose reads the quest definition's display name. An optional `IQuestAcceptanceRule`
   judges taking an errand before its stage changes and applies its consequence through existing owners; it supplies `IItemRetentionRule`
   explicitly to its party so `ConsumeItem`, `ReleaseItem` and `SpendItemCharge` share its existing `Needs`
   answer and named refusal. Removal returns `ItemRemoval`; sale, mixing and item casting judge before
   effects or payment. An event can judge retention by definition before giving and spending an item.
   Only the quest owner's already-judged delivery uses the internal custody transfer; meeting an accepted
   item objective still retains its item until turn-in), containers, doors, travel
-  between world regions and indoor maps.
+  between world regions and indoor maps. Targeting reads each placed entity's current population pose
+  through `IInteractionWorld.PoseOf`, retaining its authored identity and event context; static placements
+  without a live entity keep their authored pose, and corpses keep the position where they fell.
 - Journal and history (`Journal/` — one owner of what a party has written down: dated lines reported by
   the owners of the events themselves — a place, an errand, a rank, a meeting, a find, or a `Chronicle` line a
   game's content writes whole — with the same event written once, a bounded history that outlives the

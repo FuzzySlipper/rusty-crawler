@@ -34,6 +34,9 @@ public interface IInteractionWorld
     /// <summary>What the place holds, in content order, whether or not the party is standing in it.</summary>
     IReadOnlyList<PlacementDefinition> Placements { get; }
 
+    /// <summary>Where a placement stands now, falling back to its authored pose when no live entity holds it.</summary>
+    PlacePose PoseOf(PlacementDefinition placement) => placement.Pose;
+
     /// <summary>The party a use is made by, or null when the world holds none.</summary>
     PartyEntity? Party { get; }
 

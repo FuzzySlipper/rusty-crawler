@@ -355,8 +355,9 @@ public sealed class PartyInteraction : IWorldInteractionScene
             // reticle that offered a plate in the floor would offer a use the party makes with its feet.
             if (definition.Verb == InteractionVerb.Tread) continue;
 
-            Vector3 point = _space.Position(placement.Pose);
-            if (definition.AimHeight > 0) point.Y = _space.GroundPosition(placement.Pose).Y + (float)definition.AimHeight;
+            PlacePose pose = isBody ? placement.Pose : _world.PoseOf(placement);
+            Vector3 point = _space.Position(pose);
+            if (definition.AimHeight > 0) point.Y = _space.GroundPosition(pose).Y + (float)definition.AimHeight;
             double distance = Vector3.Distance(point, eye);
 
             _targets.Add(new InteractionTarget(

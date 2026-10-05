@@ -190,7 +190,7 @@ public sealed record QuestSnapshot(
             Records: records,
             Delivered: delivered,
             Code: last.Refusal?.Code ?? string.Empty,
-            Message: last.Describe());
+            Message: last.Describe(quests.Read(last.Quest)?.Name));
     }
 
     /// <summary>Writes the quest block: every errand the party stands with, and what the last one did.</summary>

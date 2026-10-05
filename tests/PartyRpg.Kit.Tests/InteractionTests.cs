@@ -28,6 +28,37 @@ namespace PartyRpg.Kit.Tests;
 /// </remarks>
 public sealed class InteractionTests
 {
+    [Fact]
+    public void A_moved_population_target_is_reached_at_its_live_pose_with_its_original_event_context()
+    {
+        TestRule rule = new(only: "person");
+        using Hall hall = Hall.Build(rule, Hall.Facing("person-0"));
+        hall.World.Populate();
+        PlacePopulationEntity person = Assert.Single(hall.World.Population.Entities, entity => entity.Content.Id == "person-0");
+        PlacementDefinition authored = person.Placement;
+        rule.Outcomes["person"] = (_, context) =>
+        {
+            Assert.Same(authored, context.Placement);
+            return InteractionOutcome.Applied("spoken", "The person answers.");
+        };
+
+        hall.Interaction.Update();
+        Assert.NotNull(hall.Interaction.FocusedTarget);
+        person.MoveTo(new PlacePose(2000, 100, 0, 0, 0));
+        Assert.False(hall.Interaction.Use().IsApplied);
+        hall.Interaction.Update();
+        Assert.Null(hall.Interaction.FocusedTarget);
+        Assert.False(hall.Interaction.Use().IsApplied);
+
+        // The world and scene read this same population actor; content identity and event data do not move.
+        hall.World.Party.Move(2000, 0, 0);
+        hall.World.Party.Turn(-hall.World.Party.PlacePose.Yaw, 0);
+        hall.Interaction.Update();
+        Assert.Equal(person.Content, hall.Interaction.FocusedTarget?.Content);
+        Assert.Equal(100, hall.Interaction.FocusedDistance, 3);
+        Assert.True(hall.Interaction.Use().IsApplied);
+    }
+
     [Theory]
     [InlineData(88, 59, true)]
     [InlineData(88, 195, true)]

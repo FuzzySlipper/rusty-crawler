@@ -103,15 +103,17 @@ public sealed record QuestResult(
     }
 
     /// <summary>How this reads to a person, in one sentence.</summary>
+    /// <param name="name">The quest definition's display name, when its owner can still read it.</param>
     /// <returns>The sentence.</returns>
-    public string Describe()
+    public string Describe(string? name = null)
     {
         if (Refusal is not null) return Refusal.Message;
+        string label = string.IsNullOrWhiteSpace(name) ? Quest.Value : name;
         return Action switch
         {
-            QuestAction.Offer => $"The errand '{Quest}' was offered and is in the party's journal.",
-            QuestAction.Accept => $"The errand '{Quest}' was taken.",
-            _ => $"The errand '{Quest}' was finished." + (Payment.GoldShare > 0 ? $" Companions take {Payment.GoldShare} of the reward; the party keeps {Payment.Coins}." : string.Empty),
+            QuestAction.Offer => $"The errand '{label}' was offered and is in the party's journal.",
+            QuestAction.Accept => $"The errand '{label}' was taken.",
+            _ => $"The errand '{label}' was finished." + (Payment.GoldShare > 0 ? $" Companions take {Payment.GoldShare} of the reward; the party keeps {Payment.Coins}." : string.Empty),
         };
     }
 

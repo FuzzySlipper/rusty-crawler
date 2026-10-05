@@ -758,6 +758,19 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
     /// </summary>
     IReadOnlyList<PlacementDefinition> IInteractionWorld.Placements => _population.PlacementsOf(Party.Place);
 
+    /// <summary>Reads the same live population pose that movement and rendering use, without replacing content.</summary>
+    PlacePose IInteractionWorld.PoseOf(PlacementDefinition placement)
+    {
+        if (_population.Place == Party.Place)
+        {
+            foreach (PlacePopulationEntity entity in _population.Entities)
+            {
+                if (entity.Content == placement.Content && entity.IsAlive) return entity.Pose;
+            }
+        }
+        return placement.Pose;
+    }
+
     /// <summary>The party itself, which an interaction requires things of and gives things to.</summary>
     PartyEntity? IInteractionWorld.Party => _entity;
 
