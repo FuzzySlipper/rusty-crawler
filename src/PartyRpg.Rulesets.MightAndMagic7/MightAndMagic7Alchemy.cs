@@ -320,6 +320,9 @@ internal sealed class MightAndMagic7Alchemy : IAlchemyRule, IAlchemyKinds
             string.Create(CultureInfo.InvariantCulture, $"{mixer.Profile.Name} is in no condition to mix anything."));
     }
 
+    /// <summary>The session's companions, whose professions add to the mixer's level; set once at composition.</summary>
+    internal Func<MightAndMagic7Followers?> Followers { get; set; } = () => null;
+
     /// <inheritdoc />
     /// <remarks>
     /// <para>
@@ -345,7 +348,8 @@ internal sealed class MightAndMagic7Alchemy : IAlchemyRule, IAlchemyKinds
         ArgumentNullException.ThrowIfNull(first);
         ArgumentNullException.ThrowIfNull(second);
 
-        int level = Math.Max(0, mixer.Skills.LevelOf(Alchemy));
+        // Joined Herbalists and Apothecaries add to the mixer's level (OpenEnroth src/Engine/Objects/Character.cpp:2427-2431).
+        int level = Math.Max(0, MightAndMagic7Followers.Actual(Followers(), mixer, Alchemy).Level);
         bool firstCatalyst = IsCatalyst(first.Definition);
         bool secondCatalyst = IsCatalyst(second.Definition);
 

@@ -107,6 +107,12 @@ internal sealed class MightAndMagic7Session : IGameSession
         MightAndMagic7Fixtures? events = null;
         MightAndMagic7Conversation? conversation = null;
 
+        // Joined companions' professions are read by each rule that grants them, through the one follower policy the
+        // conversation holds over the party's canonical presence; nothing derived is kept.
+        Func<MightAndMagic7Followers?> followers = () => conversation?.Followers;
+        if (spells is not null) spells.Followers = followers;
+        if (alchemy is not null) alchemy.Followers = followers;
+
         // What the party brings down is kept in one place, and both halves hold it: the fight reports the
         // creatures it read as down, and the world's interaction answers describe what is lying there. It is
         // composed here because the ruleset is the one point both halves are composed over, and before the
@@ -174,6 +180,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             loot,
             placement => composed?.PersonLevel(placement),
             () => owners.World!.Interactions);
+        theft.Followers = followers;
 
         MightAndMagic7Services? services = MightAndMagic7Services.Read(
             Declared(context.Content),
@@ -181,7 +188,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             spells,
             quests,
             theft,
-            followers: () => conversation?.Followers);
+            followers: followers);
 
         // This game's answers about people are read once here, for the same reason: the world needs them to
         // say who stands at a placement the party faces, and the session needs the one instance to speak
@@ -358,7 +365,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             figure,
             clock,
             (place, group) => owners.World is IInteractionWorld world && MightAndMagic7Fixtures.IsGroupHostile(world.States.ValuesOf(place), group),
-            itemMagic: () => itemMagic, followers: () => conversation?.Followers);
+            itemMagic: () => itemMagic, followers: followers);
         MightAndMagic7Combat combat = composed;
         MightAndMagic7ItemReadings? itemReadings = MightAndMagic7ItemReadings.Read(Declared(context.Content), figure, services is null ? null : services.ValueOf, spells);
         MightAndMagic7Portraits icons = MightAndMagic7Portraits.Read(Declared(context.Content));
@@ -387,7 +394,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             Rest = rest,
             Conversation = conversation,
             Combat = new CombatRules(combat, monsterAi, Resolution: combat, Abilities: combat, Weapons: combat, Deaths: deaths, Reflection: combat, Provocation: combat, Saving: combat, Corpses: corpses, Hits: spellEffects is null ? [] : [spellEffects]),
-            Progression = new ProgressionRules(new MightAndMagic7Progression(() => conversation?.Followers), promotions),
+            Progression = new ProgressionRules(new MightAndMagic7Progression(followers), promotions),
             Standing = standing,
             Skills = skills,
             Names = MightAndMagic7Names.Read(Declared(context.Content)),
@@ -410,7 +417,7 @@ internal sealed class MightAndMagic7Session : IGameSession
             Equipment = figure,
             ItemUses = itemMagic,
             ItemReadings = itemReadings,
-            CharacterSheet = new MightAndMagic7CharacterSheet(() => combat, clock),
+            CharacterSheet = new MightAndMagic7CharacterSheet(() => combat, clock, followers),
             // An item is drawn with the picture its row names, from the same installed icons the faces come from.
             ItemPictures = context.Engine is { } pictureEngine && itemReadings is not null
                 ? new ContentImages(pictureEngine, icons.IconPath, "item pictures")

@@ -1049,11 +1049,11 @@ internal sealed class MightAndMagic7Services : IServiceRule
         SkillTier tier = SkillTier.None;
         foreach (PartyMember member in party.Members)
         {
-            int candidate = member.Skills.LevelOf(MerchantSkill) + (followers?.SkillBonus(MerchantSkill.Value) ?? 0);
-            if (candidate > level)
+            SkillEntry candidate = MightAndMagic7Followers.Actual(followers, member, MerchantSkill);
+            if (candidate.Level > level)
             {
-                level = candidate;
-                tier = member.Skills.TierOf(MerchantSkill);
+                level = candidate.Level;
+                tier = candidate.Tier;
             }
         }
 

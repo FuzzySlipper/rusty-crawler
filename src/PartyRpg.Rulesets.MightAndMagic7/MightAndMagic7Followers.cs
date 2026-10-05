@@ -4,10 +4,17 @@ using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Magic;
+using PartyRpg.Kit.Combat;
 
 namespace PartyRpg.Rulesets.MightAndMagic7;
 
 /// <summary>Immutable facts from the same person catalog that conversation reads.</summary>
+/// <summary>What joined companions add to one reading, and who adds it, in the people's own names.</summary>
+internal readonly record struct FollowerContribution(int Amount, string Sources)
+{
+    internal static FollowerContribution None => default;
+}
+
 internal sealed record MightAndMagic7FollowerFacts(string Name, string Portrait, int Profession, bool CanHire, int? HirePrice, string Join, string Dismiss);
 
 /// <summary>
@@ -31,34 +38,94 @@ internal sealed class MightAndMagic7Followers : IFoundGoldRule
 
     internal MightAndMagic7FollowerFacts? Describe(string id) => _describe(id);
 
-    // Canonical joined identities are read on every question. Each profession contributes once, even
-    // when two people share it (OpenEnroth Character.cpp CheckHiredNPCSpeciality).
-    private bool HasProfession(int profession) => _party()?.Followers.All.Any(follower =>
-        _describe(follower.Definition.Value)?.Profession == profession) == true;
+    // Profession identities and their passive terms: OpenEnroth src/Engine/Objects/NPCEnums.h:26-87 (declared
+    // benefits) and the readers that grant them — Character.cpp:624-639 (learningPercent), :754-760 (Luck in
+    // GetActualStat), :1953 (Enchanter in GetActualResistance), :2398-2531 (actualSkillLevel) and :2534-2541
+    // (getActualSkillValue: a positive level reads at least Novice). Each profession counts once however many
+    // joined people share it (NPC.cpp:53-65, CheckHiredNPCSpeciality). Our presence is PartyFollowers, read on
+    // every question; nothing derived is stored or saved.
+    private const int Scholar = 4, Teacher = 13, Instructor = 14, ArmsmasterProfession = 15, Weaponsmaster = 16,
+        Apprentice = 17, Mystic = 18, Spellmaster = 19, Trader = 20, MerchantProfession = 21, Scout = 22,
+        Herbalist = 23, Apothecary = 24, Tinker = 25, Locksmith = 26, Fool = 27, ChimneySweep = 28, Factor = 31,
+        Banker = 32, Enchanter = 37, Pirate = 45, Psychic = 47, Gypsy = 48, Duper = 50, Burglar = 51,
+        Acolyte = 53, Initiate = 54, Prelate = 55, Monk = 56;
 
-    internal int LuckBonus => Sum((27, 5), (28, 20), (47, 10));
-    internal int ResistanceBonus => HasProfession(37) ? 20 : 0;
-    internal int LearningBonus => Sum((13, 10), (14, 15), (4, 5));
-    internal int SkillBonus(string skill) => skill switch
+    private static readonly (int Profession, int Amount)[] LuckTerms = [(Fool, 5), (ChimneySweep, 20), (Psychic, 10)];
+    private static readonly (int Profession, int Amount)[] LearningTerms = [(Teacher, 10), (Instructor, 15), (Scholar, 5)];
+    private static readonly (int Profession, int Amount)[] ResistanceTerms = [(Enchanter, 20)];
+    private static readonly (int Profession, int Amount)[] ElementTerms = [(Apprentice, 2), (Mystic, 3), (Spellmaster, 4)];
+    private static readonly (int Profession, int Amount)[] SelfTerms = [(Acolyte, 2), (Initiate, 3), (Prelate, 4)];
+
+    private static readonly Dictionary<string, (int Profession, int Amount)[]> SkillTerms = new(StringComparer.Ordinal)
     {
-        "Merchant" => Sum((20, 4), (21, 6), (48, 3), (50, 8)),
-        "Perception" => Sum((22, 6), (47, 5)),
-        "Disarm Traps" => Sum((25, 4), (26, 6), (51, 8)),
-        _ => 0,
+        ["Armsmaster"] = [(ArmsmasterProfession, 2), (Weaponsmaster, 3)],
+        ["Stealing"] = [(Burglar, 8)],
+        ["Alchemy"] = [(Herbalist, 4), (Apothecary, 8)],
+        ["Unarmed"] = [(Monk, 2)],
+        ["Dodging"] = [(Monk, 2)],
+        ["Fire"] = ElementTerms, ["Air"] = ElementTerms, ["Water"] = ElementTerms, ["Earth"] = ElementTerms,
+        ["Spirit"] = SelfTerms, ["Mind"] = SelfTerms, ["Body"] = SelfTerms,
+        ["Merchant"] = [(Trader, 4), (MerchantProfession, 6), (Gypsy, 3), (Duper, 8)],
+        ["Perception"] = [(Scout, 6), (Psychic, 5)],
+        ["Disarm Traps"] = [(Tinker, 4), (Locksmith, 6), (Burglar, 8)],
     };
-    private int Sum(params (int Profession, int Amount)[] terms) => terms.Sum(term =>
-        HasProfession(term.Profession) ? term.Amount : 0);
 
-    internal string BenefitOf(string id) => _describe(id) is { } facts ? facts.Profession switch
+    // The resistances the donor's reader is asked for; Spirit reads Body's base there, and both take the term.
+    private static readonly HashSet<DamageKindId> Resisted =
+    [
+        MightAndMagic7Damage.Fire, MightAndMagic7Damage.Air, MightAndMagic7Damage.Water, MightAndMagic7Damage.Earth,
+        MightAndMagic7Damage.Mind, MightAndMagic7Damage.Spirit, MightAndMagic7Damage.Body,
+    ];
+
+    /// <summary>What joined companions add to Luck, for <see cref="MightAndMagic7Combat.ActualAttribute"/>.</summary>
+    internal FollowerContribution Luck => Contribution(LuckTerms);
+
+    /// <summary>What joined companions add to a resistance, for <see cref="MightAndMagic7Combat.CharacterResistance"/>.</summary>
+    internal FollowerContribution Resistance(DamageKindId kind) =>
+        Resisted.Contains(kind) ? Contribution(ResistanceTerms) : FollowerContribution.None;
+
+    /// <summary>The percent joined tutors add to every member's share of an award.</summary>
+    internal int LearningBonus => Contribution(LearningTerms).Amount;
+
+    /// <summary>The levels joined companions add to one skill.</summary>
+    internal int SkillBonus(SkillId skill) =>
+        SkillTerms.TryGetValue(skill.Value, out (int Profession, int Amount)[]? terms) ? Contribution(terms).Amount : 0;
+
+    /// <summary>
+    /// A member's skill as this game's rules read it: the purchased level plus what joined companions add, capped at
+    /// the donor's sixty, at no less than Novice once the level is positive. The purchased entry is never changed.
+    /// </summary>
+    internal SkillEntry Actual(PartyMember member, SkillId skill)
     {
-        27 => "Luck +5", 28 => "Luck +20", 47 => "Luck +10; Perception +5",
-        37 => "Fire/Air/Water/Earth/Mind/Body/Spirit resistance +20",
-        13 => "Experience learning +10%", 14 => "Experience learning +15%", 4 => "Experience learning +5%; other abilities not compiled",
-        20 => "Merchant +4", 21 => "Merchant +6", 48 => "Merchant +3; other abilities not compiled", 50 => "Merchant +8; other abilities not compiled",
-        22 => "Perception +6", 25 => "Disarm Traps +4", 26 => "Disarm Traps +6", 51 => "Disarm Traps +8; free hiring; other abilities not compiled",
-        31 => "Found gold +10%; companion share applies", 32 => "Found gold +20%; companion share applies", 45 => "Found gold +10%; companion share applies; other abilities not compiled",
-        0 => "No profession benefit", _ => "Profession abilities not compiled",
-    } : string.Empty;
+        ArgumentNullException.ThrowIfNull(member);
+        SkillEntry carried = member.Skills.TryGet(skill, out SkillEntry entry) ? entry : new SkillEntry(skill, 0, SkillTier.None, 0);
+        int bonus = SkillBonus(skill);
+        if (bonus == 0) return carried;
+        int level = Math.Min(MightAndMagic7Skills.DonorLevelCap, Math.Max(0, carried.Level) + bonus);
+        return carried with { Level = level, Tier = carried.Tier.IsNone ? new SkillTier(1) : carried.Tier };
+    }
+
+    /// <summary>The actual skill when a reader may run without a follower owner (a session without people).</summary>
+    internal static SkillEntry Actual(MightAndMagic7Followers? followers, PartyMember member, SkillId skill) =>
+        followers?.Actual(member, skill) ?? (member.Skills.TryGet(skill, out SkillEntry entry) ? entry : new SkillEntry(skill, 0, SkillTier.None, 0));
+
+    private FollowerContribution Contribution((int Profession, int Amount)[] terms)
+    {
+        if (_party() is not { } party || party.Followers.All.Count == 0) return FollowerContribution.None;
+        int amount = 0;
+        List<string> sources = [];
+        foreach ((int profession, int bonus) in terms)
+        {
+            MightAndMagic7FollowerFacts? first = party.Followers.All
+                .Select(follower => _describe(follower.Definition.Value))
+                .FirstOrDefault(facts => facts?.Profession == profession);
+            if (first is null) continue;
+            amount += bonus;
+            sources.Add($"{first.Name} +{bonus}");
+        }
+
+        return amount == 0 ? FollowerContribution.None : new FollowerContribution(amount, string.Join(", ", sources));
+    }
 
     internal bool Joined(string id) => _party()?.Followers.Find(new FollowerDefinitionId(id)) is not null;
 
@@ -121,7 +188,7 @@ internal sealed class MightAndMagic7Followers : IFoundGoldRule
 
     // Profession identities: OpenEnroth src/Engine/Objects/NPCEnums.h. Hiring's free burglar
     // exception is NPCTopics.cpp:762-814; finding bonuses and shares are Party.cpp:859-902.
-    internal static int? HirePrice(MightAndMagic7FollowerFacts facts) => facts.Profession == 51 ? 0 : facts.HirePrice;
+    internal static int? HirePrice(MightAndMagic7FollowerFacts facts) => facts.Profession == Burglar ? 0 : facts.HirePrice;
 
     public FoundGoldDivision Divide(PartyEntity party, int found)
     {
@@ -129,7 +196,7 @@ internal sealed class MightAndMagic7Followers : IFoundGoldRule
         MightAndMagic7FollowerFacts[] companions = party.Followers.All
             .Select(follower => _describe(follower.Definition.Value)).OfType<MightAndMagic7FollowerFacts>().ToArray();
         long total = found;
-        foreach ((int profession, int percent) in new[] { (31, 10), (32, 20), (45, 10) })
+        foreach ((int profession, int percent) in new[] { (Factor, 10), (Banker, 20), (Pirate, 10) })
             if (companions.Any(facts => facts.Profession == profession)) total += total * percent / 100;
         long salary = companions.Sum(facts => (long)(facts.HirePrice ?? 0));
         long share = salary == 0 ? 0 : salary >= 10000 ? total : Math.Max(1, total * salary / 10000);

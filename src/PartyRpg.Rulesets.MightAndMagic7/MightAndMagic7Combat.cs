@@ -522,7 +522,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
             : throw new InvalidOperationException(
                 $"{member.Profile.Name} has no '{attribute}' attribute, so this game cannot price what their fights are worth.");
         score += _itemMagic()?.WornBonus(member, attribute.Value) ?? 0;
-        if (attribute == LuckAttribute) score += _followers()?.LuckBonus ?? 0;
+        if (attribute == LuckAttribute) score += _followers()?.Luck.Amount ?? 0;
         score += MemberWard(member, SpellEffectIds.Attribute(attribute));
         score += SpellWard(SpellEffectIds.DayOfTheGods);
         return score;
@@ -1298,7 +1298,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
         // the caster's own spellbook while they hold a wand of that very spell: telling those apart needs the
         // order to carry the casting's own skill reading to this answer.
         bool fromWand = Wielded(caster) is { } wand && string.Equals(wand.Reading.Spell.Value, spell.Id.Value, StringComparison.Ordinal);
-        int level = fromWand ? WandSkillLevel : MightAndMagic7Spells.SkillLevelOf(caster, spell);
+        int level = fromWand ? WandSkillLevel : _spells?.SkillLevelOf(caster, spell) ?? caster.Skills.LevelOf(spell.SchoolSkill);
         int rung = fromWand ? 1 : MightAndMagic7Spells.Rung(caster, spell);
         DamageRoll damage = _spells?.Damage(spell, level, rung) ?? DamageRoll.Flat(0);
         return new AttackPlan(
@@ -1483,10 +1483,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
         ArgumentNullException.ThrowIfNull(member);
         int points = 0;
         points += LeatherResistance(member, kind);
-        if (kind == MightAndMagic7Damage.Fire || kind == MightAndMagic7Damage.Air || kind == MightAndMagic7Damage.Water ||
-            kind == MightAndMagic7Damage.Earth || kind == MightAndMagic7Damage.Mind || kind == MightAndMagic7Damage.Spirit ||
-            kind == MightAndMagic7Damage.Body)
-            points += _followers()?.ResistanceBonus ?? 0;
+        points += _followers()?.Resistance(kind).Amount ?? 0;
         points += _itemMagic()?.WornResistance(member, kind) ?? 0;
         points += Buffed(member, SpellEffectIds.Resistance(kind));
         points += MightAndMagic7BaseResistance.Of(member, kind);
@@ -1617,7 +1614,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// triple that weapon's dice and modifier. Faithful to the donor's corrected chance; see
     /// <see cref="CharacterDamage"/>.
     /// </remarks>
-    private static DamageMultiplier? DaggerTriple(PartyMember member, MightAndMagic7WornItem weapon, int firstDie, int dice, int bonus)
+    private DamageMultiplier? DaggerTriple(PartyMember member, MightAndMagic7WornItem weapon, int firstDie, int dice, int bonus)
     {
         if (!weapon.IsSkill(DaggerWord)) return null;
         SkillEntry dagger = SkillOf(member, DaggerWord);
@@ -1828,14 +1825,16 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
         Worn(member, MightAndMagic7Figure.OffHand) is not { Kind: not MightAndMagic7WornKind.Shield };
 
     /// <summary>The entry a member has in the skill a word names, or a none entry when they have not learned it.</summary>
-    private static SkillEntry SkillOf(PartyMember member, string word)
+    private SkillEntry SkillOf(PartyMember member, string word)
     {
         foreach (SkillEntry entry in member.Skills.Entries)
         {
-            if (string.Equals(entry.Skill.Value, word, StringComparison.OrdinalIgnoreCase)) return entry;
+            if (string.Equals(entry.Skill.Value, word, StringComparison.OrdinalIgnoreCase))
+                return MightAndMagic7Followers.Actual(_followers(), member, entry.Skill);
         }
 
-        return default;
+        // An unpurchased skill still reads what joined companions add (a Monk's unarmed and dodging).
+        return _followers()?.Actual(member, new SkillId(word)) is { Level: > 0 } lent ? lent : default;
     }
 
     /// <summary>What an actor's armor class is, from its body or its row.</summary>
@@ -1903,8 +1902,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     private int Bonus(PartyMember member, AttributeId attribute) => AttributeBonus(ActualAttribute(member, attribute));
 
     /// <summary>The armsmaster entry a member has, or a none entry when they have not learned it.</summary>
-    private static SkillEntry Armsmaster(PartyMember member) =>
-        member.Skills.TryGet(ArmsmasterSkill, out SkillEntry entry) ? entry : default;
+    private SkillEntry Armsmaster(PartyMember member) => MightAndMagic7Followers.Actual(_followers(), member, ArmsmasterSkill);
 
     /// <summary>What one rung of a skill's ladder is worth, as the donor's own multiplier table.</summary>
     /// <remarks>
@@ -2087,7 +2085,7 @@ internal sealed partial class MightAndMagic7Combat : ICombatRule, ICombatResolut
     /// The share of an armour piece's ticks a character carries at their rung of its skill, in halves: the donor's
     /// <c>GetArmorRecoveryMultiplierFromSkillLevel</c> (<c>Character.cpp:1757-1772</c>).
     /// </summary>
-    private static int ArmourShare(PartyMember member, string skill, int novice, int expert, int master, int grandmaster)
+    private int ArmourShare(PartyMember member, string skill, int novice, int expert, int master, int grandmaster)
     {
         SkillEntry entry = SkillOf(member, skill);
         return entry.Level <= 0

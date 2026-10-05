@@ -498,7 +498,7 @@ internal sealed class MightAndMagic7Interaction : IInteractionRule
 
         SkillId skill = new(requirement.Name);
         int best = 0;
-        foreach (PartyMember member in party.Members) best = Math.Max(best, member.Skills.LevelOf(skill) + (_followers?.SkillBonus(skill.Value) ?? 0));
+        foreach (PartyMember member in party.Members) best = Math.Max(best, MightAndMagic7Followers.Actual(_followers, member, skill).Level);
         return best >= requirement.Amount
             ? Verdict.Met
             : Verdict.Unmet(

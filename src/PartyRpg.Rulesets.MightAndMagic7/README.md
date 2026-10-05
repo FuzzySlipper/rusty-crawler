@@ -955,7 +955,7 @@ banker and pirate bonuses in that order and sums the joined companions' authored
 the salary, divided by 10000, with a minimum one coin for a positive finding and nonzero salary. A salary
 never exceeds the finding. Ordinary sales and refunds use direct credit and pay no salary. These rules
 follow OpenEnroth `src/Engine/Party.cpp:859-902` and profession identities in OpenEnroth `src/Engine/Objects/NPCEnums.h`;
-the selected passive profession readings below apply immediately; other profession abilities are explicitly uncompiled.
+the joined profession readings below are read by the rules they change; what is not read is named there.
 
 Sacrifice names an actual hired companion through the existing opaque spell aim and casting workflow.
 Story or absent companions are refused before payment. A successful cast removes that hired presence,
@@ -1052,11 +1052,44 @@ donor's spell sprites are not drawn); nothing about a blow is decided here. Door
 interaction ledger's state, so a save and a revisit rebuild them as they were. The [world interaction
 reading](../../docs/evidence/world-interaction.md) records a lever pulled, a creature struck and the state after resume.
 
-
 ## Joined profession readings
 
-`MightAndMagic7Followers` reads the canonical joined identities against the same conversation person catalog on every question. Each profession contributes once, even with duplicate people of that profession. No derived modifier, NPC registry, effect or save field is added. Dismissal, story departure and Sacrifice remove the contribution with presence; save restoration derives it again from the saved identity and current authored profession facts.
+`MightAndMagic7Followers` reads the party's canonical joined identities (`PartyFollowers`) against the same conversation
+person catalog on every question and holds this game's passive profession terms beside the readers that grant them
+(OpenEnroth `src/Engine/Objects/NPCEnums.h:26-87`; the readers in `src/Engine/Objects/Character.cpp`). Each
+profession counts once however many joined people share it (`src/Engine/Objects/NPC.cpp:53-65`). No derived modifier,
+NPC registry, Engine effect or save field exists: dismissal, a story departure and Sacrifice remove a contribution with
+the presence, and a resumed save derives it again from the saved identity and the authored profession.
 
-The selected compiled policy reads Fool/Chimney Sweep/Psychic Luck +5/+20/+10 through actual combat attributes and saving throws. Enchanter adds resistance +20 to Fire/Air/Water/Earth/Mind/Body and the shared Body reading for Spirit; Physical, Light, Dark, Magic and Energy are untouched. Teacher/Instructor/Scholar add experience learning +10/+15/+5 percent through the progression division, including a member with no Learning skill. Trader/Merchant/Gypsy/Duper add Merchant +4/+6/+3/+8 to the current service quote reader at the member's purchased mastery. Scout/Psychic add Perception +6/+5 through container guards, authored requirements and secret discovery. Tinker/Locksmith/Burglar add Disarm Traps +4/+6/+8 through the same guards and requirements.
+Read, faithfully in amount:
 
-References and operator-table facts are recorded in [follower profession benefits](../../docs/evidence/follower-benefits.md). This is a selected passive repertoire, not every original profession action: travel/rest reductions, automatic repair/identification, active powers, other skill bonuses and reputation changes remain explicitly uncompiled. Existing Factor/Banker/Pirate found-gold bonuses and all hiring fees/shares are preserved. The ordinary companion panel names the selected contribution and any additional uncompiled abilities; it owns no rules.
+- **Luck** (`Character.cpp:754-760`): Fool +5, Chimney Sweep +20, Psychic +10, inside `MightAndMagic7Combat.ActualAttribute`,
+  so every Luck reader (saving throws, rewards, the character page) sees it.
+- **Resistances** (`:1953`): Enchanter +20 inside `MightAndMagic7Combat.CharacterResistance` for Fire, Air, Water, Earth,
+  Mind, Body and Spirit; physical, light, dark and unresisted damage take no term.
+- **Experience** (`:624-639`): Teacher +10, Instructor +15, Scholar +5 percent on every member's award share in
+  `MightAndMagic7Progression`, including a member without Learning.
+- **Skills** (`:2398-2541`), through `MightAndMagic7Followers.Actual`: the purchased level plus the terms, capped at
+  sixty, at no less than Novice once positive (the donor's `getActualSkillValue`). Merchant (Trader 4, Merchant 6,
+  Gypsy 3, Duper 8) at the service quote; Perception (Scout 6, Psychic 5) at container guards, authored requirements
+  and secret discovery; Disarm Traps (Tinker 4, Locksmith 6, Burglar 8) at guards and requirements; Armsmaster
+  (Armsmaster 2, Weaponsmaster 3), Unarmed and Dodging (Monk 2 each) at the fight's attack, damage and armour sums;
+  Stealing (Burglar 8) at a theft's reach and lifted coin; Alchemy (Herbalist 4, Apothecary 8) at a mixture's
+  strength; the four elements (Apprentice 2, Mystic 3, Spellmaster 4) and Spirit, Mind and Body (Acolyte, Initiate,
+  Prelate 2/3/4) at a spell's level. What a member may learn, a spell's mastery requirement and training read the
+  purchased skill (ours), and the member's own skill entry never changes.
+- **Found gold and hiring**: Factor, Banker and Pirate bonuses, salaries and the Burglar's free hire, above.
+
+The character page names the companions behind a changed Luck or resistance row
+(`MightAndMagic7CharacterSheet`); the skills page shows purchased levels only.
+
+Accounted without effect: the donor's foot-travel reductions (Guide, Tracker, Pathfinder, Explorer; OpenEnroth
+`src/Engine/Party.cpp:1003-1013`) floor a crossing at one day, which is already this game's crossing
+(`MightAndMagic7TravelCostRule.DaysPerCrossing`); Porter, Quartermaster, Gypsy food and Sailor/Navigator sea terms are
+declared in `NPCEnums.h` but read by no donor rule.
+
+Not read: Identify Monster (Hunter, Sage; no monster identification owner exists), Scholar identification and
+Smith/Armorer/Alchemist repair (`Character.cpp:567-585`), the shady professions' reputation penalty
+(`Party.cpp:824-834`), the daily active abilities of healers, cooks and the travel masters (`NPC.cpp:84-230`), the
+Cartographer's wizard eye and the donor's two places that suspend every profession (`src/Engine/MapEnumFunctions.h:29-31`).
+These professions still join, cost and share found gold as authored.

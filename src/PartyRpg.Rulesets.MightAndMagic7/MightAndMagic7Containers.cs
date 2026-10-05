@@ -447,7 +447,7 @@ internal static class MightAndMagic7Containers
         if (party is null) return 0;
         SkillId id = new(skill);
         int best = 0;
-        foreach (PartyMember member in party.Members) best = Math.Max(best, member.Skills.LevelOf(id) + (followers?.SkillBonus(skill) ?? 0));
+        foreach (PartyMember member in party.Members) best = Math.Max(best, MightAndMagic7Followers.Actual(followers, member, id).Level);
         return best;
     }
 }

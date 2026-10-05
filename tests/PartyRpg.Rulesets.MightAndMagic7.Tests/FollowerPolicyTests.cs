@@ -159,8 +159,12 @@ public sealed class FollowerPolicyTests
         Assert.Equal(before + bonus, combat.ActualAttribute(member, luck));
         mission.Turn("npc-2"); mission.Choose("follower-hire");
         Assert.Equal(resistanceBefore + 20, combat.PlanOf(from, target, AttackKind.Ranged).Resistance.Points);
-        Assert.Contains($"Luck +{bonus}", mission.Live.Inspect().Party.Followers[0].Benefits);
-        Assert.Contains("resistance +20", mission.Live.Inspect().Party.Followers[1].Benefits);
+        // The character book reads the same sums and names who changed them.
+        CharacterSheetRow luckRow = Row(mission.Live, "Scores", "Luck");
+        Assert.Equal((before + bonus).ToString(System.Globalization.CultureInfo.InvariantCulture), luckRow.Value);
+        Assert.Contains($"companions: Guide +{bonus}", luckRow.Detail, StringComparison.Ordinal);
+        Assert.Equal("companions: Banker +20", Row(mission.Live, "Resistances", "Fire").Detail);
+        Assert.Equal("companions: Banker +20", Row(mission.Live, "Resistances", "Body").Detail);
         MightAndMagic7Ruleset.Instance.Save(mission.Session);
         var (context, ui) = RulesetTestContext.Create(mission.Persistence, Content([profession, 37]));
         using var resumed = MightAndMagic7Ruleset.Instance.ResumeSession(RulesetTestContext.RulesetContext(context, ui, combat: true) with { Start = SessionStart.Resume });
@@ -170,11 +174,45 @@ public sealed class FollowerPolicyTests
         Assert.Equal(party.Followers.All, again.Party.Followers.All);
         var restoredTarget = again.Combat!.Combatants.First(actor => actor.Subject.IsMember).Subject;
         Assert.Equal(resistanceBefore + 20, restored.PlanOf(from, restoredTarget, AttackKind.Ranged).Resistance.Points);
+        Assert.Equal(luckRow, Row(again, "Scores", "Luck"));
         mission.Choose("follower-dismiss");
         Assert.Equal(resistanceBefore, combat.PlanOf(from, target, AttackKind.Ranged).Resistance.Points);
+        Assert.Equal(string.Empty, Row(mission.Live, "Resistances", "Fire").Detail);
         mission.Action("conversation.follower", "npc-1"); mission.Choose("follower-dismiss");
         Assert.Equal(before, combat.ActualAttribute(member, luck));
+        Assert.DoesNotContain("companions", Row(mission.Live, "Scores", "Luck").Detail, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Monk_and_apprentice_lend_unpurchased_levels_to_armour_and_spell_readers_until_they_leave()
+    {
+        using Mission mission = new([56, 17]);
+        PartyEntity party = mission.Live.Party!;
+        PartyMember member = party.Members[0];
+        var combat = (MightAndMagic7Combat)mission.Live.Owners.Rules.Combat!.Rule;
+        var spells = (MightAndMagic7Spells)mission.Live.Owners.Rules.Magic!.Spells!;
+        SpellDefinition torch = spells.Catalog.Read(new("1"));
+        var skills = party.Members.Select(m => m.Skills.Entries.ToArray()).ToArray();
+        int armour = combat.CharacterArmorClass(member);
+        int school = spells.SkillLevelOf(member, torch);
+        member.Skills.TryGet(MightAndMagic7Combat.DodgeSkill, out SkillEntry dodge);
+
+        mission.UseAt(0); mission.Choose("follower-hire");
+        mission.Turn("npc-2"); mission.Choose("follower-hire");
+        // A Monk lends two Dodging levels at no less than Novice; an Apprentice two levels of each element.
+        Assert.True(combat.CharacterArmorClass(member) > armour);
+        Assert.Equal(Math.Min(60, Math.Max(0, dodge.Level) + 2), ((MightAndMagic7Conversation)mission.Live.Owners.Rules.Conversation!).Followers.Actual(member, MightAndMagic7Combat.DodgeSkill).Level);
+        Assert.Equal(school + 2, spells.SkillLevelOf(member, torch));
+        for (int i = 0; i < party.Members.Count; i++) Assert.Equal(skills[i], party.Members[i].Skills.Entries);
+
+        mission.Choose("follower-dismiss");
+        Assert.Equal(school, spells.SkillLevelOf(member, torch));
+        mission.Action("conversation.follower", "npc-1"); mission.Choose("follower-dismiss");
+        Assert.Equal(armour, combat.CharacterArmorClass(member));
+    }
+
+    private static CharacterSheetRow Row(MightAndMagic7Session session, string section, string label) =>
+        session.Inspect().Character.Members[0].Sections.Single(s => s.Title == section).Rows.Single(r => r.Label == label);
 
     [Fact]
     public void Joined_tutors_change_actual_experience_awards_without_changing_purchased_skills()
@@ -218,7 +256,7 @@ public sealed class FollowerPolicyTests
         mission.Action("conversation.follower", "npc-1"); mission.Choose("follower-dismiss");
         Assert.Equal(before, MightAndMagic7Services.MerchantValue(party, followers));
         Assert.Equal(quoteBefore, mission.Live.Owners.Rules.Service!.Quote(request).Charge.Coins);
-        Assert.Equal(0, followers.SkillBonus("Perception"));
+        Assert.Equal(0, followers.SkillBonus(new("Perception")));
     }
 
     [Fact]

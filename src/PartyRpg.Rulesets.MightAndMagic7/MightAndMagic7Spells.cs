@@ -845,11 +845,19 @@ internal sealed class MightAndMagic7Spells : ISpellRule, ISpellItemRule
     /// <summary>How many levels of a spell's school the caster holds, which is what its damage scales by.</summary>
     /// <param name="member">The member casting it.</param>
     /// <param name="spell">The spell being cast.</param>
-    internal static int SkillLevelOf(PartyMember member, SpellDefinition spell)
+    /// <remarks>
+    /// The purchased level plus what joined Apprentices, Mystics and Spellmasters (the four elements) or Acolytes,
+    /// Initiates and Prelates (Spirit, Mind and Body) add (OpenEnroth <c>src/Engine/Objects/Character.cpp:2454-2501</c>).
+    /// What a member may learn and the mastery a spell asks for stay the purchased skill's.
+    /// </remarks>
+    internal int SkillLevelOf(PartyMember member, SpellDefinition spell)
     {
         ArgumentNullException.ThrowIfNull(member);
-        return member.Skills.LevelOf(spell.SchoolSkill);
+        return MightAndMagic7Followers.Actual(Followers(), member, spell.SchoolSkill).Level;
     }
+
+    /// <summary>The session's companions, whose professions add to a school's level; set once at composition.</summary>
+    internal Func<MightAndMagic7Followers?> Followers { get; set; } = () => null;
 
     /// <summary>
     /// Whether a guild standing at one rung of its school's ladder may sell a spell of that school.

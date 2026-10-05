@@ -18,6 +18,9 @@ namespace PartyRpg.Rulesets.MightAndMagic7;
 /// <see cref="MightAndMagic7Combat.CharacterResistance"/>), so the page cannot disagree with a blow.
 /// </para>
 /// <para>
+/// A Luck or resistance row a joined companion's profession changes names that companion beside it.
+/// </para>
+/// <para>
 /// Approximate. Attack and shoot bonuses and their damage lines, and the quick spell, are not on this page yet:
 /// they are priced inside a blow's resolution rather than read as standing values.
 /// </para>
@@ -36,14 +39,17 @@ internal sealed class MightAndMagic7CharacterSheet : ICharacterSheetRule
 
     private readonly Func<MightAndMagic7Combat?> _combat;
     private readonly GameClock? _clock;
+    private readonly Func<MightAndMagic7Followers?> _followers;
 
     /// <summary>Creates the sheet over the fight whose sums it reads.</summary>
     /// <param name="combat">The session's fight, which is composed after the sheet is.</param>
     /// <param name="clock">The clock a member's age is read on.</param>
-    internal MightAndMagic7CharacterSheet(Func<MightAndMagic7Combat?> combat, GameClock? clock)
+    /// <param name="followers">The companions whose professions the fight's sums include, named beside a changed row.</param>
+    internal MightAndMagic7CharacterSheet(Func<MightAndMagic7Combat?> combat, GameClock? clock, Func<MightAndMagic7Followers?>? followers = null)
     {
         _combat = combat ?? throw new ArgumentNullException(nameof(combat));
         _clock = clock;
+        _followers = followers ?? (() => null);
     }
 
     /// <inheritdoc />
@@ -55,10 +61,15 @@ internal sealed class MightAndMagic7CharacterSheet : ICharacterSheetRule
         foreach (AttributeScore carried in member.Attributes.Scores)
         {
             int actual = combat?.ActualAttribute(member, carried.Attribute) ?? carried.Value;
+            string companions = carried.Attribute == MightAndMagic7Combat.LuckAttribute && combat is not null
+                ? _followers()?.Luck.Sources ?? string.Empty
+                : string.Empty;
             scores.Add(new CharacterSheetRow(
                 carried.Attribute.Value,
                 Number(actual),
-                actual == carried.Value ? string.Empty : $"carried {Number(carried.Value)}"));
+                actual == carried.Value && companions.Length == 0
+                    ? string.Empty
+                    : Joined($"carried {Number(carried.Value)}", Companions(companions))));
         }
 
         CharacterResources pools = member.Resources;
@@ -86,7 +97,8 @@ internal sealed class MightAndMagic7CharacterSheet : ICharacterSheetRule
         foreach ((string label, Kit.Combat.DamageKindId kind) in Resistances)
         {
             Kit.Combat.Resistance resistance = combat?.CharacterResistance(member, kind) ?? Kit.Combat.Resistance.Of(0);
-            resistances.Add(new CharacterSheetRow(label, resistance.IsImmune ? "Immune" : Number(resistance.Points)));
+            string companions = combat is null ? string.Empty : _followers()?.Resistance(kind).Sources ?? string.Empty;
+            resistances.Add(new CharacterSheetRow(label, resistance.IsImmune ? "Immune" : Number(resistance.Points), Companions(companions)));
         }
 
         return
@@ -96,6 +108,11 @@ internal sealed class MightAndMagic7CharacterSheet : ICharacterSheetRule
             new CharacterSheetSection("Resistances", resistances),
         ];
     }
+
+    // Who among the joined companions adds to a row, so the page says where a changed reading came from.
+    private static string Companions(string sources) => sources.Length == 0 ? string.Empty : $"companions: {sources}";
+
+    private static string Joined(string first, string second) => second.Length == 0 ? first : $"{first}; {second}";
 
     private static string Number(long value) => value.ToString(CultureInfo.InvariantCulture);
 }

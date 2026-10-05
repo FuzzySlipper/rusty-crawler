@@ -54,5 +54,5 @@ gold bonuses/share versus direct credits, persisted current save/resume, travell
 refused event atomicity, malformed saved identities, and the real Sacrifice producer. The corrected
 full gate passed UI 71, Architecture 21, Kit 774, Host 86, ruleset 372 and importer 189 with no failed
 or skipped checks, deterministic operator pack generation, all builds and CoreCLR staging. Three source
-review lanes approved; live task/revision authority remains in Den. NPC group news (#9150), other
-profession benefits (#9151), and the other routed residues remain open; this is not an all-task claim.
+review lanes approved; live task/revision authority remains in Den, and this is not an all-task claim.
+Profession terms beyond found gold are recorded in [follower profession benefits](follower-benefits.md).

@@ -344,8 +344,9 @@ internal sealed class MightAndMagic7Theft
         int found = rolls.Roll("find", 0, 99);
         if (found >= CoinFrom && purse.Coins > 0)
         {
-            int rung = Math.Min(thief.Skills.TierOf(Stealing).Value, CoinSides.Length - 1);
-            int lifted = Math.Min(purse.Coins, rolls.Dice(thief.Skills.LevelOf(Stealing), CoinSides[rung]));
+            SkillEntry stealing = MightAndMagic7Followers.Actual(Followers(), thief, Stealing);
+            int rung = Math.Min(stealing.Tier.Value, CoinSides.Length - 1);
+            int lifted = Math.Min(purse.Coins, rolls.Dice(stealing.Level, CoinSides[rung]));
             if (lifted > 0)
             {
                 states.KeepPurse(request.Place, purse with { Coins = purse.Coins - lifted });
@@ -387,11 +388,16 @@ internal sealed class MightAndMagic7Theft
             message: message);
 
     /// <summary>A thief's reach: one of the donor's five draws of luck, and the skill's level times its rung's figure.</summary>
-    private static int Reach(PartyMember thief, KeyedRolls rolls)
+    /// <remarks>A joined Burglar adds eight to the level read here (OpenEnroth <c>src/Engine/Objects/Character.cpp:2422-2425</c>).</remarks>
+    private int Reach(PartyMember thief, KeyedRolls rolls)
     {
-        int rung = Math.Min(thief.Skills.TierOf(Stealing).Value, RungReach.Length - 1);
-        return LuckReach[rolls.Pick(LuckReach.Length)] + (thief.Skills.LevelOf(Stealing) * RungReach[rung]);
+        SkillEntry stealing = MightAndMagic7Followers.Actual(Followers(), thief, Stealing);
+        int rung = Math.Min(stealing.Tier.Value, RungReach.Length - 1);
+        return LuckReach[rolls.Pick(LuckReach.Length)] + (stealing.Level * RungReach[rung]);
     }
+
+    /// <summary>The session's companions, whose professions add to a thief's level; set once at composition.</summary>
+    internal Func<MightAndMagic7Followers?> Followers { get; set; } = () => null;
 
     /// <summary>The party's standing in the donor's own sign, in which a higher number is a worse one.</summary>
     private static int Standing(PartyEntity party) => -party.Reputation.Reputation;

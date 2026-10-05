@@ -29,8 +29,9 @@ internal static class MightAndMagic7Secrets
         foreach (PartyMember member in context.Party?.Members ?? [])
         {
             if (!MightAndMagic7Conditions.CanAct(member)) continue;
-            int tier = member.Skills.TierOf(Perception).Value;
-            int value = tier >= 4 ? 10000 : (member.Skills.LevelOf(Perception) + (followers?.SkillBonus(Perception.Value) ?? 0)) * tier;
+            SkillEntry perception = MightAndMagic7Followers.Actual(followers, member, Perception);
+            int tier = perception.Tier.Value;
+            int value = tier >= 4 ? 10000 : perception.Level * tier;
             best = Math.Max(best, value);
         }
 
