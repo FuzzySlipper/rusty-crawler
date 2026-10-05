@@ -11,7 +11,7 @@
 import type { ControlView, PartyView } from './overview.js';
 import type { SnapshotView } from './snapshot.js';
 import { ACTIONS } from './actions.js';
-import { button, element, head, plural, result, section, type Host } from './dom.js';
+import { button, element, head, plural, redrawGuard, result, section, type Host } from './dom.js';
 
 /** The rows of the fact list, in the order a person reads them, each with its label. */
 const ROWS = [
@@ -133,6 +133,7 @@ export function mountDetails(host: Host): Details {
   const hint = element('p', 'crawler-hint');
   const companions = section('crawler-followers');
   const companionsList = element('div', 'crawler-followers-list');
+  const companionsChanged = redrawGuard();
   companions.append(head('Companions'), companionsList);
   hint.textContent = 'Pause or resume with the button.';
 
@@ -215,7 +216,7 @@ export function mountDetails(host: Host): Details {
     panel.dataset.party = party.present ? 'present' : 'none';
     rows.party.textContent = party.present ? String(party.members) : '—';
     companions.hidden = !party.present || party.followers.length === 0;
-    companionsList.replaceChildren(...party.followers.map((follower) => {
+    if (companionsChanged(party.followers)) companionsList.replaceChildren(...party.followers.map((follower) => {
       const talk = button(`${follower.name} · ${follower.kind}${follower.portrait === '' ? '' : ` · portrait ${follower.portrait}`}`);
       talk.disabled = !follower.canTalk;
       talk.dataset.action = follower.talkAction;

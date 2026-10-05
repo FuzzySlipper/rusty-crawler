@@ -4867,6 +4867,45 @@ test('companions render authored portraits and claim the published conversation 
 });
 
 
+test('a companion press survives intervening projections and updated companions redraw', () => {
+  const h = harness();
+  try {
+    const ui = mountProductUi(h.root, h.context);
+    const follower = { id: 'npc-1', name: 'Guide', portrait: '701', kind: 'hired', canTalk: true, talkAction: 'conversation.follower' };
+    const emit = (step, followers, extra = {}) => h.emit(snapshot('running', step, step * 60, step * 60,
+      movement(), { party: party({ followers, ...extra }) }));
+    emit(1, [follower]);
+    const list = h.panel().querySelector('.crawler-followers-list');
+    const pressed = list.querySelector('button');
+    pressed.dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true, buttons: 1 }));
+    // Time, resources and detached projection objects change while the pointer is held.
+    for (let step = 2; step <= 6; step++) {
+      emit(step, [{ ...follower }], { coins: step });
+      assert.equal(list.querySelector('button'), pressed);
+      assert.equal(pressed.isConnected, true);
+    }
+    const released = list.querySelector('button');
+    released.dispatchEvent(new window.MouseEvent('mouseup', { bubbles: true }));
+    // jsdom does not synthesize clicks from mouseup; model the browser's same-target activation.
+    if (released === pressed) released.click();
+    assert.equal(h.claims.length, 1);
+    assert.deepEqual(h.claims[0].value.data, { action: 'conversation.follower', target: 'npc-1' });
+
+    emit(7, [{ ...follower, name: 'New guide', portrait: '702', canTalk: false }]);
+    const updated = list.querySelector('button');
+    assert.notEqual(updated, pressed);
+    assert.match(updated.textContent, /New guide.*portrait 702/);
+    assert.equal(updated.disabled, true);
+    updated.click();
+    assert.equal(h.claims.length, 1);
+    emit(8, []);
+    assert.equal(list.children.length, 0);
+    emit(9, [follower]);
+    assert.equal(list.querySelector('button').disabled, false);
+    ui.dispose();
+  } finally { h.restore(); }
+});
+
 test('ordinary item controls send real instance and member and display the product gift without keeping it', () => {
   const h = harness();
   try {
