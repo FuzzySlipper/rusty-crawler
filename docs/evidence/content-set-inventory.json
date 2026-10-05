@@ -1,0 +1,4036 @@
+{
+  "validation": "passed-with-explicit-exclusions",
+  "monsters": 276,
+  "items": 800,
+  "spells": 99,
+  "skills": 37,
+  "services": 136,
+  "sourceDigests": {
+    "monsters.json": "7bc57e3552b6405e97096d2438c014c0c0d8ac8d35ac7f2b04d73034d0458302",
+    "items.json": "51430d8b63bf23ce3fdcea505d4ff0ad4386210ed9cbd76739133623f5e21ba8",
+    "spells.json": "2e05144735428731a09a2bc78d7a154c20dfecc8eebf53662903ae5563131be7",
+    "skills.json": "938c74df4eeb0b6f76765eac841fa906ea86efba6afe5f3436e25cb1280763ed",
+    "services.json": "b91b01ee2dab64502cb8c8cc2c9e63aaa7936aa43e3bfd755b9be771ba29fa6b"
+  },
+  "policyOwners": {
+    "ceilings": "MightAndMagic7Skills",
+    "guilds": "MightAndMagic7Services",
+    "calendar": "MightAndMagic7Time",
+    "raceCreation": "MightAndMagic7CreationTables"
+  },
+  "readableItems": 72,
+  "unusedSkillRows": [
+    "Blaster",
+    "Diplomacy",
+    "Thievery"
+  ],
+  "limits": [
+    "Monster population and resolved attacks use synthetic positions, not a playthrough of every placement.",
+    "Equipment uses a staged trained member; spell learning covers both final paths. This does not prove every class can learn every spell.",
+    "Empty message-scroll source rows have no text to display and are explicitly listed.",
+    "Reserved and quest rows remain represented; their presence is not a claim of independent item use.",
+    "Artifact equipment is checked; only the fixed powers documented by the ruleset are implemented."
+  ],
+  "itemInventory": [
+    {
+      "id": "0",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "1",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "2",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "3",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "4",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "5",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "6",
+      "type": "two-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "7",
+      "type": "two-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "8",
+      "type": "two-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "9",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "10",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "11",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "12",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "13",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "14",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "15",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "16",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "17",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "18",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "19",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "20",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "21",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "22",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "23",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "24",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "25",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "26",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "27",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "28",
+      "type": "two-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "29",
+      "type": "two-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "30",
+      "type": "two-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "31",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "32",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "33",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "34",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "35",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "36",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "37",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "38",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "39",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "40",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "41",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "42",
+      "type": "bow",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "43",
+      "type": "bow",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "44",
+      "type": "bow",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "45",
+      "type": "bow",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "46",
+      "type": "bow",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "47",
+      "type": "bow",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "48",
+      "type": "bow",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "49",
+      "type": "bow",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "50",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "51",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "52",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "53",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "54",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "55",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "56",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "57",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "58",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "59",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "60",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "61",
+      "type": "two-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "62",
+      "type": "two-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "63",
+      "type": "two-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "64",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "65",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "66",
+      "type": "armour",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "67",
+      "type": "armour",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "68",
+      "type": "armour",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "69",
+      "type": "armour",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "70",
+      "type": "armour",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "71",
+      "type": "armour",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "72",
+      "type": "armour",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "73",
+      "type": "armour",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "74",
+      "type": "armour",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "75",
+      "type": "armour",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "76",
+      "type": "armour",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "77",
+      "type": "armour",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "78",
+      "type": "armour",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "79",
+      "type": "shield",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "80",
+      "type": "shield",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "81",
+      "type": "shield",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "82",
+      "type": "shield",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "83",
+      "type": "shield",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "84",
+      "type": "shield",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "85",
+      "type": "shield",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "86",
+      "type": "shield",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "87",
+      "type": "shield",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "88",
+      "type": "shield",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "89",
+      "type": "helmet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "90",
+      "type": "helmet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "91",
+      "type": "helmet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "92",
+      "type": "helmet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "93",
+      "type": "helmet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "94",
+      "type": "helmet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "95",
+      "type": "helmet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "96",
+      "type": "helmet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "97",
+      "type": "helmet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "98",
+      "type": "helmet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "99",
+      "type": "helmet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "100",
+      "type": "belt",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "101",
+      "type": "belt",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "102",
+      "type": "belt",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "103",
+      "type": "belt",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "104",
+      "type": "belt",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "105",
+      "type": "cloak",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "106",
+      "type": "cloak",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "107",
+      "type": "cloak",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "108",
+      "type": "cloak",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "109",
+      "type": "cloak",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "110",
+      "type": "gauntlets",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "111",
+      "type": "gauntlets",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "112",
+      "type": "gauntlets",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "113",
+      "type": "gauntlets",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "114",
+      "type": "gauntlets",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "115",
+      "type": "boots",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "116",
+      "type": "boots",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "117",
+      "type": "boots",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "118",
+      "type": "boots",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "119",
+      "type": "boots",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "120",
+      "type": "ring",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "121",
+      "type": "ring",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "122",
+      "type": "ring",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "123",
+      "type": "ring",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "124",
+      "type": "ring",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "125",
+      "type": "ring",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "126",
+      "type": "ring",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "127",
+      "type": "ring",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "128",
+      "type": "ring",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "129",
+      "type": "ring",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "130",
+      "type": "amulet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "131",
+      "type": "amulet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "132",
+      "type": "amulet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "133",
+      "type": "amulet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "134",
+      "type": "amulet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "135",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "136",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "137",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "138",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "139",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "140",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "141",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "142",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "143",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "144",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "145",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "146",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "147",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "148",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "149",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "150",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "151",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "152",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "153",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "154",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "155",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "156",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "157",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "158",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "159",
+      "type": "wand",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "160",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "161",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "162",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "163",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "164",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "165",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "166",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "167",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "168",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "169",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "170",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "171",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "172",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "173",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "174",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "175",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "176",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "177",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "178",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "179",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "180",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "181",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "182",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "183",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "184",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "185",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "186",
+      "type": "gem",
+      "path": "trade-good"
+    },
+    {
+      "id": "187",
+      "type": "gem",
+      "path": "trade-good"
+    },
+    {
+      "id": "188",
+      "type": "gem",
+      "path": "trade-good"
+    },
+    {
+      "id": "189",
+      "type": "gem",
+      "path": "trade-good"
+    },
+    {
+      "id": "190",
+      "type": "gem",
+      "path": "trade-good"
+    },
+    {
+      "id": "191",
+      "type": "gem",
+      "path": "trade-good"
+    },
+    {
+      "id": "192",
+      "type": "gem",
+      "path": "trade-good"
+    },
+    {
+      "id": "193",
+      "type": "gem",
+      "path": "trade-good"
+    },
+    {
+      "id": "194",
+      "type": "gem",
+      "path": "trade-good"
+    },
+    {
+      "id": "195",
+      "type": "gem",
+      "path": "trade-good"
+    },
+    {
+      "id": "196",
+      "type": "gem",
+      "path": "trade-good"
+    },
+    {
+      "id": "197",
+      "type": "gold",
+      "path": "loot-currency"
+    },
+    {
+      "id": "198",
+      "type": "gold",
+      "path": "loot-currency"
+    },
+    {
+      "id": "199",
+      "type": "gold",
+      "path": "loot-currency"
+    },
+    {
+      "id": "200",
+      "type": "reagent",
+      "path": "alchemy"
+    },
+    {
+      "id": "201",
+      "type": "reagent",
+      "path": "alchemy"
+    },
+    {
+      "id": "202",
+      "type": "reagent",
+      "path": "alchemy"
+    },
+    {
+      "id": "203",
+      "type": "reagent",
+      "path": "alchemy"
+    },
+    {
+      "id": "204",
+      "type": "reagent",
+      "path": "alchemy"
+    },
+    {
+      "id": "205",
+      "type": "reagent",
+      "path": "alchemy"
+    },
+    {
+      "id": "206",
+      "type": "reagent",
+      "path": "alchemy"
+    },
+    {
+      "id": "207",
+      "type": "reagent",
+      "path": "alchemy"
+    },
+    {
+      "id": "208",
+      "type": "reagent",
+      "path": "alchemy"
+    },
+    {
+      "id": "209",
+      "type": "reagent",
+      "path": "alchemy"
+    },
+    {
+      "id": "210",
+      "type": "reagent",
+      "path": "alchemy"
+    },
+    {
+      "id": "211",
+      "type": "reagent",
+      "path": "alchemy"
+    },
+    {
+      "id": "212",
+      "type": "reagent",
+      "path": "alchemy"
+    },
+    {
+      "id": "213",
+      "type": "reagent",
+      "path": "alchemy"
+    },
+    {
+      "id": "214",
+      "type": "reagent",
+      "path": "alchemy"
+    },
+    {
+      "id": "215",
+      "type": "reagent",
+      "path": "alchemy"
+    },
+    {
+      "id": "216",
+      "type": "reagent",
+      "path": "alchemy"
+    },
+    {
+      "id": "217",
+      "type": "reagent",
+      "path": "alchemy"
+    },
+    {
+      "id": "218",
+      "type": "reagent",
+      "path": "alchemy"
+    },
+    {
+      "id": "219",
+      "type": "reagent",
+      "path": "alchemy"
+    },
+    {
+      "id": "220",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "221",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "222",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "223",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "224",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "225",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "226",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "227",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "228",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "229",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "230",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "231",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "232",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "233",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "234",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "235",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "236",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "237",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "238",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "239",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "240",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "241",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "242",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "243",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "244",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "245",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "246",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "247",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "248",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "249",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "250",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "251",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "252",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "253",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "254",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "255",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "256",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "257",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "258",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "259",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "260",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "261",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "262",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "263",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "264",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "265",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "266",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "267",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "268",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "269",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "270",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "271",
+      "type": "potion",
+      "path": "alchemy-or-potion"
+    },
+    {
+      "id": "272",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "273",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "274",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "275",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "276",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "277",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "278",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "279",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "280",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "281",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "282",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "283",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "284",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "285",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "286",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "287",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "288",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "289",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "290",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "291",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "292",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "293",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "294",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "295",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "296",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "297",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "298",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "299",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "300",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "301",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "302",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "303",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "304",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "305",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "306",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "307",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "308",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "309",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "310",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "311",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "312",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "313",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "314",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "315",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "316",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "317",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "318",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "319",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "320",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "321",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "322",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "323",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "324",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "325",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "326",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "327",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "328",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "329",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "330",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "331",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "332",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "333",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "334",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "335",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "336",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "337",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "338",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "339",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "340",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "341",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "342",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "343",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "344",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "345",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "346",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "347",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "348",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "349",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "350",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "351",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "352",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "353",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "354",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "355",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "356",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "357",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "358",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "359",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "360",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "361",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "362",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "363",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "364",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "365",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "366",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "367",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "368",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "369",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "370",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "371",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "372",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "373",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "374",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "375",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "376",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "377",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "378",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "379",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "380",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "381",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "382",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "383",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "384",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "385",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "386",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "387",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "388",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "389",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "390",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "391",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "392",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "393",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "394",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "395",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "396",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "397",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "398",
+      "type": "spell-scroll",
+      "path": "spell-casting"
+    },
+    {
+      "id": "399",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "400",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "401",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "402",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "403",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "404",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "405",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "406",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "407",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "408",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "409",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "410",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "411",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "412",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "413",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "414",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "415",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "416",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "417",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "418",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "419",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "420",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "421",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "422",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "423",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "424",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "425",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "426",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "427",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "428",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "429",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "430",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "431",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "432",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "433",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "434",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "435",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "436",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "437",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "438",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "439",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "440",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "441",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "442",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "443",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "444",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "445",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "446",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "447",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "448",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "449",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "450",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "451",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "452",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "453",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "454",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "455",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "456",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "457",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "458",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "459",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "460",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "461",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "462",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "463",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "464",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "465",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "466",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "467",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "468",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "469",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "470",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "471",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "472",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "473",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "474",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "475",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "476",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "477",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "478",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "479",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "480",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "481",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "482",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "483",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "484",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "485",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "486",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "487",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "488",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "489",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "490",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "491",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "492",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "493",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "494",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "495",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "496",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "497",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "498",
+      "type": "book",
+      "path": "spell-learning"
+    },
+    {
+      "id": "499",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "500",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "501",
+      "type": "two-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "502",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "503",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "504",
+      "type": "armour",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "505",
+      "type": "armour",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "506",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "507",
+      "type": "two-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "508",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "509",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "510",
+      "type": "bow",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "511",
+      "type": "gauntlets",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "512",
+      "type": "boots",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "513",
+      "type": "ring",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "514",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "515",
+      "type": "two-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "516",
+      "type": "armour",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "517",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "518",
+      "type": "two-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "519",
+      "type": "shield",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "520",
+      "type": "shield",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "521",
+      "type": "helmet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "522",
+      "type": "helmet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "523",
+      "type": "helmet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "524",
+      "type": "belt",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "525",
+      "type": "cloak",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "526",
+      "type": "bow",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "527",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "528",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "529",
+      "type": "boots",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "530",
+      "type": "cloak",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "531",
+      "type": "two-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "532",
+      "type": "helmet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "533",
+      "type": "armour",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "534",
+      "type": "gauntlets",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "535",
+      "type": "belt",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "536",
+      "type": "ring",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "537",
+      "type": "amulet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "538",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "539",
+      "type": "amulet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "540",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "541",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "542",
+      "type": "bow",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "543",
+      "type": "bow",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "544",
+      "type": "helmet",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "545",
+      "type": "ring",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "546",
+      "type": "ring",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "547",
+      "type": "cloak",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "548",
+      "type": "cloak",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "549",
+      "type": "two-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "550",
+      "type": "cloak",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "551",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "552",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "553",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "554",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "555",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "556",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "557",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "558",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "559",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "560",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "561",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "562",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "563",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "564",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "565",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "566",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "567",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "568",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "569",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "570",
+      "type": "two-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "571",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "572",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "573",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "574",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "575",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "576",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "577",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "578",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "579",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "580",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "581",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "582",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "583",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "584",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "585",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "586",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "587",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "588",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "589",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "590",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "591",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "592",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "593",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "594",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "595",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "596",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "597",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "598",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "599",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "600",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "601",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "602",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "603",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "604",
+      "type": "misc",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "605",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "606",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "607",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "608",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "609",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "610",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "611",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "612",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "613",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "614",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "615",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "616",
+      "type": "misc",
+      "path": "ordinary-item-use"
+    },
+    {
+      "id": "617",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "618",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "619",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "620",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "621",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "622",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "623",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "624",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "625",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "626",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "627",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "628",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "629",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "630",
+      "type": "misc",
+      "path": "ordinary-item-use"
+    },
+    {
+      "id": "631",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "632",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "633",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "634",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "635",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "636",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "637",
+      "type": "boots",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "638",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "639",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "640",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "641",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "642",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "643",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "644",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "645",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "646",
+      "type": "misc",
+      "path": "ordinary-item-use"
+    },
+    {
+      "id": "647",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "648",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "649",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "650",
+      "type": "misc",
+      "path": "ordinary-item-use"
+    },
+    {
+      "id": "651",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "652",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "653",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "654",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "655",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "656",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "657",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "658",
+      "type": "shield",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "659",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "660",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "661",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "662",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "663",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "664",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "665",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "666",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "667",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "668",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "669",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "670",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "671",
+      "type": "single-handed",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "672",
+      "type": "shield",
+      "path": "equipped-and-returned"
+    },
+    {
+      "id": "673",
+      "type": "message-scroll",
+      "path": "excluded-empty-source-reading"
+    },
+    {
+      "id": "674",
+      "type": "message-scroll",
+      "path": "excluded-empty-source-reading"
+    },
+    {
+      "id": "675",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "676",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "677",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "678",
+      "type": "message-scroll",
+      "path": "excluded-empty-source-reading"
+    },
+    {
+      "id": "679",
+      "type": "message-scroll",
+      "path": "excluded-empty-source-reading"
+    },
+    {
+      "id": "680",
+      "type": "message-scroll",
+      "path": "excluded-empty-source-reading"
+    },
+    {
+      "id": "681",
+      "type": "message-scroll",
+      "path": "excluded-empty-source-reading"
+    },
+    {
+      "id": "682",
+      "type": "message-scroll",
+      "path": "excluded-empty-source-reading"
+    },
+    {
+      "id": "683",
+      "type": "message-scroll",
+      "path": "excluded-empty-source-reading"
+    },
+    {
+      "id": "684",
+      "type": "message-scroll",
+      "path": "excluded-empty-source-reading"
+    },
+    {
+      "id": "685",
+      "type": "message-scroll",
+      "path": "excluded-empty-source-reading"
+    },
+    {
+      "id": "686",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "687",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "688",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "689",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "690",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "691",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "692",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "693",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "694",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "695",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "696",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "697",
+      "type": "misc",
+      "path": "contextual-quest-or-world-item"
+    },
+    {
+      "id": "698",
+      "type": "message-scroll",
+      "path": "excluded-empty-source-reading"
+    },
+    {
+      "id": "699",
+      "type": "message-scroll",
+      "path": "excluded-empty-source-reading"
+    },
+    {
+      "id": "700",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "701",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "702",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "703",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "704",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "705",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "706",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "707",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "708",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "709",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "710",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "711",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "712",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "713",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "714",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "715",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "716",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "717",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "718",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "719",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "720",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "721",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "722",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "723",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "724",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "725",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "726",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "727",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "728",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "729",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "730",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "731",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "732",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "733",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "734",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "735",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "736",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "737",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "738",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "739",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "740",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "741",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "742",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "743",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "744",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "745",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "746",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "747",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "748",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "749",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "750",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "751",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "752",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "753",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "754",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "755",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "756",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "757",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "758",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "759",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "760",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "761",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "762",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "763",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "764",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "765",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "766",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "767",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "768",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "769",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "770",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "771",
+      "type": "message-scroll",
+      "path": "inventory-reading"
+    },
+    {
+      "id": "772",
+      "type": "message-scroll",
+      "path": "excluded-empty-source-reading"
+    },
+    {
+      "id": "773",
+      "type": "message-scroll",
+      "path": "excluded-empty-source-reading"
+    },
+    {
+      "id": "774",
+      "type": "message-scroll",
+      "path": "excluded-empty-source-reading"
+    },
+    {
+      "id": "775",
+      "type": "message-scroll",
+      "path": "excluded-empty-source-reading"
+    },
+    {
+      "id": "776",
+      "type": "message-scroll",
+      "path": "excluded-empty-source-reading"
+    },
+    {
+      "id": "777",
+      "type": "message-scroll",
+      "path": "excluded-empty-source-reading"
+    },
+    {
+      "id": "778",
+      "type": "message-scroll",
+      "path": "excluded-empty-source-reading"
+    },
+    {
+      "id": "779",
+      "type": "message-scroll",
+      "path": "excluded-empty-source-reading"
+    },
+    {
+      "id": "780",
+      "type": "message-scroll",
+      "path": "excluded-empty-source-reading"
+    },
+    {
+      "id": "781",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "782",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "783",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "784",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "785",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "786",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "787",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "788",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "789",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "790",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "791",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "792",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "793",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "794",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "795",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "796",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "797",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "798",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    },
+    {
+      "id": "799",
+      "type": "misc",
+      "path": "excluded-reserved-source-row"
+    }
+  ]
+}

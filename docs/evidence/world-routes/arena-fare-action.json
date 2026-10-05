@@ -1,0 +1,25 @@
+[
+  {
+    "event": "action_requested",
+    "lease_id": "7759efff-7a04-484f-91ed-ddb625d44b62",
+    "method": "browser",
+    "operation_id": "361bcb8f-a4bf-49d7-8969-65db829df5f2",
+    "params": {
+      "op": "click",
+      "selector": "div:nth-child(7) > .crawler-counter-choice > .crawler-counter-offer"
+    },
+    "recorded_at": "2026-10-05T12:26:13.587450348Z"
+  },
+  {
+    "event": "action_result",
+    "lease_id": "7759efff-7a04-484f-91ed-ddb625d44b62",
+    "operation_id": "361bcb8f-a4bf-49d7-8969-65db829df5f2",
+    "recorded_at": "2026-10-05T12:26:13.639241968Z",
+    "result": {
+      "action": "click",
+      "console": [],
+      "page_errors": [],
+      "selector": "div:nth-child(7) > .crawler-counter-choice > .crawler-counter-offer"
+    }
+  }
+]

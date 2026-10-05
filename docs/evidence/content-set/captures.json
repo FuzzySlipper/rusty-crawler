@@ -1,0 +1,90 @@
+[
+  {
+    "file": "apple.png",
+    "sha256": "56c1a95eac58bb1132bce8140651568d63e933e854edc4b8bf573e09448979ff",
+    "originals": [
+      {
+        "session": "64b4be38-f839-4f59-b5e6-61004576bfc9",
+        "capture": "7a94c368-fdb5-45ca-87cb-09179990dc4b.png"
+      }
+    ]
+  },
+  {
+    "file": "experience.png",
+    "sha256": "f03be43ccc10472c3fe8540899045406f502390de79d418124b3c230211bf7a1",
+    "originals": [
+      {
+        "session": "72a82be5-6752-45c1-af2b-d5de43a4efb8",
+        "capture": "5b92d14a-53a4-44b5-a7a5-124d0eb356e6.png"
+      },
+      {
+        "session": "72a82be5-6752-45c1-af2b-d5de43a4efb8",
+        "capture": "ee0b237a-f7e3-4a6b-ae39-2fa588cd790f.png"
+      },
+      {
+        "session": "72a82be5-6752-45c1-af2b-d5de43a4efb8",
+        "capture": "bd83524f-3e38-4eb8-861e-8f731844c966.png"
+      }
+    ]
+  },
+  {
+    "file": "fight.png",
+    "sha256": "37185b1ee5cf28f5b77a73c58ede2cfba3b429f49730ee9b84053b22381d2a8b",
+    "originals": [
+      {
+        "session": "72a82be5-6752-45c1-af2b-d5de43a4efb8",
+        "capture": "action-e491a131-822d-4be0-9cd1-4e9807ff8c5f.png"
+      }
+    ]
+  },
+  {
+    "file": "horseshoe.png",
+    "sha256": "9fbea39fa94eaa32e020e9c8a402894bb75debe3e640c25ee45ebca8bfa0354a",
+    "originals": [
+      {
+        "session": "64b4be38-f839-4f59-b5e6-61004576bfc9",
+        "capture": "fb7b6a25-01ce-4d41-82f5-63bd6c58b714.png"
+      }
+    ]
+  },
+  {
+    "file": "letter.png",
+    "sha256": "d2b7a8812d3458df6ce22151e4fd1519b23e456cbfd98ffe5570dc9e2b1bf88c",
+    "originals": [
+      {
+        "session": "72a82be5-6752-45c1-af2b-d5de43a4efb8",
+        "capture": "76623e51-ff60-4d9a-b73e-ef8a630d0b67.png"
+      }
+    ]
+  },
+  {
+    "file": "shop.png",
+    "sha256": "fb61e7e6f4729d5dc4e4b5c1a7ef446855ea8a63c4e67449a129047b1143f494",
+    "originals": [
+      {
+        "session": "64b4be38-f839-4f59-b5e6-61004576bfc9",
+        "capture": "ca644d43-2988-41b8-9c68-094c92d5ca38.png"
+      }
+    ]
+  },
+  {
+    "file": "spellbook.png",
+    "sha256": "a9bce9c37f6b57301dc64fbee78c1671a8395b4ed056ef81cff472542b154087",
+    "originals": [
+      {
+        "session": "64b4be38-f839-4f59-b5e6-61004576bfc9",
+        "capture": "f0a4652e-d3ba-4b77-9bfb-0f06890621eb.png"
+      }
+    ]
+  },
+  {
+    "file": "study.png",
+    "sha256": "ec62b1e386cebbfaa37c45fb28c149503cf27875d5c62448943470e7c01a1e4e",
+    "originals": [
+      {
+        "session": "64b4be38-f839-4f59-b5e6-61004576bfc9",
+        "capture": "e55ff733-b59d-4a14-ae91-940046e34257.png"
+      }
+    ]
+  }
+]

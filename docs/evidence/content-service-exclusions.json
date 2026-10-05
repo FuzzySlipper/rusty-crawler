@@ -1,0 +1,923 @@
+{
+  "sourceRows": 525,
+  "recognizedServiceRows": 172,
+  "placedCounters": 136,
+  "placedResidences": 206,
+  "excludedBuildings": [
+    {
+      "id": 11,
+      "kind": "Weapon Shop",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 13,
+      "kind": "Weapon Shop",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 14,
+      "kind": "Weapon Shop",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 25,
+      "kind": "Armor Shop",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 27,
+      "kind": "Armor Shop",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 28,
+      "kind": "Armor Shop",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 39,
+      "kind": "Magic Shop",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 40,
+      "kind": "Magic Shop",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 41,
+      "kind": "Magic Shop",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 51,
+      "kind": "Alchemist",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 52,
+      "kind": "Alchemist",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 53,
+      "kind": "Alchemist",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 61,
+      "kind": "Stables",
+      "reason": "placeholder-service-row"
+    },
+    {
+      "id": 62,
+      "kind": "Stables",
+      "reason": "placeholder-service-row"
+    },
+    {
+      "id": 68,
+      "kind": "Boats",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 71,
+      "kind": "Boats",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 72,
+      "kind": "Boats",
+      "reason": "placeholder-service-row"
+    },
+    {
+      "id": 73,
+      "kind": "Boats",
+      "reason": "placeholder-service-row"
+    },
+    {
+      "id": 86,
+      "kind": "Temple",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 87,
+      "kind": "Temple",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 88,
+      "kind": "Temple",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 99,
+      "kind": "Training",
+      "reason": "placeholder-service-row"
+    },
+    {
+      "id": 100,
+      "kind": "Training",
+      "reason": "placeholder-service-row"
+    },
+    {
+      "id": 101,
+      "kind": "Training",
+      "reason": "placeholder-service-row"
+    },
+    {
+      "id": 121,
+      "kind": "Tavern",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 122,
+      "kind": "Tavern",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 123,
+      "kind": "Tavern",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 124,
+      "kind": "Tavern",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 125,
+      "kind": "Tavern",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 126,
+      "kind": "Tavern",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 127,
+      "kind": "Tavern",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 136,
+      "kind": "Bank",
+      "reason": "placeholder-service-row"
+    },
+    {
+      "id": 137,
+      "kind": "Bank",
+      "reason": "placeholder-service-row"
+    },
+    {
+      "id": 138,
+      "kind": "Bank",
+      "reason": "placeholder-service-row"
+    },
+    {
+      "id": 171,
+      "kind": "Self Guild",
+      "reason": "placeholder-service-row"
+    },
+    {
+      "id": 172,
+      "kind": "Self Guild",
+      "reason": "placeholder-service-row"
+    },
+    {
+      "id": 173,
+      "kind": "Castle Entrance",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 175,
+      "kind": "Castle Entrance",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 177,
+      "kind": "Castle Entrance",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 179,
+      "kind": "Castle Entrance",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 181,
+      "kind": "Castle Entrance",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 183,
+      "kind": "Castle Entrance",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 184,
+      "kind": "Throne",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 187,
+      "kind": "Jail",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 188,
+      "kind": "Seer Good",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 190,
+      "kind": "Seer Evil",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 191,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 192,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 193,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 194,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 195,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 196,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 197,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 198,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 199,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 200,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 201,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 202,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 203,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 204,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 205,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 206,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 207,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 208,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 209,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 210,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 211,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 212,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 213,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 214,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 215,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 216,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 217,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 218,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 219,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 220,
+      "kind": "Castle Dun Ent",
+      "reason": "placeholder-row"
+    },
+    {
+      "id": 221,
+      "kind": "Castle Dun Ent",
+      "reason": "placeholder-row"
+    },
+    {
+      "id": 222,
+      "kind": "Pyramid Ent",
+      "reason": "placeholder-row"
+    },
+    {
+      "id": 223,
+      "kind": "Hive Ent",
+      "reason": "placeholder-row"
+    },
+    {
+      "id": 227,
+      "kind": "House P4",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 228,
+      "kind": "House P5",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 229,
+      "kind": "House P6",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 230,
+      "kind": "House P7",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 231,
+      "kind": "House P8",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 232,
+      "kind": "House P9",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 233,
+      "kind": "House P10",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 234,
+      "kind": "House P11",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 235,
+      "kind": "House P12",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 236,
+      "kind": "House P13",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 237,
+      "kind": "House P14",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 241,
+      "kind": "House M3",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 242,
+      "kind": "House M4",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 243,
+      "kind": "House M5",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 244,
+      "kind": "House M6",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 245,
+      "kind": "House M7",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 246,
+      "kind": "House M8",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 247,
+      "kind": "House M9",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 248,
+      "kind": "House M10",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 249,
+      "kind": "House M11",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 250,
+      "kind": "House M12",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 251,
+      "kind": "House M13",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 252,
+      "kind": "House M14",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 253,
+      "kind": "House M15",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 254,
+      "kind": "House R1",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 255,
+      "kind": "House R2",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 256,
+      "kind": "House R3",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 257,
+      "kind": "House R4",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 258,
+      "kind": "House R5",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 259,
+      "kind": "House R6",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 260,
+      "kind": "House R7",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 261,
+      "kind": "House R8",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 262,
+      "kind": "House R9",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 263,
+      "kind": "House R10",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 264,
+      "kind": "House R11",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 265,
+      "kind": "House R12",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 266,
+      "kind": "House R13",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 267,
+      "kind": "House R14",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 268,
+      "kind": "House R15",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 271,
+      "kind": "H_House P17",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 272,
+      "kind": "H_House P18",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 273,
+      "kind": "H_House P19",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 278,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 281,
+      "kind": "Harmondy Room(Fixed up)",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 282,
+      "kind": "H_House P28",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 287,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 291,
+      "kind": "H_House M16",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 292,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 296,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 297,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 300,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 324,
+      "kind": "E_House M6",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 325,
+      "kind": "E_House M7",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 326,
+      "kind": "E_House M8",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 354,
+      "kind": "Wa_House P3",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 355,
+      "kind": "Wa_House P4",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 356,
+      "kind": "Wa_House P5",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 360,
+      "kind": "Wa_House M4",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 361,
+      "kind": "Wa_House M5",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 362,
+      "kind": "Wa_House M6",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 363,
+      "kind": "Wa_House M7",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 365,
+      "kind": "Wa_House R2",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 366,
+      "kind": "Wa_House R3",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 372,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 373,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 374,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 375,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 380,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 381,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 386,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 390,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 391,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 395,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 399,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 403,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 406,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 407,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 409,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 440,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 445,
+      "kind": "Dungeon Ent",
+      "reason": "travel-marker"
+    },
+    {
+      "id": 446,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 447,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 448,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 449,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 450,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 451,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 452,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 453,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 454,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 455,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 456,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 457,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 458,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 459,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 460,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 461,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 462,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 463,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 464,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 473,
+      "kind": "H_House R25(not used)",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 521,
+      "kind": "Thomas Grey",
+      "reason": "no-signing-face"
+    },
+    {
+      "id": 523,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 524,
+      "kind": "",
+      "reason": "unused-row"
+    },
+    {
+      "id": 525,
+      "kind": "",
+      "reason": "unused-row"
+    }
+  ]
+}

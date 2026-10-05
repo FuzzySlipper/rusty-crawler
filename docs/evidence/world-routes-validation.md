@@ -96,7 +96,11 @@ one real door ahead of trim and retains a raised door's sill height. The accepte
 retry starts near that derived door; its position was not overridden in staging.
 Session `7759efff-7a04-484f-91ed-ddb625d44b62` stopped and released its slot.
 
-![Arena fare at the Harmondale stable](world-routes/arena-fares.png)
+The counter screenshot shows the top of its bounded fare list, not the scrolled
+Arena offer. The [original DOM click record](world-routes/arena-fare-action.json)
+preserves the seventh fare selection; the arrival frame shows its actual result.
+
+![Fare counter at the Harmondale stable](world-routes/arena-fares.png)
 ![Arena arrival](world-routes/arena-arrival.png)
 ![Arena exit to Harmondale](world-routes/arena-return.png)
 
