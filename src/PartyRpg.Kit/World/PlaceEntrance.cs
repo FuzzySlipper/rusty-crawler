@@ -19,7 +19,7 @@ namespace PartyRpg.Kit.World;
 /// reach is the party treading on it. Content states which form a reach is; the kit takes each as stated.
 /// </para>
 /// <para>
-/// The reach is a ball in the place's own coordinates, and it is content's to state: only content knows
+/// The reach is a ball or a horizontal region boundary, and it is content's to state: only content knows
 /// what its trigger geometry is. The kit never derives a reach from a transition's destination, because a
 /// destination says where the party arrives and nothing about where it left from — a party standing at
 /// the arrival point of the road back is not standing at the entrance it walks into.

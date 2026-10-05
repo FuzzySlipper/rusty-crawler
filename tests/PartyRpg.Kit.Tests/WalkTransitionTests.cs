@@ -53,6 +53,24 @@ public sealed class WalkTransitionTests
     }
 
     [Fact]
+    public void A_refused_boundary_keeps_the_party_inside_and_can_be_retried_after_eligibility_changes()
+    {
+        var graph = PlaceGraphLoader.Load(Catalog());
+        var party = Party();
+        RecordingRule rule = new() { Refuse = TransitionKind.Walking };
+        var boundary = new PlaceEntrance(graph.Transitions.Single(link => link.Source == "edge"), new PlaceBoundary(true, 150, true), "border");
+        using var world = new SessionWorld(graph, party, new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()), rule,
+            mover: RecordingMover.Scripted(party, [(200, 0, 0), (200, 0, 0)]), entrances: [boundary]);
+        world.Step(MovementIntent.Still, 1);
+        Assert.False(world.LastCrossing!.Arrived);
+        Assert.Equal(Start, party.PlacePose);
+        rule.Refuse = null;
+        world.Step(MovementIntent.Still, 1);
+        Assert.Equal(new PlaceId("2"), world.Place);
+        Assert.Equal(2, rule.Asked.Count);
+    }
+
+    [Fact]
     public void Walking_into_an_entrance_takes_its_transition_through_the_one_path_and_arrives_properly()
     {
         RecordingRule rule = new();

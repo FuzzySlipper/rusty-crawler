@@ -997,6 +997,13 @@ public sealed class SessionWorld : IDisposable, IGameTimeObserver, IInteractionW
             }
 
             Report(entrance, result.Refusal!);
+            if (entrance.Boundary is not null)
+            {
+                // A refused region edge must leave the party inside the region, where the next
+                // ordinary outward step can retry after equipment or provisions change.
+                Party.Enter(Party.Place, before);
+                return;
+            }
         }
     }
 
