@@ -147,6 +147,9 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
     /// <summary>The word a part of the day reads as when the clock says it is dark.</summary>
     internal const string NightWord = "night";
 
+    internal MightAndMagic7GroupNews News { get; private init; } = MightAndMagic7GroupNews.Read(null);
+    private Func<PlaceId, PlacementDefinition, bool> CanHearNews { get; init; } = (_, _) => false;
+
     private readonly Dictionary<string, PersonFacts> _people;
     private readonly Dictionary<(string Place, string Placement), IReadOnlyList<string>> _present;
     private readonly MightAndMagic7Services? _services;
@@ -256,7 +259,8 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
         Func<MightAndMagic7Fixtures?>? events = null,
         Func<PartyEntity?>? party = null,
         Func<PlaceId, PlacementDefinition, bool>? stands = null,
-        Func<PartyResourceLedger?>? accounts = null)
+        Func<PartyResourceLedger?>? accounts = null,
+        Func<PlaceId, PlacementDefinition, bool>? canHearNews = null)
     {
         if (catalog is null) return null;
         List<ContentValidationIssue> issues = [];
@@ -470,6 +474,8 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
 
         return new MightAndMagic7Conversation(people, present, services, promotions, quests, journal, events, party, notes, accounts)
         {
+            News = MightAndMagic7GroupNews.Read(catalog),
+            CanHearNews = canHearNews ?? ((_, _) => false),
             Table = table,
             Greetings = greetings,
             StartingItems = starting.ToDictionary(entry => entry.Key, entry => (IReadOnlyList<int>)entry.Value, StringComparer.Ordinal),
@@ -484,7 +490,14 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
         bool placed = string.Equals(kind, PersonPlacementKind, StringComparison.Ordinal);
         bool house = string.Equals(kind, ServicePlacementKind, StringComparison.Ordinal)
             || string.Equals(kind, ResidencePlacementKind, StringComparison.Ordinal);
-        if (!placed && !house) return null;
+        if (!placed && !house)
+        {
+            if (kind != "actor" || !Stands(request.Place, request.Placement) || !CanHearNews(request.Place, request.Placement)
+                || GroupNews(request.Placement, _party()) is not { Length: > 0 }) return null;
+            string name = request.Placement.Source.GetString("name");
+            return new ConversationSubject(request.Placement.Content.Id,
+                [new ConversationPerson(request.Placement.Content.Id, name.Length > 0 ? name : "A local", string.Empty)]);
+        }
 
         // Hidden or defeated people cannot greet the party. The composed presence reading uses the same
         // world and health owners as population and combat, so a body cannot advance a talk objective.
@@ -549,6 +562,9 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
         return new ConversationSubject(request.Placement.Content.Id, people);
     }
 
+    private string GroupNews(PlacementDefinition placement, PartyEntity? party) =>
+        placement.Source.GetInt32("group") is { } group and >= 0 ? News.Text(party?.Records, (uint)group) : string.Empty;
+
     /// <summary>The entrance's hours, shared with its counter or stated by a household placement.</summary>
     internal OpeningHours? HouseHours(ConversationTargetRequest request)
     {
@@ -564,6 +580,8 @@ internal sealed class MightAndMagic7Conversation : IConversationRule, IFollowerC
     /// <inheritdoc />
     public ConversationAnswer Greeting(ConversationContext context)
     {
+        if (context.Placement?.Content.Kind == "actor")
+            return new ConversationAnswer(GroupNews(context.Placement, context.Party), records: []);
         PersonFacts? person = Facts(context.Speaker);
         if (person is null)
         {

@@ -1,0 +1,398 @@
+{
+  "source": "operator-supplied MM7 English Update 1.1, GOG build 1207658916",
+  "containerFingerprint": "8633b4033a5a7353",
+  "groupRows": 51,
+  "newsRows": 51,
+  "instructionCount": 48,
+  "documentsSha256": {
+    "npc-groups.json": "ada3d4c1b2a649b8c346616db663eb0a8772ff211aa3e7264df3cc97f3acaa1a",
+    "npc-news.json": "b4c95382605236a39e0c57eb0eeedbae28699d9b153a9411f4e6eb18e3e150eb",
+    "global-events.json": "5d2a03a5a36eb403b3d71918fb94a0a1a8b919ea2f2510764d69cbd1d02fcbab"
+  },
+  "steps": [
+    {
+      "document": "global-events.json",
+      "event": "3",
+      "step": 12,
+      "op": "set-npc-group-news",
+      "newsGroup": 1,
+      "news": 5
+    },
+    {
+      "document": "global-events.json",
+      "event": "30",
+      "step": 13,
+      "op": "set-npc-group-news",
+      "newsGroup": 2,
+      "news": 6
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 9,
+      "op": "set-npc-group-news",
+      "newsGroup": 10,
+      "news": 33
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 10,
+      "op": "set-npc-group-news",
+      "newsGroup": 11,
+      "news": 33
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 11,
+      "op": "set-npc-group-news",
+      "newsGroup": 12,
+      "news": 33
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 12,
+      "op": "set-npc-group-news",
+      "newsGroup": 13,
+      "news": 33
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 13,
+      "op": "set-npc-group-news",
+      "newsGroup": 14,
+      "news": 33
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 14,
+      "op": "set-npc-group-news",
+      "newsGroup": 15,
+      "news": 33
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 15,
+      "op": "set-npc-group-news",
+      "newsGroup": 16,
+      "news": 33
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 16,
+      "op": "set-npc-group-news",
+      "newsGroup": 17,
+      "news": 33
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 17,
+      "op": "set-npc-group-news",
+      "newsGroup": 18,
+      "news": 35
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 18,
+      "op": "set-npc-group-news",
+      "newsGroup": 19,
+      "news": 35
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 19,
+      "op": "set-npc-group-news",
+      "newsGroup": 20,
+      "news": 35
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 20,
+      "op": "set-npc-group-news",
+      "newsGroup": 21,
+      "news": 35
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 21,
+      "op": "set-npc-group-news",
+      "newsGroup": 22,
+      "news": 35
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 22,
+      "op": "set-npc-group-news",
+      "newsGroup": 23,
+      "news": 33
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 23,
+      "op": "set-npc-group-news",
+      "newsGroup": 24,
+      "news": 33
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 24,
+      "op": "set-npc-group-news",
+      "newsGroup": 25,
+      "news": 33
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 25,
+      "op": "set-npc-group-news",
+      "newsGroup": 26,
+      "news": 33
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 26,
+      "op": "set-npc-group-news",
+      "newsGroup": 27,
+      "news": 33
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 27,
+      "op": "set-npc-group-news",
+      "newsGroup": 28,
+      "news": 33
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 28,
+      "op": "set-npc-group-news",
+      "newsGroup": 29,
+      "news": 33
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 29,
+      "op": "set-npc-group-news",
+      "newsGroup": 30,
+      "news": 33
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 30,
+      "op": "set-npc-group-news",
+      "newsGroup": 31,
+      "news": 33
+    },
+    {
+      "document": "global-events.json",
+      "event": "170",
+      "step": 31,
+      "op": "set-npc-group-news",
+      "newsGroup": 32,
+      "news": 33
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 9,
+      "op": "set-npc-group-news",
+      "newsGroup": 10,
+      "news": 34
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 10,
+      "op": "set-npc-group-news",
+      "newsGroup": 11,
+      "news": 34
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 11,
+      "op": "set-npc-group-news",
+      "newsGroup": 12,
+      "news": 34
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 12,
+      "op": "set-npc-group-news",
+      "newsGroup": 13,
+      "news": 34
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 13,
+      "op": "set-npc-group-news",
+      "newsGroup": 14,
+      "news": 34
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 14,
+      "op": "set-npc-group-news",
+      "newsGroup": 15,
+      "news": 34
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 15,
+      "op": "set-npc-group-news",
+      "newsGroup": 16,
+      "news": 36
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 16,
+      "op": "set-npc-group-news",
+      "newsGroup": 17,
+      "news": 36
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 17,
+      "op": "set-npc-group-news",
+      "newsGroup": 18,
+      "news": 34
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 18,
+      "op": "set-npc-group-news",
+      "newsGroup": 19,
+      "news": 34
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 19,
+      "op": "set-npc-group-news",
+      "newsGroup": 20,
+      "news": 34
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 20,
+      "op": "set-npc-group-news",
+      "newsGroup": 21,
+      "news": 34
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 21,
+      "op": "set-npc-group-news",
+      "newsGroup": 22,
+      "news": 34
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 22,
+      "op": "set-npc-group-news",
+      "newsGroup": 23,
+      "news": 36
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 23,
+      "op": "set-npc-group-news",
+      "newsGroup": 24,
+      "news": 36
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 24,
+      "op": "set-npc-group-news",
+      "newsGroup": 25,
+      "news": 36
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 25,
+      "op": "set-npc-group-news",
+      "newsGroup": 26,
+      "news": 34
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 26,
+      "op": "set-npc-group-news",
+      "newsGroup": 27,
+      "news": 34
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 27,
+      "op": "set-npc-group-news",
+      "newsGroup": 28,
+      "news": 34
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 28,
+      "op": "set-npc-group-news",
+      "newsGroup": 29,
+      "news": 34
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 29,
+      "op": "set-npc-group-news",
+      "newsGroup": 30,
+      "news": 34
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 30,
+      "op": "set-npc-group-news",
+      "newsGroup": 31,
+      "news": 34
+    },
+    {
+      "document": "global-events.json",
+      "event": "172",
+      "step": 31,
+      "op": "set-npc-group-news",
+      "newsGroup": 32,
+      "news": 34
+    }
+  ]
+}

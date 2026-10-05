@@ -242,6 +242,7 @@ internal sealed class MightAndMagic7Fixtures
     private readonly Func<PlaceId, PlacePopulation?> _population;
     private readonly Func<string, IReadOnlyList<int>> _starting;
     private readonly MightAndMagic7Followers? _followers;
+    private readonly MightAndMagic7GroupNews _news;
 
     /// <summary>Creates this game's fixtures over the map events content carries.</summary>
     /// <param name="events">The map events and the discovery table.</param>
@@ -292,8 +293,10 @@ internal sealed class MightAndMagic7Fixtures
         Func<string, IReadOnlyList<int>>? starting = null,
         MightAndMagic7Followers? followers = null,
         MightAndMagic7Switches? switches = null,
-        Func<PlaceId, IReadOnlyDictionary<string, long>?>? kept = null)
+        Func<PlaceId, IReadOnlyDictionary<string, long>?>? kept = null,
+        MightAndMagic7GroupNews? news = null)
     {
+        _news = news ?? MightAndMagic7GroupNews.Read(null);
         _switches = switches ?? MightAndMagic7Switches.None;
         _kept = kept ?? (_ => null);
         _starting = starting ?? (_ => []);
@@ -865,6 +868,7 @@ internal sealed class MightAndMagic7Fixtures
     /// <param name="name">The record's name.</param>
     /// <param name="count">How many times it is on record.</param>
     internal string? JudgeRecord(string name, int count) =>
+        _news.JudgeRecord(name, count) ??
         MightAndMagic7TopicSlots.Judge(name, count, person => _people(person) is not null) ??
         MightAndMagic7PersonState.Judge(name, count, person => _people(person) is not null, _greetings, _starting);
 
@@ -1110,7 +1114,8 @@ internal sealed class MightAndMagic7Fixtures
                         if (Greet(mapEvent, current) is { } refusedGreeting) return refusedGreeting;
                         break;
                     case "set-npc-group-news":
-                        return NotInterpreted(_target, mapEvent, current, "a 'set-npc-group-news' instruction awaiting imported group/news arguments and their conversation reader");
+                        if (SetGroupNews(mapEvent, current) is { } refusedNews) return refusedNews;
+                        break;
                     case "npc-set-item":
                         if (Hand(mapEvent, current) is { } refusedItem) return refusedItem;
                         break;
@@ -1260,6 +1265,15 @@ internal sealed class MightAndMagic7Fixtures
             InteractionOutcome settled = Settle($"The party speaks with {_target.Name}.");
             if (_travels is not null || _opens) return settled;
             return settled with { KeptOut = true };
+        }
+
+        private Refusal? SetGroupNews(MapEvent mapEvent, MapEventStep step)
+        {
+            if (Party is not { } party) return NoParty(mapEvent, step);
+            if (step.NewsGroup is not { } group || step.News is not { } news || !_rules._news.Contains(group, news))
+                return NotInterpreted(_target, mapEvent, step, "a 'set-npc-group-news' instruction with missing or unknown group/news arguments");
+            _effects.Add(() => MightAndMagic7GroupNews.Change(party.Records, group, news));
+            return null;
         }
 
         /// <summary>Collects a person's move to another house, which the party's records keep and the conversation reads.</summary>

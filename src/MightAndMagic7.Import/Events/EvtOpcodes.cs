@@ -142,6 +142,9 @@ public static class EvtOpcodes
     /// <summary>Changes the greeting row a person greets the party with (OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:541-545</c>).</summary>
     public const byte SetNpcGreeting = 50;
 
+    /// <summary>Changes the news row of an actor group.</summary>
+    public const byte SetNpcGroupNews = 47;
+
     /// <summary>Jumps when enough of a set of creatures are dead.</summary>
     public const byte IsActorKilled = 51;
 
@@ -194,7 +197,7 @@ public static class EvtOpcodes
         [CanShowDialogItemCompare] = "can-show-dialog-item-compare",
         [EndCanShowDialogItem] = "end-can-show-dialog-item",
         [SetCanShowDialogItem] = "set-can-show-dialog-item",
-        [47] = "set-npc-group-news",
+        [SetNpcGroupNews] = "set-npc-group-news",
         [48] = "set-actor-group",
         [49] = "npc-set-item",
         [SetNpcGreeting] = "set-npc-greeting",

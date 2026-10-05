@@ -206,3 +206,10 @@ mutable face counts; no runtime code reads the source formats or re-triangulates
 ## Message scrolls
 
 `MessageScrollTable` reads item-keyed prose from the declared rules archive and retains empty rows. The format is documented by OpenEnroth `src/Engine/Tables/MessageScrollTable.cpp`; the reader uses the existing quoted tabular parser and rejects duplicate item identities.
+
+Actor group news is imported from `npcgroup.txt` and `npcnews.txt` into `person-group`
+and `person-news` definitions. Opcode 47 preserves both unsigned operands as
+`newsGroup` and `news`, including zero (silence). These are actor groups, not the
+NPC table's unrelated descriptive group columns. Source semantics: `OpenEnroth/src/Engine/Tables/NPCTable.cpp:96-112`,
+`OpenEnroth/src/Engine/Evt/EvtInstruction.cpp:1149-1152` and
+`OpenEnroth/src/Engine/Graphics/Viewport.cpp:186-200`.

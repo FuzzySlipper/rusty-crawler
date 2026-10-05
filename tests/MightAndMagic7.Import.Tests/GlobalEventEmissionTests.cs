@@ -42,6 +42,7 @@ public sealed class GlobalEventEmissionTests
                     new PlaceEventStep(5, "show-message") { TextId = 2, Text = "I have work for you, if you are willing." },
                     new PlaceEventStep(6, "set") { Variable = "quest-bit", Value = 98 },
                     new PlaceEventStep(7, "set-npc-greeting") { Person = 1, Greeting = 2 },
+                    new PlaceEventStep(8, "set-npc-group-news") { NewsGroup = 1, News = 2 },
                 ],
                 first.Steps);
             Assert.False(summary.Events[1].ChecksOffer);
@@ -109,6 +110,7 @@ public sealed class GlobalEventEmissionTests
         .. Record(1, 5, EvtOpcodes.ShowMessage, I32(2)),
         .. Record(1, 6, EvtOpcodes.Set, [.. U16(0x10), .. I32(98)]),
         .. Record(1, 7, EvtOpcodes.SetNpcGreeting, [.. I32(1), .. I32(2)]),
+        .. Record(1, 8, EvtOpcodes.SetNpcGroupNews, [.. I32(1), .. I32(2)]),
         .. Record(50, 0, EvtOpcodes.SetNpcTopic, [.. I32(3), 0, .. I32(60)]),
         .. Record(60, 0, EvtOpcodes.Exit, 0),
         .. Record(70, 0, EvtOpcodes.Exit, 0),

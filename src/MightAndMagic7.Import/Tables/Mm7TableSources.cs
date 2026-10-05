@@ -82,10 +82,18 @@ public static class Mm7TableSources
     /// <summary>Item-keyed message scroll text.</summary>
     public static LodSource MessageScrolls { get; } = new("message-scrolls", RulesArchive, "scroll.txt");
 
+    /// <summary>Actor group to news-row assignments.</summary>
+    public static LodSource NpcGroups { get; } = new("npc-groups", RulesArchive, "npcgroup.txt");
+
+    /// <summary>Localized news spoken by unnamed actors.</summary>
+    public static LodSource NpcNews { get; } = new("npc-news", RulesArchive, "npcnews.txt");
+
     /// <summary>Every declared table source.</summary>
     public static IReadOnlyList<LodSource> All { get; } =
     [
         MessageScrolls,
+        NpcGroups,
+        NpcNews,
         MapStats,
         Services,
         Monsters,

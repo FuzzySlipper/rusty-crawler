@@ -897,6 +897,16 @@ internal static partial class PackWriter
     /// Writes the greeting table: every row by its number, with what is said on a first meeting and on a later one,
     /// which is what a map event that changes a person's greeting names.
     /// </summary>
+    private static int WriteNpcGroups(string directory, Mm7Tables tables) =>
+        WriteDocument(directory, "npc-groups.json", "npc-groups", "person-group",
+            tables.News.Groups.Select(row => (row.Key.ToString(CultureInfo.InvariantCulture),
+                (Action<Utf8JsonWriter>)(writer => writer.WriteNumber("news", row.Value)))).ToList());
+
+    private static int WriteNpcNews(string directory, Mm7Tables tables) =>
+        WriteDocument(directory, "npc-news.json", "npc-news", "person-news",
+            tables.News.Texts.Select(row => (row.Key.ToString(CultureInfo.InvariantCulture),
+                (Action<Utf8JsonWriter>)(writer => writer.WriteString("text", row.Value)))).ToList());
+
     private static int WriteGreetings(string packDirectory, Mm7Tables tables)
     {
         List<(string Id, Action<Utf8JsonWriter> Write)> entries = [];

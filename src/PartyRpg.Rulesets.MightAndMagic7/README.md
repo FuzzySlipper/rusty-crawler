@@ -829,8 +829,8 @@ states none is offered; a comparison of a variable this game does not interpret 
 A regular run passes over the offer steps, as the donor's does. A run that meets a step this game does not
 interpret settles nothing and the person still says what the run had said (the topic table's own text when it had
 said nothing), with the refusal as the residue. Over the operator's install, a fresh party choosing each of the 365
-topic-raised events once has 364 run — 3 of them taking the party along a world-issued link: the crossing to
-Harmondale (68) and the temples' (69, 70) — and one stops at `set-npc-group-news`, which is refused by name; `bounties` and `arena-wins-knight` now compare
+topic-raised events once has 365 run — 3 of them taking the party along a world-issued link: the crossing to
+Harmondale (68) and the temples' (69, 70) — and group-news changes settle through the party records; `bounties` and `arena-wins-knight` now compare
 the canonical counted records; the ruleset suite counts it. **What is ours**: the donor offers at most four scripted topics at once (`NPCTopics.cpp:603`), this build
 every one its check allows; a topic said once is withheld for the rest of the conversation, as every topic is.
 Fidelity per system — what matches
@@ -1155,3 +1155,12 @@ The hidden Club skill is always novice, as initialized by OpenEnroth `src/Engine
 Message scrolls expose imported `readingText` in the ordinary inventory inspector. Selecting the item reads it without consumption; empty source rows remain empty. Reserved item rows, unused skill rows and the documented limits of fixed artifact powers are retained as explicit content distinctions.
 
 The ordinary inventory also uses Red Apples and Horseshoes: one provision to the shared larder or two skill points to the selected member, then consumption. The donor behavior is OpenEnroth `src/Engine/Objects/Character.cpp:3532-3549`. `PartyFood` and `PartyProgression.Gift` remain the only writers; an unavailable owner, incapacity, broken item, retained quest custody or full destination refuses without consuming.
+
+`MightAndMagic7GroupNews` reads imported actor-group news assignments and localized
+text. The existing conversation and interaction owners offer that text for living,
+visible, friendly unnamed actors; named NPCs keep their individual greetings.
+`set-npc-group-news` judges both content identities before settlement, then replaces
+the group's `person-group-news:<group>:<news>` record. Row zero silences the group.
+Those records use the current party save schema and are validated against the loaded
+content on resume. A later refused event step discards the pending news and follower
+changes along with the rest of the existing fixture settlement.

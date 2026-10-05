@@ -93,6 +93,17 @@ public readonly record struct EvtInstruction(ushort EventId, byte Step, byte Opc
         return true;
     }
 
+    /// <summary>Reads the group and news row (two unsigned 32-bit operands).</summary>
+    /// <remarks>OpenEnroth src/Engine/Evt/EvtInstruction.cpp:1149-1152.</remarks>
+    public bool TryReadNpcGroupNews(out uint group, out uint news)
+    {
+        group = news = 0;
+        if (Opcode != EvtOpcodes.SetNpcGroupNews || Operands.Length < 8) return false;
+        group = BinaryPrimitives.ReadUInt32LittleEndian(Operands.Span);
+        news = BinaryPrimitives.ReadUInt32LittleEndian(Operands.Span[4..]);
+        return true;
+    }
+
     /// <summary>Reads which person's greeting a greeting step changes and to which row, when this instruction is one.</summary>
     /// <remarks>A 32-bit person id and a 32-bit greeting row (OpenEnroth <c>src/Engine/Evt/EvtInterpreter.cpp:541-545</c>).</remarks>
     /// <param name="person">The person's id.</param>

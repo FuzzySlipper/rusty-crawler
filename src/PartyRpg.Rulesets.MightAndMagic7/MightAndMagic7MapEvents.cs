@@ -100,6 +100,9 @@ internal sealed record MapEventStep(
     /// <summary>The greeting table row a greeting step makes the person greet the party with.</summary>
     internal int Greeting { get; init; }
 
+    internal uint? NewsGroup { get; init; }
+    internal uint? News { get; init; }
+
     /// <summary>Whether a move stays in the place that issued it.</summary>
     internal bool WithinPlace { get; init; }
 
@@ -529,6 +532,8 @@ internal sealed class MightAndMagic7MapEvents
                 Position = (Whole(element, "x"), Whole(element, "y"), Whole(element, "z")),
                 House = Whole(element, "house"),
                 Greeting = Whole(element, "greeting"),
+                NewsGroup = element.TryGetProperty("newsGroup", out var groupNews) && groupNews.TryGetUInt32(out uint ng) ? ng : null,
+                News = element.TryGetProperty("news", out var news) && news.TryGetUInt32(out uint nr) ? nr : null,
                 Yaw = ContentEntry.ReadDouble(element, "yaw") is { } yaw ? (int)yaw : -1,
                 Summons = element.TryGetProperty("summons", out JsonElement summons) && summons.ValueKind == JsonValueKind.Object ? summons.Clone() : null,
             });

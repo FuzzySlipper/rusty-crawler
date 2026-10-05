@@ -60,7 +60,8 @@ internal static class SyntheticInstallation
         bool emptyEncounterSlots = false,
         bool hiddenCreature = false,
         bool allDayService = false,
-        bool withSecretDoors = false)
+        bool withSecretDoors = false,
+        byte[]? globalProgram = null)
     {
         string root = Path.Combine(Path.GetTempPath(), $"mm7-synthetic-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(root, "DATA"));
@@ -99,6 +100,8 @@ internal static class SyntheticInstallation
             (104, 104, $"D{ServiceMap(104) - 13:D2}.blv"),
             (100, 100, $"D{ServiceMap(100) - 13:D2}.blv"),
         ];
+        if (globalProgram is not null) events.Add(("GLOBAL.EVT", LodFixture.Compressed(globalProgram)));
+
         if (withServices)
         {
             foreach (IGrouping<string, (int Building, ushort Event, string MapFile)> byMap in serviceRows.GroupBy(row => row.MapFile))
@@ -129,6 +132,8 @@ internal static class SyntheticInstallation
                     LodFixture.TextTable("npcdata.txt", Npcs()),
                     LodFixture.TextTable("npcprof.txt", "professions\nfees\nwords\nid\tname\tprice\taction\tbenefit\tjoin\tdismiss\n1\tGuide\t100\tGuide\tTravel advice\tI will join.\tFarewell.\n"),
                     LodFixture.TextTable("npcgreet.txt", Greetings()),
+                    LodFixture.TextTable("npcgroup.txt", "Group\tNews\n0\t0\n1\t1\n"),
+                    LodFixture.TextTable("npcnews.txt", "Index\tText\n0\t\n1\tOld news\n2\tNew news\n"),
                     LodFixture.TextTable("npctopic.txt", Topics()),
                     LodFixture.TextTable("npctext.txt", TopicTexts()),
                     LodFixture.TextTable("AUTONOTE.TXT", Discoveries()),

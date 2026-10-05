@@ -203,7 +203,11 @@ internal sealed class MightAndMagic7Session : IGameSession
             () => events,
             () => owners.Party,
             PersonStands,
-            () => owners.Accounts);
+            () => owners.Accounts,
+            (place, placement) => owners.World is { } live && live.Population.Place == place
+                && live.Population.Entities.FirstOrDefault(entity => entity.Content == placement.Content) is { } entity
+                && owners.Combat is { } fight && fight.Find(CombatantId.Of(entity.Id)) is { } actor
+                && (actor.Side == CombatSide.Ally || (actor.Side == CombatSide.Neutral && !fight.IsHostile(actor))));
 
         bool PersonStands(PlaceId place, PlacementDefinition placement)
         {
@@ -308,7 +312,8 @@ internal sealed class MightAndMagic7Session : IGameSession
             person => conversation?.StartingOf(person) ?? [],
             conversation?.Followers,
             switches,
-            place => owners.World?.Interactions.ValuesOf(place));
+            place => owners.World?.Interactions.ValuesOf(place),
+            conversation?.News);
         events = fixtures;
 
         // This game's journal policy is read once, here, over the loot reading that knows which item rows the

@@ -468,6 +468,8 @@ internal static partial class PackWriter
             WriteOptionalNumber(writer, "raises", step.Raises);
             WriteOptionalNumber(writer, "house", step.House);
             WriteOptionalNumber(writer, "greeting", step.Greeting);
+            if (step.NewsGroup is { } newsGroup) writer.WriteNumber("newsGroup", newsGroup);
+            if (step.News is { } news) writer.WriteNumber("news", news);
             WriteOptionalNumber(writer, "group", step.Group);
             if (step.Name is { } name) writer.WriteString("name", name);
             WriteOptionalNumber(writer, "light", step.Light);

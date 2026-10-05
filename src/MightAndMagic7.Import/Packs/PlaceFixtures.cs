@@ -141,6 +141,12 @@ public sealed record PlaceEventStep(int Step, string Op)
     /// <summary>The greeting table row a greeting step makes the person greet the party with.</summary>
     public int? Greeting { get; init; }
 
+    /// <summary>The actual actor group and news row named by a group-news instruction.</summary>
+    public uint? NewsGroup { get; init; }
+
+    /// <summary>The news table row; zero silences the group.</summary>
+    public uint? News { get; init; }
+
     /// <summary>Where a move within the place sets the party down along the place's first axis.</summary>
     public int? X { get; init; }
 
@@ -734,6 +740,7 @@ public static class PlaceFixtureEmitter
 
         if (instruction.TryReadMoveNpc(out int moved, out int house)) return step with { Person = moved, House = house };
 
+        if (instruction.TryReadNpcGroupNews(out uint newsGroup, out uint news)) return step with { NewsGroup = newsGroup, News = news };
         if (instruction.TryReadNpcGreeting(out int greeted, out int greeting)) return step with { Person = greeted, Greeting = greeting };
 
         if (instruction.TryReadNpcSetItem(out int holder, out int held, out bool given)) return step with { Person = holder, Item = held, On = given };

@@ -20,7 +20,8 @@ public sealed class Mm7Tables
         PersonTable people,
         DiscoveryTable discoveries,
         HistoryTable history,
-        MessageScrollTable messageScrolls)
+        MessageScrollTable messageScrolls,
+        NpcNewsTable news)
     {
         Classes = classes;
         Skills = skills;
@@ -37,6 +38,7 @@ public sealed class Mm7Tables
         Discoveries = discoveries;
         History = history;
         MessageScrolls = messageScrolls;
+        News = news;
     }
 
     /// <summary>Classes and ranks.</summary>
@@ -84,6 +86,9 @@ public sealed class Mm7Tables
     /// <summary>Message scroll text keyed by item.</summary>
     public MessageScrollTable MessageScrolls { get; }
 
+    /// <summary>Actor group assignments and localized news.</summary>
+    public NpcNewsTable News { get; }
+
     /// <summary>Reads every typed table from an installation.</summary>
     public static Mm7Tables Read(LodInstall install)
     {
@@ -107,6 +112,7 @@ public sealed class Mm7Tables
             PersonTable.Read(install),
             DiscoveryTable.Read(install),
             HistoryTable.Read(install),
-            MessageScrollTable.Read(install));
+            MessageScrollTable.Read(install),
+            NpcNewsTable.Read(install));
     }
 }
