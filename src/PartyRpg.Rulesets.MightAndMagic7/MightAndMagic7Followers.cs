@@ -8,13 +8,13 @@ using PartyRpg.Kit.Combat;
 
 namespace PartyRpg.Rulesets.MightAndMagic7;
 
-/// <summary>Immutable facts from the same person catalog that conversation reads.</summary>
 /// <summary>What joined companions add to one reading, and who adds it, in the people's own names.</summary>
 internal readonly record struct FollowerContribution(int Amount, string Sources)
 {
     internal static FollowerContribution None => default;
 }
 
+/// <summary>Immutable facts from the same person catalog that conversation reads.</summary>
 internal sealed record MightAndMagic7FollowerFacts(string Name, string Portrait, int Profession, bool CanHire, int? HirePrice, string Join, string Dismiss);
 
 /// <summary>
