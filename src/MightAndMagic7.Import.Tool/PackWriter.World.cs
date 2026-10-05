@@ -295,6 +295,7 @@ internal static partial class PackWriter
     private static int WritePlaces(
         string packDirectory,
         Mm7Tables tables,
+        PlaceGraph graph,
         IReadOnlyDictionary<int, DecodedMap> maps,
         PlaceContainerSummary containers,
         PlaceServiceSummary services,
@@ -432,6 +433,11 @@ internal static partial class PackWriter
                         writer.WriteNumber("pitch", 0);
                         writer.WriteEndObject();
                     }
+
+                    // Some interiors have no start decoration: their callers supply explicit arrivals.
+                    // Name those real incoming poses instead of inventing a Party Start at the origin.
+                    // Travel links retain their original arrival semantics and every point names its source.
+                    if (decoded.EntryPoints.Count == 0) WriteIncomingArrivals(writer, map.Id, graph.Links);
 
                     writer.WriteEndArray();
                     WritePlacements(
@@ -981,6 +987,29 @@ internal static partial class PackWriter
     private readonly record struct PlacementPoint(double X, double Y, double Z)
     {
         public static implicit operator PlacementPoint(MapPoint point) => new(point.X, point.Y, point.Z);
+    }
+
+    /// <summary>Names explicit incoming poses for a decoded place without start decorations.</summary>
+    internal static void WriteIncomingArrivals(Utf8JsonWriter writer, int place, IReadOnlyList<PlaceLink> links)
+    {
+        for (int index = 0; index < links.Count; index++)
+        {
+            PlaceLink link = links[index];
+            if (link.DestinationMapId != place || link is { X: 0, Y: 0, Z: 0 }) continue;
+            writer.WriteStartObject();
+            writer.WriteString("id", $"arrival-{LinkId(index)}");
+            writer.WriteNumber("x", link.X);
+            writer.WriteNumber("y", link.Y);
+            writer.WriteNumber("z", link.Z);
+            writer.WriteNumber("yaw", link.Yaw);
+            writer.WriteNumber("pitch", link.Pitch);
+            writer.WriteString("source", "incoming-map-move");
+            writer.WriteString("travelLink", LinkId(index));
+            writer.WriteString("program", link.SourceEvtName);
+            writer.WriteNumber("eventId", link.EventId);
+            writer.WriteNumber("step", link.Step);
+            writer.WriteEndObject();
+        }
     }
 
     private static int WritePlaceGraph(

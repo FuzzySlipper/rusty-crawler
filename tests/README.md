@@ -3,6 +3,13 @@
 The suites, mirroring the product graph, and the one library they share. Each suite references the project it
 proves and `PartyRpg.Testing`; no suite references another suite, and no helper is copied between them.
 
+`WorldContentInventoryTests` checks all imported places through the canonical graph, population and
+interaction readers. Set `CRAWLER_IMPORTED_CONTENT` to a freshly generated content root and optionally
+`CRAWLER_WORLD_REPORT` to an output JSON path to retain the inventory. Its reachability calculation is an
+optimistic upper bound: it admits every world-issued arrival and ignores event conditions, while excluding
+events the importer identifies as unreachable. A passing structural test does not assert that all places
+are reachable or that a player can satisfy every gate; the report states that separately.
+
 | Directory | Project | Answers |
 | --- | --- | --- |
 | `PartyRpg.Testing/` | shared support (a library, not a suite) | One definition of each helper: the repository root and the walk every scan takes, the source reader the laws are written in, admitted updates and input events, the clock, travel rules, a recording mover, in-memory content and packs, the engine fakes, the bare session snapshot a projection case starts from, and the projection reader. |

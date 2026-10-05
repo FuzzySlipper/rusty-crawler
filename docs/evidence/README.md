@@ -11,6 +11,8 @@ What is published here is text only: no game data, no screenshots, no saves, and
 
 | Record | What it shows |
 | --- | --- |
+| [`companion-click.md`](companion-click.md) | Stable companion button identity across changing projections and repeated ordinary 80/150 ms clicks on two companions. |
+| [`world-content-validation.md`](world-content-validation.md) | Fresh deterministic content for all 76 maps, source-backed named arrivals, structural validation, explicit household exclusions and the limits of graph reachability. |
 | [`keeper-faces.md`](keeper-faces.md) | Authored Tor and Lauren portraits reached through ordinary conversation and their weapon/healing counters. |
 | [`decoration-lighting.md`](decoration-lighting.md) | Imported red torch lighting on a staged laboratory corridor's walls and column, ordinary approach/turns, bounded light selection and hidden/unloaded light checks. |
 | [`developer-launch.md`](developer-launch.md) | Installed-tool discovery, fresh deterministic importer preparation, an ordinary imported New Game and verified owned-host cleanup. |

@@ -326,6 +326,10 @@ errand condition and refuses the rows without answers, 118 in all across the 572
   `mdt09`, `mdt10`, `mdt14` do not), yaw 0 everywhere except `t02.blv` (512); 12/13 outdoor maps declare `Party Start`
   plus 1–3 direction starts, with yaw 0/512/1024/1536 (west/south/east/north). Indoor arrival therefore needs both
   mechanisms: the decoration when present, otherwise the `MoveToMap` coordinates.
+  The normalized pack names those incoming coordinates `arrival-<travel-link id>` for a map without
+  decorations, retaining program/event/step provenance. It does not invent a `Party Start`, change the
+  original transition, or treat an all-zero move as a known pose. The operator's five such interiors
+  contribute nine named arrivals alongside the 83 decorated points.
 * **Spawn points are monsters/treasure, not the party** (`SpawnEncounter`/`SpawnRandomTreasure` on first visit)
   **[verified: OE:src/Engine/Graphics/Outdoor.cpp:1768-1776]**: `SpawnPoint_MM7` = `Vec3i position` (absolute),
   `u16 radius`, `u16 type` (ObjectRef kind: 2 object/treasure, 3 actor), `u16 treasureLevelOrMonsterIndex`,

@@ -205,7 +205,7 @@ internal static partial class PackWriter
                 terrain is null ? null : BitmapLibrary.Open(install, BitmapLibrary.IconArchiveName), terrain is null ? null : install, maps, programs);
         List<(string, int, int)> packs =
         [
-            WriteTables(tables, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services, people, encounters, creatures, fixtures, globals, terrain, decorationRow),
+            WriteTables(tables, graph, provenance, Path.Combine(outputRoot, "mm7-tables"), maps, containers, services, people, encounters, creatures, fixtures, globals, terrain, decorationRow),
             world,
             media,
         ];
@@ -293,6 +293,7 @@ internal static partial class PackWriter
 
     private static (string PackId, int Documents, int Entries) WriteTables(
         Mm7Tables tables,
+        PlaceGraph graph,
         InstallProvenance provenance,
         string packDirectory,
         IReadOnlyDictionary<int, DecodedMap> maps,
@@ -308,7 +309,7 @@ internal static partial class PackWriter
     {
         List<(string Path, string DocumentId, string Kind, int Entries)> documents =
         [
-            ("places.json", "places", "place", WritePlaces(packDirectory, tables, maps, containers, services, people, encounters, creatures, fixtures, terrain, decorationRow)),
+            ("places.json", "places", "place", WritePlaces(packDirectory, tables, graph, maps, containers, services, people, encounters, creatures, fixtures, terrain, decorationRow)),
             ("place-events.json", "place-events", PlaceEventDefinitionKind, WritePlaceEvents(packDirectory, fixtures)),
             ("global-events.json", "global-events", GlobalEventDefinitionKind, WriteGlobalEvents(packDirectory, globals)),
             ("discoveries.json", "discoveries", DiscoveryDefinitionKind, WriteDiscoveries(packDirectory, tables)),

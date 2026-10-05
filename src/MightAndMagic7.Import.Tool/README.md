@@ -80,3 +80,9 @@ it is an explicit normalized eligibility reading rather than a runtime name filt
 Secret door and fixture placements carry the source face flag, their map's Perception difficulty and the
 secret face indices belonging to that target alone. Non-secret placements carry none of those fields.
 The ruleset interprets discovery; see [the secret-surface reading](../../docs/evidence/secret-discovery.md).
+
+An interior without a start decoration receives named entry points from its incoming map-move instructions'
+explicit nonzero poses. Each records its travel link, program, event and step. These are normalized arrivals,
+not invented `Party Start` decorations; existing links keep their original arrival coordinates. An incoming
+zero-position instruction supplies no fallback point. Over the operator's install this adds nine arrivals to
+the five interiors without decorations, alongside the 83 decorated entry points.

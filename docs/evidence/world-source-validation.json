@@ -1,0 +1,112 @@
+{
+  "recordedFor": "Den task 8510; 5 October 2026",
+  "release": "Update v. 1.1 (Might and Magic 7: For Blood and Honor build 1207658916 English)",
+  "containerFingerprint": "8633b4033a5a7353",
+  "sourceVerification": {
+    "checks": 91,
+    "result": "pass",
+    "failures": []
+  },
+  "mapDecode": {
+    "maps": 76,
+    "decoded": 76,
+    "failed": 0,
+    "outdoor": {
+      "Maps": 13,
+      "Faces": 56347,
+      "Vertices": 78396,
+      "Doors": 0,
+      "Lights": 0,
+      "EntryPoints": 25,
+      "Decorations": 4645,
+      "SpawnPoints": 772
+    },
+    "indoor": {
+      "Maps": 63,
+      "Faces": 152377,
+      "Vertices": 173047,
+      "Doors": 12600,
+      "Lights": 3154,
+      "EntryPoints": 58,
+      "Decorations": 3372,
+      "SpawnPoints": 2403
+    },
+    "total": {
+      "Maps": 76,
+      "Faces": 208724,
+      "Vertices": 251443,
+      "Doors": 12600,
+      "Lights": 3154,
+      "EntryPoints": 83,
+      "Decorations": 8017,
+      "SpawnPoints": 3175
+    },
+    "failures": []
+  },
+  "geometry": {
+    "places": 76,
+    "emitted": 76,
+    "refused": 0,
+    "regions": 13,
+    "interiors": 63,
+    "Vertices": 449417,
+    "Triangles": 824320
+  },
+  "servicePlacements": {
+    "counters": 136,
+    "placed": 136,
+    "residences": 206,
+    "places": 22,
+    "fareCounters": 14,
+    "unplaced": 183
+  },
+  "sourceHouseExclusions": [
+    {
+      "building": 291,
+      "type": "H_House M16",
+      "name": "Lotts Familly Home",
+      "map": 3,
+      "reason": "no-signing-face",
+      "detail": "No decoded map has a face whose local event opens house 291, so the import has no entrance location for it."
+    },
+    {
+      "building": 453,
+      "type": "",
+      "name": "",
+      "map": null,
+      "reason": "unused-row",
+      "detail": "The table reserves this row: it names neither a type nor a building, so it is an id rather than a place."
+    },
+    {
+      "building": 521,
+      "type": "Thomas Grey",
+      "name": "Thomas Grey",
+      "map": 29,
+      "reason": "no-signing-face",
+      "detail": "No decoded map has a face whose local event opens house 521, so the import has no entrance location for it."
+    }
+  ],
+  "people": {
+    "persons": 1000,
+    "topics": 416,
+    "gatedTopics": 6,
+    "branchedTopics": 4,
+    "greeted": 190,
+    "scripted": 313,
+    "standingInTheOpen": 123,
+    "distinctPeopleInTheOpen": 121,
+    "peopleHeldHidden": 1,
+    "peopleCarryingAnItem": 8,
+    "inBuildings": 247,
+    "buildingsWithPeople": 195,
+    "reachedBuildings": 192,
+    "unreachableResidents": 3
+  },
+  "scope": "Summary measurements and source exclusions only. Raw game data, geometry, dialogue and converted assets are not included.",
+  "deterministicWrite": {
+    "result": "identical",
+    "runs": 2,
+    "normalizedEntryPoints": 92,
+    "mapsWithDerivedIncomingArrivals": 5
+  }
+}

@@ -58,14 +58,22 @@ public sealed class ImportedSessionTests
     public void The_imported_places_hold_each_arrival_point_once_and_every_named_arrival_resolves()
     {
         // The graph refuses a place declaring one arrival-point id twice (entry-point-id-reused); the release's
-        // own maps carry seventy-six places and eighty-three arrival points, every one under its own name, so the
-        // import loads unchanged and every transition naming a point lands at exactly one.
+        // own maps carry eighty-three decorated arrivals. Nine incoming event poses supply named arrivals for
+        // the five interiors without start decorations; they do not change the original transition poses.
         ContentCatalog catalog = ImportedContent.Load();
         Assert.True(catalog.IsValid, string.Join("; ", catalog.Issues.Select(issue => issue.ToString())));
         PartyRpg.Kit.World.PlaceGraph graph = MightAndMagic7World.Graph(catalog);
 
         Assert.Equal(76, graph.Places.Count);
-        Assert.Equal(83, graph.Places.Sum(place => place.EntryPoints.Count));
+        Assert.Equal(92, graph.Places.Sum(place => place.EntryPoints.Count));
+        Assert.All(graph.Places, place => Assert.NotEmpty(place.EntryPoints));
+        foreach (var place in graph.Places)
+        foreach (var point in place.EntryPoints.Where(point => point.Id.StartsWith("arrival-", StringComparison.Ordinal)))
+        {
+            var link = Assert.Single(graph.Transitions, link => link.Source == point.Id["arrival-".Length..]);
+            Assert.Equal(place.Id, link.To);
+            Assert.Equal(graph.ResolveArrival(link), point.Pose);
+        }
         Assert.All(graph.Places, place => Assert.Equal(
             place.EntryPoints.Count,
             place.EntryPoints.Select(point => point.Id).Distinct(PartyRpg.Kit.World.PlaceDefinition.EntryPointIds).Count()));
