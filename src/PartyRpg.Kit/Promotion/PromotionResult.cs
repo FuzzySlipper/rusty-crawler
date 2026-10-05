@@ -1,3 +1,4 @@
+using System.Globalization;
 using PartyRpg.Kit.Party;
 
 namespace PartyRpg.Kit.Promotion;
@@ -85,6 +86,28 @@ public sealed record PromotionResult(
 {
     /// <summary>Whether at least one member rose to the rank.</summary>
     public bool IsGranted => Granted.Count > 0;
+
+    /// <summary>
+    /// How this reads to a person: who rose, from where, and what each of them met; or every member it passed over
+    /// and what each was missing.
+    /// </summary>
+    /// <returns>The sentence.</returns>
+    public string Describe()
+    {
+        if (IsGranted)
+        {
+            string choice = Choice.Length > 0 ? $", the {Choice} path" : string.Empty;
+            return string.Create(
+                CultureInfo.InvariantCulture,
+                $"{string.Join(", ", Granted.Select(grant => grant.Name))} rose to {ToClass} at rank {Rank}{choice}, meeting {string.Join("; ", Granted[0].Met)}.");
+        }
+
+        if (Denied.Count == 0 || Refusal is not null) return Refusal?.Message ?? string.Empty;
+        IEnumerable<string> lines = Denied.Select(denial => string.Create(
+            CultureInfo.InvariantCulture,
+            $"{denial.Name}, a {denial.Class} of rank {denial.Rank}, is missing {string.Join("; ", denial.Missing)}"));
+        return string.Create(CultureInfo.InvariantCulture, $"The rank of {ToClass} was not given: {string.Join(". ", lines)}.");
+    }
 
     /// <summary>A rank nobody took, with the party exactly where it stood.</summary>
     /// <param name="promotion">The rank's identity.</param>

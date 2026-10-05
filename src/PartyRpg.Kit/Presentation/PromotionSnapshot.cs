@@ -1,4 +1,3 @@
-using System.Globalization;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Promotion;
@@ -313,35 +312,7 @@ public sealed record PromotionSnapshot(
             granted,
             denied,
             last.Refusal?.Code ?? string.Empty,
-            last.IsGranted ? Report(last, granted) : Denial(last, denied));
-    }
-
-    /// <summary>What a rank that landed reports: who rose, from where, and what each of them met.</summary>
-    private static string Report(PromotionResult last, IReadOnlyList<PromotionGrantSnapshot> granted)
-    {
-        List<string> names = [.. granted.Select(grant => grant.Name)];
-        string choice = last.Choice.Length > 0 ? $", the {last.Choice} path" : string.Empty;
-        List<string> met = [.. granted[0].Met];
-        return string.Create(
-            CultureInfo.InvariantCulture,
-            $"{string.Join(", ", names)} rose to {last.ToClass} at rank {last.Rank}{choice}, meeting {string.Join("; ", met)}.");
-    }
-
-    /// <summary>What a rank that was refused reports: every member it passed over and what each was missing.</summary>
-    private static string Denial(PromotionResult last, IReadOnlyList<PromotionDenialSnapshot> denied)
-    {
-        if (denied.Count == 0 || last.Refusal is { } refusal) return last.Refusal?.Message ?? string.Empty;
-        List<string> lines = [];
-        foreach (PromotionDenialSnapshot denial in denied)
-        {
-            lines.Add(string.Create(
-                CultureInfo.InvariantCulture,
-                $"{denial.Name}, a {denial.Class} of rank {denial.Rank}, is missing {string.Join("; ", denial.Missing)}"));
-        }
-
-        return string.Create(
-            CultureInfo.InvariantCulture,
-            $"The rank of {last.ToClass} was not given: {string.Join(". ", lines)}.");
+            last.Describe());
     }
 
     /// <summary>How one requirement kind reads on the wire.</summary>

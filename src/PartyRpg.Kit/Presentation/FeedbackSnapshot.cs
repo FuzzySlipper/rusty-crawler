@@ -72,4 +72,19 @@ public static class FeedbackSources
 
     /// <summary>Putting on or taking off an item.</summary>
     public const string Equip = "equip";
+
+    /// <summary>Offering, taking or finishing an errand.</summary>
+    public const string Quest = "quest";
+
+    /// <summary>A rank given or refused.</summary>
+    public const string Promotion = "promotion";
+
+    /// <summary>A training step.</summary>
+    public const string Training = "training";
+
+    /// <summary>Spending skill points.</summary>
+    public const string Raise = "raise";
+
+    /// <summary>Experience the party earned.</summary>
+    public const string Award = "award";
 }

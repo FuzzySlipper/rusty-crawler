@@ -1,4 +1,3 @@
-using System.Globalization;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Skills;
@@ -181,11 +180,7 @@ public sealed record SkillsSnapshot(
                 Level: raise.Level,
                 Cost: raise.Points,
                 Code: raise.Refusal?.Code ?? string.Empty,
-                Message: raise.IsRaised
-                    ? string.Create(
-                        CultureInfo.InvariantCulture,
-                        $"{raise.Name} raised {raise.Skill} to level {raise.Level} for {raise.Points} skill point(s), leaving {raise.Remaining}.")
-                    : raise.Refusal!.Message);
+                Message: raise.Describe());
         }
 
         return new SkillsSnapshot(

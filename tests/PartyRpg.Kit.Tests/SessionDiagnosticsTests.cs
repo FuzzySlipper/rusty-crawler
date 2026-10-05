@@ -208,6 +208,13 @@ public sealed class SessionDiagnosticsTests
         Assert.Equal("progression", refused.Source);
         Assert.Equal(DiagnosticsSeverity.Warning, refused.Severity);
         Assert.Equal(1, party.Members[0].Skills.LevelOf(new SkillId("blades")));
+
+        // A raise the owner itself refuses is the latest answer, with the owner's own code and sentence.
+        session.Update(Admitted.Update(2, 1, Payload("""{"action":"party.raise-skill","member":0,"skill":"blades"}""")));
+        ProjectedNode feedback = channel.Latest().Field("feedback");
+        Assert.Equal(("raise", "refused", "skill-policy-missing"), (feedback.Field("source").AsString(), feedback.Field("outcome").AsString(), feedback.Field("code").AsString()));
+        Assert.Equal(party.Members[0].Profile.Name, feedback.Field("actor").AsString());
+        Assert.NotEqual(string.Empty, feedback.Field("message").AsString());
     }
 
     [Fact]

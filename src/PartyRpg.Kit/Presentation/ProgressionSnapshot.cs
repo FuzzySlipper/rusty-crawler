@@ -1,4 +1,3 @@
-using System.Globalization;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Services;
@@ -150,11 +149,7 @@ public sealed record ProgressionSnapshot(
                 Source: trained.Counter,
                 Earned: 0,
                 Code: trained.Refusal?.Code ?? string.Empty,
-                Message: trained.IsTrained
-                    ? string.Create(
-                        CultureInfo.InvariantCulture,
-                        $"{trained.Name} reached level {trained.Level}, gaining {trained.Growth.HitPoints} hit point(s), {trained.Growth.SpellPoints} spell point(s), and {trained.Growth.SkillPoints} skill point(s).")
-                    : trained.Refusal!.Message);
+                Message: trained.Describe());
         }
 
         if (progression.LastAward is { } award)
@@ -166,11 +161,7 @@ public sealed record ProgressionSnapshot(
                 Source: award.Source,
                 Earned: award.IsAwarded ? award.Awarded : 0,
                 Code: award.Refusal?.Code ?? string.Empty,
-                Message: award.IsAwarded
-                    ? string.Create(
-                        CultureInfo.InvariantCulture,
-                        $"The party earned {award.Awarded} experience from {award.Source}.")
-                    : award.Refusal!.Message);
+                Message: award.Describe());
         }
 
         return new ProgressionSnapshot(

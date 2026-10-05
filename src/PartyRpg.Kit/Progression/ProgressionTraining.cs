@@ -1,3 +1,4 @@
+using System.Globalization;
 using PartyRpg.Kit.Party;
 
 namespace PartyRpg.Kit.Progression;
@@ -68,6 +69,12 @@ public sealed record ProgressionTrainingResult(
 {
     /// <summary>Whether the member rose a level.</summary>
     public bool IsTrained => Refusal is null;
+
+    /// <summary>How this reads to a person, in one sentence.</summary>
+    /// <returns>The sentence.</returns>
+    public string Describe() => Refusal?.Message ?? string.Create(
+        CultureInfo.InvariantCulture,
+        $"{Name} reached level {Level}, gaining {Growth.HitPoints} hit point(s), {Growth.SpellPoints} spell point(s), and {Growth.SkillPoints} skill point(s).");
 
     /// <summary>A step that was refused, with the member exactly where they stood.</summary>
     /// <param name="member">The member.</param>

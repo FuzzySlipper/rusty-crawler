@@ -1,3 +1,4 @@
+using System.Globalization;
 using PartyRpg.Kit.Party;
 
 namespace PartyRpg.Kit.Progression;
@@ -68,6 +69,12 @@ public sealed record ProgressionAwardResult(
 {
     /// <summary>Whether the award landed.</summary>
     public bool IsAwarded => Refusal is null;
+
+    /// <summary>How this reads to a person, in one sentence.</summary>
+    /// <returns>The sentence.</returns>
+    public string Describe() => Refusal?.Message ?? string.Create(
+        CultureInfo.InvariantCulture,
+        $"The party earned {Awarded} experience from {Source}.");
 
     /// <summary>How much experience the members actually took, which a division may leave short of the award.</summary>
     public long Awarded

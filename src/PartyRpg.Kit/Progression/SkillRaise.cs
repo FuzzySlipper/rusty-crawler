@@ -1,3 +1,4 @@
+using System.Globalization;
 using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Skills;
 
@@ -64,6 +65,12 @@ public sealed record SkillRaiseResult(
 {
     /// <summary>Whether the skill was raised.</summary>
     public bool IsRaised => Refusal is null;
+
+    /// <summary>How this reads to a person, in one sentence.</summary>
+    /// <returns>The sentence.</returns>
+    public string Describe() => Refusal?.Message ?? string.Create(
+        CultureInfo.InvariantCulture,
+        $"{Name} raised {Skill} to level {Level} for {Points} skill point(s), leaving {Remaining}.");
 
     /// <summary>A raise that was refused, with the member's pool exactly as it stood.</summary>
     /// <param name="member">The member.</param>
