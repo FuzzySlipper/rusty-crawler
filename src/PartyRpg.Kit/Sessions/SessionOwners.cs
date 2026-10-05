@@ -190,7 +190,7 @@ public sealed class SessionOwners
 
         if (Quests is null && rules.Quests is { } quests && Party is { } errant)
         {
-            Quests = new PartyQuests(quests, errant, Accounts, Progression, clock, _records?.Quests);
+            Quests = new PartyQuests(quests, errant, Accounts, Progression, clock, _records?.Quests, rules.Names);
         }
 
         // The journal and the notes need the clock and nothing else: every line is dated in game time, and what

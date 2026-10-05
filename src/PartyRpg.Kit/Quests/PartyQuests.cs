@@ -48,6 +48,7 @@ public sealed class PartyQuests : IItemRetentionRule
     private readonly PartyResourceLedger? _ledger;
     private readonly PartyProgression? _progression;
     private readonly GameClock? _clock;
+    private readonly IGameNames? _names;
     private readonly List<QuestInstance> _instances = [];
 
     /// <summary>Creates the owner over the party whose journal it keeps.</summary>
@@ -63,6 +64,7 @@ public sealed class PartyQuests : IItemRetentionRule
     /// about the time of day cannot be known to hold, and the rule says so.
     /// </param>
     /// <param name="save">What a save recorded, or null for a party that has taken no quests.</param>
+    /// <param name="names">The game's names for the items an unfinished errand retains.</param>
     /// <exception cref="ArgumentNullException">The rule or the party is missing.</exception>
     public PartyQuests(
         IQuestRule rule,
@@ -70,13 +72,15 @@ public sealed class PartyQuests : IItemRetentionRule
         PartyResourceLedger? ledger = null,
         PartyProgression? progression = null,
         GameClock? clock = null,
-        QuestSave? save = null)
+        QuestSave? save = null,
+        IGameNames? names = null)
     {
         _rule = rule ?? throw new ArgumentNullException(nameof(rule));
         _party = party ?? throw new ArgumentNullException(nameof(party));
         _ledger = ledger;
         _progression = progression;
         _clock = clock;
+        _names = names;
         _party.RetainItemsWith(this);
 
         if (save is null) return;
@@ -471,7 +475,7 @@ public sealed class PartyQuests : IItemRetentionRule
 
     /// <summary>The unfinished objective that keeps an instance in the party's custody, using the same need read by turn-in.</summary>
     public Refusal? Retains(ItemDefinitionId item) => Needs(item) is { } needed
-        ? new Refusal(QuestCodes.QuestItemNeeded, $"{needed.Statement} is not done yet, so {item} stays with the party until that errand is finished.")
+        ? new Refusal(QuestCodes.QuestItemNeeded, $"{needed.Statement} is not done yet, so {GameNames.Item(_names, item)} stays with the party until that errand is finished.")
         : null;
 
     /// <summary>Reads this party's quest state into the product's one current save schema.</summary>

@@ -5,11 +5,13 @@ using PartyRpg.Kit.Party;
 using PartyRpg.Kit.Persistence;
 using PartyRpg.Kit.Progression;
 using PartyRpg.Kit.Quests;
+using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Services;
 using PartyRpg.Kit.Skills;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.Time;
 using PartyRpg.Kit.World;
+using PartyRpg.Testing;
 using Rusty.Engine;
 using Xunit;
 
@@ -25,6 +27,50 @@ public sealed class OpeningContentTests
     private static readonly ContentLayout Layout = ContentLayout.Under(RulesetTestContext.ContentDirectory);
     private static readonly PlaceId Island = new("1");
     private static readonly QuestId OpeningQuest = new("opening-island-guide");
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Session_quest_custody_names_the_retained_item_before_and_after_resume(bool resumed)
+    {
+        (ProductCreateContext context, _) = RulesetTestContext.Create(OpeningFiles());
+        ContentCatalog catalog = ContentCatalogLoader.Load(RulesetTestContext.Content(context), Layout).RequireValid();
+        MightAndMagic7Quests rule = MightAndMagic7Quests.Read(catalog, promotions: null)!;
+        PartyEntity party = CreateParty();
+        QuestSave? saved = null;
+        if (resumed)
+        {
+            PartyQuests before = new(rule, party);
+            Assert.True(before.Offer(OpeningQuest, "npc-4", Island).IsApplied);
+            Assert.True(before.Accept(OpeningQuest).IsApplied);
+            saved = before.Capture();
+            PartySave partySave = party.Capture();
+            party.Dispose();
+            party = new PartyEntityFactory().Restore(partySave);
+        }
+
+        SessionOwners owners = new(Clock());
+        using RecordingUiProjectionChannel ui = new();
+        using PartyRpgSession session = new(
+            new SessionComposition(new RulesetId("test.opening"), "Opening"), ui, owners,
+            new SessionParty.Playing(Party: party, Resumed: resumed ? new SessionRecords(Quests: saved) : null),
+            new SessionRules { Quests = rule, Names = MightAndMagic7Names.Read(catalog) });
+        session.Start();
+        PartyQuests quests = owners.Quests!;
+        if (!resumed)
+        {
+            Assert.True(quests.Offer(OpeningQuest, "npc-4", Island).IsApplied);
+            Assert.True(quests.Accept(OpeningQuest).IsApplied);
+        }
+
+        ItemInstance bottle = party.AcquireItem(new ItemDefinitionId("220")).Item!;
+        var refusal = party.JudgeItemRemoval(bottle.Id)!;
+        Assert.Equal(QuestCodes.QuestItemNeeded, refusal.Code);
+        Assert.Contains("so Potion Bottle stays with the party", refusal.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("so 220 stays", refusal.Message, StringComparison.Ordinal);
+        Assert.Contains(bottle, party.Inventory.Items);
+        Assert.Equal(QuestStage.Accepted, quests.Instance(OpeningQuest)!.Stage);
+    }
 
     [Fact]
     public void Opening_errand_is_offered_taken_progressed_and_paid_once_through_the_canonical_owners()
