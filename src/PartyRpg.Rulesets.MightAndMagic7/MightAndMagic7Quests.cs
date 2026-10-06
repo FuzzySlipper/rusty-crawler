@@ -208,8 +208,9 @@ internal sealed class MightAndMagic7Quests : IQuestRule, IQuestAcceptanceRule, I
             if (quests._byId.ContainsKey(id)) continue;
             var rank = catalog.Entries("promotion").Select(row => row.Entry).FirstOrDefault(entry => entry.GetString("quest") == id);
             string to = rank.GetString("to");
-            string giver = rank.GetArray("requirements").Where(row => ContentEntry.ReadString(row, "kind") == "giver")
-                .Select(row => ContentEntry.ReadString(row, "name")).FirstOrDefault() ?? string.Empty;
+            // The person who set the quest and the remote speaker who grants its rank can differ.
+            // Journal attribution reads the initial giver; promotion requirements retain the granting speaker.
+            string giver = rank.GetString("questGiver");
             quests._eventNotes[id] = new(id, to.Length > 0 ? $"{to} promotion" : "Quest", text, giver);
         }
         quests.ErrandCount = quests._byId.Count;

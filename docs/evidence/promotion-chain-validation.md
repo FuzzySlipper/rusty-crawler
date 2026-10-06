@@ -40,6 +40,10 @@ refuses without it and accepts with it, then executes the corresponding imported
 The 18 initial quest givers lead to 20 granting speakers, because Initiate and Hunter are granted by
 the Spirit of the Water and Faerie King. Alice must be a joined companion; Wizard requires completed
 assembly with either head, rather than the six unassembled pieces.
+The authored `questGiver` keeps the initial speaker separate from the rank’s granting speaker.
+A session projection regression accepts imported topics 58 and 79 through the conversation action,
+then verifies quest 27 names Bartholomew Hume (NPC 38) and quest 37 names Ebednezer Sower (NPC 45),
+while their rank requirements still name NPCs 55 and 52.
 
 The class graph, givers, proofs and alternatives are loaded from content; there is no
 compiled list of promotion edges.

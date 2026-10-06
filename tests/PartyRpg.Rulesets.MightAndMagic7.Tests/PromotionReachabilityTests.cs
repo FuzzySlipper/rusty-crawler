@@ -49,6 +49,38 @@ public sealed class PromotionReachabilityTests
     };
 
     [ImportedFact("global-events.json")]
+    public void Remote_promotion_quest_notes_keep_the_initial_giver_while_the_rank_requires_its_granting_speaker()
+    {
+        var catalog = ImportedContent.Playable();
+        foreach (var (quest, offer, giver, name, rank, grantor) in new[]
+        {
+            ("27", 58, "npc-38", "Bartholomew Hume", "Initiate", "npc-55"),
+            ("37", 79, "npc-45", "Ebednezer Sower", "Hunter", "npc-52"),
+        })
+        {
+            var (_, ui) = RulesetTestContext.Create();
+            using var session = (MightAndMagic7Session)MightAndMagic7Ruleset.Instance.CreateSession(new RulesetSessionContext(
+                new EngineUiProjectionChannel(ui, new(Declared.UiStream, Declared.UiContract)),
+                new BundleSelection("promotion-test", catalog.Packs.Count), catalog,
+                Creation: new(Declared.CreationAdvanceIntent, Declared.CreationAcceptIntent, Declared.UiActionContract),
+                Conversation: new(Declared.ConversationLeaveIntent, Declared.UiActionContract)));
+            session.Start();
+            session.Update(RulesetTestContext.Update(1, 1, RulesetTestContext.Payload("""{"action":"creation.apply-default"}""")));
+            session.Update(RulesetTestContext.Update(2, 1, RulesetTestContext.Payload("""{"action":"creation.accept"}""")));
+            Assert.DoesNotContain(session.Inspect().Quests.Journal, note => note.Quest == quest);
+            var conversation = (MightAndMagic7Conversation)session.Owners.Rules.Conversation!;
+            session.Owners.Conversations!.Open(session.World!.Party.Place, PromoterTopicTests.Standing(giver),
+                new ConversationSubject("initial-giver", [conversation.PersonOf(giver)!]));
+            session.Update(RulesetTestContext.Update(3, 1, RulesetTestContext.ChooseTopic($"topic-{offer}")));
+            Assert.True(session.Party!.Records.Has($"errand:{quest}"));
+            var note = Assert.Single(session.Inspect().Quests.Journal, note => note.Quest == quest);
+            Assert.Equal(giver, note.Giver);
+            Assert.Equal(name, note.GiverName);
+            Assert.Equal(grantor, Assert.Single(MightAndMagic7Promotions.Read(catalog).Ladder.Ranks, r => r.To.Value == rank).Giver);
+        }
+    }
+
+    [ImportedFact("global-events.json")]
     public void Displayed_requirements_supply_the_proof_the_imported_completion_actually_judges()
     {
         ContentCatalog catalog = ImportedContent.Playable();

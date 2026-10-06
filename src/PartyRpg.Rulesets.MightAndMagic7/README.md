@@ -485,6 +485,8 @@ starting at the step following the matching lifecycle trigger.
 The ladder states the actual completion proof, including joined Alice, the completed Golem with either
 head, and the quest proof records rather than their earlier acceptance records. Initiate and Hunter name
 the remote spirits who grant the rank. These same requirements reach Character and Ranks displays.
+Each row also names its initial `questGiver`; active Journal notes use that identity, resolved to the
+imported person’s name, rather than attributing the quest to a remote granting speaker.
 
 The ladder's direct requirement offers remain available to authored scenarios without imported promotion
 programs. Both paths use the same progression owner, class, rank, skill ceilings and path refusal.
