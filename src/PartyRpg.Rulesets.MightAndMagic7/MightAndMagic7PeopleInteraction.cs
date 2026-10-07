@@ -94,6 +94,9 @@ internal sealed class MightAndMagic7PeopleInteraction : IInteractionRule
     }
 
     /// <inheritdoc />
+    public InteractionUse? SelectUse(InteractionContext context) => _inner.SelectUse(context);
+
+    /// <inheritdoc />
     public Verdict Judge(InteractionRequirement requirement, InteractionContext context)
     {
         if (requirement.Kind != InteractionRequirementKind.TimeOfDay || requirement.Name != HouseOpenRequirement)

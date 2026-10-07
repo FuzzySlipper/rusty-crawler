@@ -86,7 +86,7 @@ internal static partial class PackWriter
     /// leaving a checker to infer absence from a missing key.
     /// </remarks>
     private static readonly string[] PlacementKinds =
-        ["spawn", "encounter", "actor", "decoration", "door", "light", "container", "sprite", "service", "residence", "person", "fixture"];
+        ["spawn", "encounter", "actor", "decoration", "door", "light", "container", "container-surface", "sprite", "service", "residence", "person", "fixture"];
 
     /// <summary>How much of a place's map data an import reads.</summary>
     internal enum MapDetail

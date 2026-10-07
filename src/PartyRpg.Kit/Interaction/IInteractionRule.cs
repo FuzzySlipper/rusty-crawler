@@ -23,6 +23,10 @@ namespace PartyRpg.Kit.Interaction;
 /// </remarks>
 public interface IInteractionRule
 {
+    /// <summary>Selects the content behind a physical surface before its requirements, trap and contents are used.
+    /// Null keeps the original target. Selection must not mutate gameplay state.</summary>
+    InteractionUse? SelectUse(InteractionContext context) => null;
+
     /// <summary>
     /// What a placement offers the party, or null when it offers nothing: a spawn point, a light, and a
     /// decoration that raises no event are not things anybody uses.

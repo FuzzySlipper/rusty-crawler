@@ -558,6 +558,14 @@ public sealed class PartyInteraction : IWorldInteractionScene
 
     private InteractionResult ApplyAndSettle(InteractionTarget? target, InteractionContext context, bool recordsState)
     {
+        InteractionUse? selected = target is null ? null : _rule.SelectUse(context);
+        if (selected?.Refusal is { } selectionRefusal) return InteractionResult.Refused(target, selectionRefusal);
+        if (selected is not null)
+        {
+            context = context with { Placement = selected.Placement, Target = selected.Target };
+            target = target! with { Definition = selected.Target };
+        }
+
         // Requirements first, in the order the ruleset stated them: the first one the party does not meet is
         // the answer, and nothing at all is applied.
         foreach (InteractionRequirement requirement in context.Target.Requires)
@@ -580,6 +588,8 @@ public sealed class PartyInteraction : IWorldInteractionScene
 
         InteractionOutcome outcome = _rule.Apply(context.Target, context);
         if (!outcome.IsApplied) return InteractionResult.Refused(target, outcome.Refusal!);
+        if (selected?.AfterApply is { } finish) outcome = finish(outcome);
+        if (!outcome.IsApplied) return InteractionResult.Refused(target, outcome.Refusal!);
 
         // What the use gives needs a party to take it.
         if (outcome.Items.Count > 0)
@@ -601,7 +611,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
             _world.States.Record(context.Place, change.Target, change.State);
         }
 
-        InteractionTarget? used = recordsState && target is not null ? target with { State = _world.States.Record(context.Place, target.Id.Content, outcome.State) } : target;
+        InteractionTarget? used = recordsState && target is not null ? RecordUse(target, context, outcome.State) : target;
         return InteractionResult.Applied(used, outcome, taken.Length == 0 ? outcome.Message : $"{outcome.Message} {taken}");
     }
 
@@ -639,8 +649,7 @@ public sealed class PartyInteraction : IWorldInteractionScene
                 ? $"{target.Definition.Name}'s {trap.Name} is defeated ({challenge.Describe()})."
                 : $"{target.Definition.Name} is guarded by {trap.Name}, and the party notices it ({challenge.Describe()}).";
             InteractionOutcome passed = InteractionOutcome.Applied(trap.PassedState, learned);
-            InteractionTargetState passedState = _world.States.Record(_world.Place, target.Id.Content, passed.State);
-            return InteractionResult.Applied(target with { State = passedState }, passed, passed.Message);
+            return InteractionResult.Applied(RecordUse(target, context, passed.State), passed, passed.Message);
         }
 
         if (_world.Party is not { } party)
@@ -670,8 +679,16 @@ public sealed class PartyInteraction : IWorldInteractionScene
             trap.SprungState,
             message,
             "Nothing was taken from it in the same act: the trap spent itself, and what the target holds is still there.");
-        InteractionTargetState state = _world.States.Record(_world.Place, target.Id.Content, sprung.State);
-        return InteractionResult.Applied(target with { State = state }, sprung, sprung.Message);
+        return InteractionResult.Applied(RecordUse(target, context, sprung.State), sprung, sprung.Message);
+    }
+
+    private InteractionTarget RecordUse(InteractionTarget target, InteractionContext context, string state)
+    {
+        var content = context.Placement?.Content ?? target.Id.Content;
+        var recorded = _world.States.Record(context.Place, content, state);
+        // The result still addresses the physical surface. A selected record's revision belongs to that
+        // record, not to the surface used by Engine selection and the feedback projection.
+        return content == target.Id.Content ? target with { State = recorded } : target;
     }
 
     /// <summary>Moves what an outcome gives into the party's own owners, and reports it in one clause.</summary>

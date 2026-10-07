@@ -805,7 +805,8 @@ public sealed class PackWriterTests
         PlaceGraph graph = PlaceGraphLoader.Load(bootstrap.Catalog);
         PlacePopulationContent content = PlacePopulationContent.Read(graph);
         PlaceDefinition interior = graph.Places.First(place => place.Kind == PlaceKind.Interior);
-        Assert.Equal(3, content.PlacementsOf(interior.Id).Count);
+        Assert.Equal(5, content.PlacementsOf(interior.Id).Count);
+        Assert.Equal(2, content.PlacementsOf(interior.Id).Count(placement => placement.Content.Kind == "container-surface"));
         Assert.Equal(2, content.PlacementsOf(interior.Id).Count(placement => placement.Content.Kind == "container"));
         Assert.Equal(1, content.PlacementsOf(interior.Id).Count(placement => placement.Content.Kind == "sprite"));
         Assert.Equal(0, content.PlacementsOf(interior.Id).Count(placement => placement.Content.Kind == "door"));

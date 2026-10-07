@@ -1154,9 +1154,14 @@ changes along with the rest of the existing fixture settlement.
 
 Fixture variables use the world's existing interaction ledger. Map slots and decoration slots
 are separate byte-valued banks; comparisons, writes and native saves preserve their identities
-(OpenEnroth `src/Engine/Objects/Character.cpp:3608-3613`, `4006-4014`). A conditional chest
-program that names a different container from the selected target is refused by name before
-its effects settle; opening one container cannot silently take another container's contents.
+(OpenEnroth `src/Engine/Objects/Character.cpp:3608-3613`, `4006-4014`). A chest's attached event selects its record before trap checks or loot settlement
+(OpenEnroth `OpenEnroth/src/Engine/Evt/EvtInterpreter.cpp:254-258`, `OpenEnroth/src/Engine/Objects/Chest.cpp:41-93`).
+One `container-surface` target represents that event's faces; event-bound `container` records
+are storage identities, not overlapping targets. Each record keeps its own searched and trap
+state in the existing interaction ledger, including across native save/resume. A quest change
+may select an unopened alternate. Only the surface's attached program runs, and its pending
+effects settle after a successful search; a refused program or a trap-only use grants no loot
+or event effects. A program reaching two different records in one use is refused explicitly.
 
 ## Endgame and continued exploration
 

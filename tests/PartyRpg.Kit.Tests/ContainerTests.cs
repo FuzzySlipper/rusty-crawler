@@ -2,6 +2,7 @@ using PartyRpg.Kit.Content;
 using PartyRpg.Kit.Interaction;
 using PartyRpg.Kit.Movement;
 using PartyRpg.Kit.Party;
+using PartyRpg.Kit.Presentation;
 using PartyRpg.Kit.Rulesets;
 using PartyRpg.Kit.Sessions;
 using PartyRpg.Kit.World;
@@ -23,6 +24,48 @@ namespace PartyRpg.Kit.Tests;
 /// </remarks>
 public sealed class ContainerTests
 {
+    [Fact]
+    public void A_surface_checks_the_selected_records_trap_and_keeps_both_record_states_separate()
+    {
+        ContainerRule rule = new()
+        {
+            Armed = Armed(4, 8, 6),
+            SelectedRecord = "container-1",
+            Contents = [new InteractionItemYield(new ItemDefinitionId("brass-lamp"))],
+        };
+        using var party = Party(0, 0, 20);
+        using var cellar = Cellar.Build(rule, party);
+        cellar.Interaction.Update();
+        var physical = cellar.Interaction.FocusedTarget!.Id;
+        var first = cellar.Interaction.Use();
+        Assert.True(first.IsApplied);
+        Assert.Equal("searched", first.State); // record 1 is harmless; physical record 0 is trapped
+        Assert.Equal(physical, first.Target!.Id);
+        cellar.Interaction.Update();
+        Assert.Equal(first.Message, InteractionSnapshot.From(cellar.Interaction).Message);
+        Assert.Equal("", cellar.World.Interactions.StateOf(CellarPlace, new("container", "container-0")).State);
+        Assert.Equal("searched", cellar.World.Interactions.StateOf(CellarPlace, new("container", "container-1")).State);
+        Assert.All(party.Members, member => Assert.Equal(20, member.Resources.HitPoints.Current));
+        Assert.Equal(1, rule.Completions);
+        Assert.False(cellar.Interaction.Use().IsApplied);
+        Assert.Equal(1, rule.Completions);
+        rule.SelectedRecord = "container-0";
+        var sprung = cellar.Interaction.Use();
+        Assert.True(sprung.IsApplied);
+        Assert.Equal("sprung", sprung.State);
+        cellar.Interaction.Update();
+        Assert.Equal(sprung.Message, InteractionSnapshot.From(cellar.Interaction).Message);
+        Assert.All(party.Members, member => Assert.Equal(14, member.Resources.HitPoints.Current));
+        Assert.Single(party.Inventory.Items);
+        Assert.Equal(1, rule.Completions); // a trap-only use does not settle the surface event
+        Assert.True(cellar.Interaction.Use().IsApplied);
+        Assert.Equal(2, party.Inventory.Items.Count);
+        Assert.Equal(2, rule.Completions);
+        rule.SelectedRecord = "container-1";
+        Assert.False(cellar.Interaction.Use().IsApplied);
+        Assert.Equal(2, party.Inventory.Items.Count);
+    }
+
     [Theory]
     [InlineData(0, 0, 1, 14)]
     [InlineData(6, 7, 2, 14)]
@@ -367,6 +410,17 @@ public sealed class ContainerTests
     /// </remarks>
     private sealed class ContainerRule : IInteractionRule
     {
+        internal string? SelectedRecord { get; set; }
+        internal int Completions { get; private set; }
+
+        public InteractionUse? SelectUse(InteractionContext context)
+        {
+            if (SelectedRecord is null) return null;
+            var record = context.PlaceTargets.Single(p => p.Content.Id == SelectedRecord);
+            var target = Describe(new(context.Place, record, context.TargetState(record.Content)))!;
+            return new(record, target) { AfterApply = outcome => { Completions++; return outcome; } };
+        }
+
         internal InteractionTrap? Armed { get; set; }
 
         internal IReadOnlyList<InteractionItemYield> Contents { get; set; } = [];
@@ -394,6 +448,7 @@ public sealed class ContainerTests
         public InteractionTrap? Trap(InteractionTargetDefinition target, InteractionContext context)
         {
             if (Armed is not { } trap) return null;
+            if (SelectedRecord is not null && context.Placement!.Source.GetInt32("flags") == 0) return null;
             if (target.Verb == InteractionVerb.Unlock) return null;
 
             // A trap that has been defeated or has already gone off guards nothing, which is what a ruleset

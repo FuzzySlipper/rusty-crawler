@@ -103,7 +103,7 @@ public sealed class FixtureEmissionTests
         // The timer that refills the well travels with it although nothing raises it, and the plate's event — which
         // does nothing but end — is a floor trigger all the same: every plate is.
         Assert.Equal(1, summary.TriggeredEventCount);
-        Assert.Equal(["7.300", "7.302", "7.310"], summary.Events.Select(placeEvent => placeEvent.Id));
+        Assert.Equal(["7.176", "7.300", "7.302", "7.310"], summary.Events.Select(placeEvent => placeEvent.Id));
         Assert.Equal(302, Assert.Single(summary.Triggers).EventId);
     }
 

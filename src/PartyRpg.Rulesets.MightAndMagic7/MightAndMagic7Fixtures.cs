@@ -537,35 +537,41 @@ internal sealed class MightAndMagic7Fixtures
         return (entry, step);
     }
 
-    /// <summary>Runs the program belonging to a searched chest, sharing its already-judged trap and contents.</summary>
-    internal InteractionOutcome AfterSearch(InteractionTargetDefinition target, InteractionContext context, InteractionOutcome search)
+    /// <summary>Selects the record opened by this surface's actual event before its trap or loot is judged.</summary>
+    internal InteractionUse? SelectContainer(InteractionContext context, Func<PlacementDefinition, InteractionTargetDefinition> describe)
     {
-        if (target.Verb != InteractionVerb.Search || !search.IsApplied || context.Placement is not { Content.Kind: "container" } placement
-            || placement.Source.GetInt32("sourceIndex") is not { } index) return search;
-        MapEvent[] programs = [.. _events.Events.Where(e => e.Place == context.Place && e.Steps.Any(s => s.Op == "open-chest" && s.Index == index))];
-        if (programs.Length > 1)
-            return InteractionOutcome.Refused(new Refusal("container-event-ambiguous", "Several events open this chest; this search cannot choose their side effects and changed nothing."));
-        foreach (MapEvent program in programs)
+        if (context.Placement is not { Content.Kind: "container-surface" } surface) return null;
+        InteractionUse Refused(string code, string words) => new(surface, context.Target) { Refusal = new(code, words) };
+        if (surface.Source.GetInt32("eventId") is not { } eventId || _events.Find(context.Place, eventId) is not { } program)
+            return Refused("container-event-missing", "This chest surface names no loaded event; nothing was changed.");
+        PlacementDefinition? selected = null;
+        Run run = new(this, program, context.Target, context)
         {
-            bool opened = false;
-            Run run = new(this, program, target, context)
+            OpenContainer = index =>
             {
-                OpenContainer = chest =>
-                {
-                    if (chest != index) return new Refusal("container-other-target", "This event asks for a different chest; this search changed nothing.");
-                    opened = true;
-                    return null;
-                },
-            };
-            if (run.Execute(program, 0) is { } refusal) return InteractionOutcome.Refused(refusal);
-            if (!opened) return InteractionOutcome.Refused(new Refusal("container-event-withheld", "The chest's event did not open it; nothing was changed."));
-            InteractionOutcome extra = run.Settle();
-            search = InteractionOutcome.Applied(search.State, search.Message + " " + extra.Message,
-                search.Residue + extra.Residue, [.. search.Items, .. extra.Items],
-                PartyCost.OfGold(search.Gain.Coins + extra.Gain.Coins), [.. search.Learned, .. extra.Learned],
-                extra.Kept, extra.Changes, extra.Speaks, extra.Travels, extra.Relocates);
-        }
-        return search;
+                var record = context.PlaceTargets.FirstOrDefault(p => p.Content.Kind == "container" && p.SourceIndex == index);
+                if (record is null) return new("container-record-missing", $"The chest event selects absent record {index}; nothing was changed.");
+                if (selected is not null && selected.Content != record.Content)
+                    return new("container-multiple-records", "This use asks to open several chest records; nothing was changed.");
+                selected = record;
+                return null;
+            },
+        };
+        if (run.Execute(program, 0) is { } refusal) return new(surface, context.Target) { Refusal = refusal };
+        if (selected is null) return Refused("container-event-withheld", "The chest's event did not open it; nothing was changed.");
+        var target = describe(selected);
+        return new(selected, target)
+        {
+            AfterApply = search =>
+            {
+                if (target.Verb != InteractionVerb.Search) return search;
+                InteractionOutcome extra = run.Settle();
+                return InteractionOutcome.Applied(search.State, search.Message + " " + extra.Message,
+                    search.Residue + extra.Residue, [.. search.Items, .. extra.Items],
+                    PartyCost.OfGold(search.Gain.Coins + extra.Gain.Coins), [.. search.Learned, .. extra.Learned],
+                    extra.Kept, extra.Changes, extra.Speaks, extra.Travels, extra.Relocates);
+            },
+        };
     }
 
     /// <summary>

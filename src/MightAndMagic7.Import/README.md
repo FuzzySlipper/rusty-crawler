@@ -217,5 +217,7 @@ NPC table's unrelated descriptive group columns. Source semantics: `OpenEnroth/s
 Map lifecycle programs retain their entry and departure trigger steps even without a clicked
 face. Their normalized steps run through the existing event interpreter; see
 OpenEnroth `src/Engine/Evt/Processor.cpp:201-231` for dispatch after each trigger. Chest programs actually
-raised by a map surface retain the chest index and any steps beyond opening; the existing
-container placement continues to own the interaction surface.
+raised by a map surface retain their whole program, including simple opening events.
+The writer emits one `container-surface` placement per attached event and marks its chest
+records `eventBound`. Conditional records share that surface while retaining separate
+content identities for their loot and saved state. Unattached programs do not create surfaces.

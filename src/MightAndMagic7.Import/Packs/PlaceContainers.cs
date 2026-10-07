@@ -46,7 +46,14 @@ public sealed record PlaceChestPlacement(
     MapChest Chest,
     int TrapDifficulty,
     int TrapDamageDice,
-    int MapTreasureLevel);
+    int MapTreasureLevel)
+{
+    /// <summary>Actual map surfaces whose events can open this record.</summary>
+    public IReadOnlyList<PlaceContainerSurface> Surfaces { get; init; } = [];
+}
+
+/// <summary>A physical group of chest faces, identified by the event those faces actually raise.</summary>
+public sealed record PlaceContainerSurface(int EventId, double X, double Y, double Z, int FaceCount);
 
 /// <summary>One sprite object a place holds.</summary>
 /// <remarks>
@@ -210,7 +217,7 @@ public static class PlaceContainerEmitter
                 continue;
             }
 
-            Dictionary<int, List<(double X, double Y, double Z)>> facesByChest = OpeningFaces(program, decoded);
+            Dictionary<int, List<(double X, double Y, double Z)>> facesByChest = OpeningFaces(program, decoded, out var surfacesByChest);
             if (!traps.TryGetValue(placeId, out PlaceMapNumbers place))
             {
                 throw new LodFormatException(
@@ -241,7 +248,8 @@ public static class PlaceContainerEmitter
                     continue;
                 }
 
-                chests.Add(new PlaceChestPlacement(placeId, fileName, chest.Index, x, y, z, points.Count, spread, chest, place.Difficulty, place.DamageDice, place.TreasureLevel));
+                chests.Add(new PlaceChestPlacement(placeId, fileName, chest.Index, x, y, z, points.Count, spread, chest, place.Difficulty, place.DamageDice, place.TreasureLevel)
+                { Surfaces = surfacesByChest.GetValueOrDefault(chest.Index, []) });
             }
 
             // A chest id an event names but the delta has no record for is a broken reference rather than a
@@ -294,8 +302,10 @@ public static class PlaceContainerEmitter
     /// depending on an earlier step — and the donor positions every container such an event names, so both
     /// are placed at the same face here too rather than one of them being dropped.
     /// </remarks>
-    private static Dictionary<int, List<(double X, double Y, double Z)>> OpeningFaces(EvtProgram program, DecodedMap map)
+    private static Dictionary<int, List<(double X, double Y, double Z)>> OpeningFaces(EvtProgram program, DecodedMap map,
+        out Dictionary<int, IReadOnlyList<PlaceContainerSurface>> surfacesByChest)
     {
+        surfacesByChest = [];
         Dictionary<ushort, List<int>> openedByEvent = [];
         foreach (EvtInstruction instruction in program.Instructions)
         {
@@ -307,11 +317,14 @@ public static class PlaceContainerEmitter
         Dictionary<int, List<(double X, double Y, double Z)>> byChest = [];
         if (openedByEvent.Count == 0) return byChest;
 
+        Dictionary<int, List<(double X, double Y, double Z)>> facesByEvent = [];
         foreach ((int _, MapFace face, int _, string _) in MapFaceList.Flatten(map))
         {
             if (face.EventId == 0) continue;
             if (!openedByEvent.TryGetValue((ushort)face.EventId, out List<int>? opened)) continue;
             (double X, double Y, double Z) centre = MapFaceList.BoxCentre(face);
+            if (!facesByEvent.TryGetValue(face.EventId, out var eventPoints)) facesByEvent[face.EventId] = eventPoints = [];
+            eventPoints.Add(centre);
             foreach (int chestIndex in opened)
             {
                 if (!byChest.TryGetValue(chestIndex, out List<(double X, double Y, double Z)>? points)) byChest[chestIndex] = points = [];
@@ -319,6 +332,18 @@ public static class PlaceContainerEmitter
             }
         }
 
+        Dictionary<int, List<PlaceContainerSurface>> bound = [];
+        foreach (var (eventId, points) in facesByEvent)
+        {
+            var (x, y, z) = Mean(points);
+            var surface = new PlaceContainerSurface(eventId, x, y, z, points.Count);
+            foreach (int chest in openedByEvent[(ushort)eventId])
+            {
+                if (!bound.TryGetValue(chest, out var surfaces)) bound[chest] = surfaces = [];
+                surfaces.Add(surface);
+            }
+        }
+        surfacesByChest = bound.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<PlaceContainerSurface>)pair.Value);
         return byChest;
     }
 

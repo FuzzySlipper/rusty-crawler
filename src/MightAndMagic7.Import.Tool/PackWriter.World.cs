@@ -623,6 +623,17 @@ internal static partial class PackWriter
             }));
         }
 
+        // Contents keep their own durable record; only the event surface is offered to the reticle.
+        foreach (var surface in containers.SelectMany(container => container.Surfaces).DistinctBy(surface => surface.EventId).OrderBy(surface => surface.EventId))
+        {
+            placements.Add(new Placement("container-surface", surface.EventId, "eventFaces",
+                new PlacementPoint(surface.X, surface.Y, surface.Z), null, "event-face-centroid", field =>
+                {
+                    field.WriteNumber("eventId", surface.EventId);
+                    field.WriteNumber("faceCount", surface.FaceCount);
+                }));
+        }
+
         foreach (PlaceChestPlacement container in containers)
         {
             placements.Add(new Placement("container", container.ChestIndex, "chests", new PlacementPoint(container.X, container.Y, container.Z), null, "event-face-centroid", field =>
@@ -630,6 +641,7 @@ internal static partial class PackWriter
                 // The trap numbers are the place's own row of the per-map table, copied onto the container
                 // that answers for them: a target is asked what it requires from its own placement, and a
                 // ruleset never sees a place's fields.
+                field.WriteBoolean("eventBound", container.Surfaces.Count > 0);
                 field.WriteNumber("flags", container.Chest.Flags);
                 field.WriteNumber("containerType", container.Chest.TypeId);
                 field.WriteNumber("faceCount", container.SourceFaceCount);

@@ -100,6 +100,21 @@ public sealed class ContainerDecoderTests
     }
 
     [Fact]
+    public void Conditional_records_share_only_the_surface_that_actually_binds_their_event()
+    {
+        var summary = PlaceContainerEmitter.Emit(
+            new Dictionary<int, DecodedMap> { [7] = Map(176, 176) },
+            [Program(("a", 176, 0), ("a", 176, 1), ("a", 177, 0))],
+            new Dictionary<int, PlaceMapNumbers> { [7] = Traps });
+        Assert.Equal(2, summary.Chests.Count);
+        var surfaces = summary.Chests.SelectMany(chest => chest.Surfaces).Distinct().ToArray();
+        var surface = Assert.Single(surfaces);
+        Assert.Equal(176, surface.EventId);
+        Assert.Equal(2, surface.FaceCount);
+        Assert.All(summary.Chests, chest => Assert.Equal(surface, Assert.Single(chest.Surfaces)));
+    }
+
+    [Fact]
     public void Two_faces_that_open_one_container_place_it_between_them_only_when_they_are_close()
     {
         // Both faces open container 0, so the container's position is the mean of the two box centres: the

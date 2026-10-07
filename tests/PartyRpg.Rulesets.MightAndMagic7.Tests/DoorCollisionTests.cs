@@ -12,6 +12,22 @@ namespace PartyRpg.Rulesets.MightAndMagic7.Tests;
 
 public sealed class DoorCollisionTests
 {
+    [ImportedFact("place-events.json")]
+    public void Conditional_chest_surfaces_own_their_collision_faces_without_exposing_the_stored_records()
+    {
+        var catalog = ImportedContent.Load().RequireValid();
+        var graph = MightAndMagic7World.Graph(catalog);
+        var placements = PlacePopulationContent.Read(graph);
+        var geometry = new MightAndMagic7Geometry(catalog, graph, new InteractionLedger());
+        foreach (var place in new[] { new PlaceId("31"), new PlaceId("51") })
+        {
+            var surface = placements.PlacementsOf(place).Single(p => p.Content.Kind == "container-surface" && p.Source.GetInt32("eventId") == 176);
+            var targets = geometry.For(place)!.Collision!.Parts.SelectMany(part => part.Targets).ToArray();
+            Assert.Contains(surface.Content, targets);
+            Assert.DoesNotContain(targets, target => target.Kind == "container");
+        }
+    }
+
     [ImportedFact("classes.json")]
     public void An_imported_closed_door_fixture_owns_its_visible_surface_while_ordinary_sight_stays_blocked()
     {

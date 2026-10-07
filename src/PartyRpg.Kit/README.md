@@ -100,6 +100,10 @@ Owns:
   between world regions and indoor maps. Targeting reads each placed entity's current population pose
   through `IInteractionWorld.PoseOf`, retaining its authored identity and event context; static placements
   without a live entity keep their authored pose, and corpses keep the position where they fell.
+  `IInteractionRule.SelectUse` may select a stored record behind a physical target before requirements,
+  traps and application. `InteractionUse` retains the physical target for Engine reach and visibility
+  while recording the selected placement's state in the existing ledger. Its optional completion
+  callback runs only after application succeeds; a trap-only use does not complete it.
 - Journal and history (`Journal/` — one owner of what a party has written down: dated lines reported by
   the owners of the events themselves — a place, an errand, a rank, a meeting, a find, or a `Chronicle` line a
   game's content writes whole — with the same event written once, a bounded history that outlives the

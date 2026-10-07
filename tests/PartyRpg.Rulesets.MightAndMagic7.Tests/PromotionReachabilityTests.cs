@@ -247,15 +247,21 @@ public sealed class PromotionReachabilityTests
         var placement = live.World.Population.PlacementsOf(tomb).Single(p => p.Content.Kind == "container" && p.Source.GetInt32("sourceIndex") == chest);
         var chestHooks = new MightAndMagic7Fixtures(events);
         var rule = new MightAndMagic7Interaction(fixtures: chestHooks, loot: MightAndMagic7Loot.Compose(catalog, new KeyedTestRandom()));
-        var target = rule.Describe(new(tomb, placement, "disarmed"))!;
-        Assert.Equal(InteractionVerb.Search, target.Verb);
-        foreach (var verb in new[] { InteractionVerb.Unlock, InteractionVerb.Disarm })
+        var surface = live.World.Population.PlacementsOf(tomb).Single(p => p.Content.Kind == "container-surface" && p.Source.GetInt32("eventId") == 181);
+        var target = rule.Describe(new(tomb, surface, ""))!;
+        var chestContext = new InteractionContext(tomb, surface, target, party, live.Owners.Clock)
         {
-            var other = target with { Verb = verb };
-            chestHooks.AfterSearch(other, new(tomb, placement, other, party, live.Owners.Clock), InteractionOutcome.Applied("disarmed", "Prepared."));
-            Assert.False(party.Records.Has(MightAndMagic7Quests.ErrandRecord("242")));
-        }
-        var outcome = rule.Apply(target, new(tomb, placement, target, party, live.Owners.Clock));
+            PlaceTargets = live.World.Population.PlacementsOf(tomb),
+            TargetState = _ => "disarmed",
+        };
+        var selected = rule.SelectUse(chestContext)!;
+        Assert.Null(selected.Refusal);
+        Assert.Equal(placement.Content, selected.Placement.Content);
+        Assert.False(party.Records.Has(MightAndMagic7Quests.ErrandRecord("242")));
+        var outcome = rule.Apply(selected.Target, chestContext with { Placement = selected.Placement, Target = selected.Target });
+        Assert.True(outcome.IsApplied, outcome.Refusal?.Message);
+        Assert.False(party.Records.Has(MightAndMagic7Quests.ErrandRecord("242")));
+        outcome = selected.AfterApply!(outcome);
         Assert.True(outcome.IsApplied, outcome.Refusal?.Message);
         Assert.True(party.Records.Has(MightAndMagic7Quests.ErrandRecord("242")));
 
@@ -320,17 +326,23 @@ public sealed class PromotionReachabilityTests
         var graph = MightAndMagic7World.Graph(catalog);
         using var population = new PlacePopulation(graph, new PlaceStateLedger(graph, PlaceRespawnRule.FromContent()));
         var place = new PlaceId("31");
-        var chest = population.PlacementsOf(place).Single(p => p.Content.Kind == "container" && p.SourceIndex == 0);
+        var placements = population.PlacementsOf(place);
+        var surface = placements.Single(p => p.Content.Kind == "container-surface" && p.Source.GetInt32("eventId") == 176);
         using var party = PromoterTopicTests.Party(("Candidate", "Wizard", 2));
         var rule = new MightAndMagic7Interaction(fixtures: new MightAndMagic7Fixtures(MightAndMagic7MapEvents.Read(catalog)));
-        var target = rule.Describe(new(place, chest, ""))!;
-        var context = new InteractionContext(place, chest, target, party, null);
-        var absent = rule.Apply(target, context);
-        Assert.False(absent.IsApplied);
+        var target = rule.Describe(new(place, surface, ""))!;
+        var context = new InteractionContext(place, surface, target, party, null) { PlaceTargets = placements };
+        var absent = rule.SelectUse(context)!;
+        Assert.Null(absent.Refusal);
+        Assert.Equal(1, absent.Placement.SourceIndex);
         Assert.False(party.Records.Has(MightAndMagic7Quests.ErrandRecord("148")));
         party.Records.Mark(MightAndMagic7Quests.ErrandRecord("48"));
-        var found = rule.Apply(target, context);
+        var selected = rule.SelectUse(context)!;
+        Assert.Null(selected.Refusal);
+        Assert.Equal(0, selected.Placement.SourceIndex);
+        var found = rule.Apply(selected.Target, context with { Placement = selected.Placement, Target = selected.Target });
         Assert.True(found.IsApplied, found.Refusal?.Message);
+        found = selected.AfterApply!(found);
         Assert.Equal(4, Assert.Single(found.Items, item => item.Definition.Value == "615").Count);
         Assert.True(party.Records.Has(MightAndMagic7Quests.ErrandRecord("148")));
         Assert.Equal(1, found.Kept["decoration-variable:23"]);

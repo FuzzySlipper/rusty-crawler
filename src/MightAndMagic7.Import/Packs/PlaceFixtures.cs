@@ -469,8 +469,7 @@ public static class PlaceFixtureEmitter
                 bool isHoused = housedEvents.Contains(eventId);
                 bool triggered = instructions.Any(instruction => instruction.Opcode is EvtOpcodes.OnTimer or EvtOpcodes.OnLongTimer);
                 bool lifecycle = instructions.Any(instruction => instruction.Opcode is EvtOpcodes.OnMapReload or 53);
-                bool containerProgram = raised.Contains(eventId) && instructions.Any(i => i.Opcode == EvtOpcodes.OpenChest)
-                    && instructions.Any(i => i.Opcode is not (EvtOpcodes.OpenChest or EvtOpcodes.MouseOver or EvtOpcodes.Exit));
+                bool containerProgram = raised.Contains(eventId) && instructions.Any(i => i.Opcode == EvtOpcodes.OpenChest);
                 if (!isFixture && !isStepped && !isHoused && !containerProgram && !lifecycle && !(triggered && Owner(instructions) is null)) continue;
                 events.Add(Normalize(placeId, map, program.Name, eventId, instructions, text, isFixture, triggered, moves, tables) with { Stepped = isStepped, Housed = isHoused });
             }

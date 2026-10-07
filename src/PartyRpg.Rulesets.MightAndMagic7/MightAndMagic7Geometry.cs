@@ -43,10 +43,12 @@ internal sealed class MightAndMagic7Geometry : IPlaceGeometrySource
                     Vector(corner.GetProperty("rest")), corner.TryGetProperty("door", out var door) ? door.GetString() : null,
                     Vector(corner.GetProperty("travel"))))];
                 int group = face.GetProperty("group").GetInt32();
+                int faceEvent = face.TryGetProperty("event", out var eventValue) ? eventValue.GetInt32() : 0;
                 string? fixture = face.TryGetProperty("fixture", out var fixtureValue) ? fixtureValue.GetString() : null;
                 PlacementContentId[] targets = [.. placements.PlacementsOf(place).Where(placement =>
                     (placement.Content.Kind == MightAndMagic7Interaction.DoorPlacementKind && corners.Any(corner => corner.Door == placement.Content.Id)) ||
-                    (placement.Content.Kind == "fixture" && placement.Content.Id == fixture))
+                    (placement.Content.Kind == "fixture" && placement.Content.Id == fixture) ||
+                    (placement.Content.Kind == "container-surface" && placement.Source.GetInt32("eventId") == faceEvent))
                     .Select(placement => placement.Content)];
                 return new Face(group, face.GetProperty("passable").GetBoolean(), corners,
                     Triangles(face.GetProperty("triangles"), corners.Length), targets);
